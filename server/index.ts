@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -38,8 +41,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Connect to MongoDB
-  await connectDB();
+  // Try to connect to MongoDB (will fall back to memory storage if not available)
+  const dbConnection = await connectDB();
+  
+  if (dbConnection) {
+    console.log("🚀 Using MongoDB database");
+  } else {
+    console.log("🚀 Using in-memory storage (data will not persist)");
+  }
   
   const server = await registerRoutes(app);
 

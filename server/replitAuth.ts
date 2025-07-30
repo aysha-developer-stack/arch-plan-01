@@ -8,15 +8,15 @@ import memoize from "memoizee";
 import MongoStore from "connect-mongo";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
+// Set default domains for development if not provided
+const domains = process.env.REPLIT_DOMAINS || "localhost:5000,127.0.0.1:5000";
+const replId = process.env.REPL_ID || "archplan-dev";
 
 const getOidcConfig = memoize(
   async () => {
     return await client.discovery(
       new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
+      replId
     );
   },
   { maxAge: 3600 * 1000 }
@@ -25,20 +25,25 @@ const getOidcConfig = memoize(
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   
-  const sessionStore = MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI!,
-    touchAfter: 24 * 3600, // lazy session update
-    ttl: sessionTtl / 1000, // TTL in seconds
-  });
+  let sessionStore;
+  
+  if (process.env.MONGODB_URI) {
+    sessionStore = MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI!,
+      touchAfter: 24 * 3600, // lazy session update
+      ttl: sessionTtl / 1000, // TTL in seconds
+    });
+  }
+  // If no MongoDB URI, use default memory store (session will handle this)
   
   return session({
-    secret: process.env.SESSION_SECRET!,
-    store: sessionStore,
+    secret: process.env.SESSION_SECRET || "default-dev-secret-change-in-production",
+    store: sessionStore, // Will use memory store if undefined
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: false, // Set to true in production with HTTPS
       maxAge: sessionTtl,
     },
   });
@@ -84,8 +89,7 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  for (const domain of domains.split(",")) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -119,7 +123,7 @@ export async function setupAuth(app: Express) {
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
+          client_id: replId,
           post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
         }).href
       );

@@ -1,19 +1,21 @@
 import mongoose from 'mongoose';
 
-if (!process.env.MONGODB_URI) {
-  throw new Error(
-    "MONGODB_URI must be set. Did you forget to provision a MongoDB database?",
-  );
-}
-
 const connectDB = async () => {
+  if (!process.env.MONGODB_URI) {
+    console.warn("⚠️  MONGODB_URI not set. Application will use in-memory storage.");
+    console.warn("⚠️  Data will not persist between restarts.");
+    console.warn("⚠️  Set MONGODB_URI to use MongoDB database.");
+    return null;
+  }
+
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI!);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     return conn;
   } catch (error) {
-    console.error('MongoDB connection error:', error);
-    process.exit(1);
+    console.error('❌ MongoDB connection error:', error);
+    console.warn("⚠️  Falling back to in-memory storage.");
+    return null;
   }
 };
 

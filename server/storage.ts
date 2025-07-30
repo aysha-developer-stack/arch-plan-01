@@ -42,6 +42,155 @@ export interface PlanStats {
   recentUploads: number;
 }
 
+// In-memory storage fallback
+export class MemoryStorage implements IStorage {
+  private users: Map<string, UserType> = new Map();
+  private plans: Map<string, PlanType> = new Map();
+  private nextId = 1;
+
+  async getUser(id: string): Promise<UserType | null> {
+    return this.users.get(id) || null;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<UserType> {
+    const existing = this.users.get(userData.id);
+    const user = {
+      ...existing,
+      ...userData,
+      updatedAt: new Date(),
+      createdAt: existing?.createdAt || new Date(),
+    } as UserType;
+    this.users.set(userData.id, user);
+    return user;
+  }
+
+  async searchPlans(filters: PlanFilters): Promise<PlanType[]> {
+    let results = Array.from(this.plans.values()).filter(plan => plan.status === "active");
+
+    if (filters.lotSize && filters.lotSize !== "Any Size") {
+      results = results.filter(plan => plan.lotSize === filters.lotSize);
+    }
+
+    if (filters.orientation && filters.orientation !== "Any Orientation") {
+      results = results.filter(plan => plan.orientation === filters.orientation);
+    }
+
+    if (filters.siteType && filters.siteType !== "Any Type") {
+      results = results.filter(plan => plan.siteType === filters.siteType);
+    }
+
+    if (filters.foundationType && filters.foundationType !== "Any Foundation") {
+      results = results.filter(plan => plan.foundationType === filters.foundationType);
+    }
+
+    if (filters.storeys && filters.storeys !== "Any") {
+      const storeyMap: Record<string, number> = {
+        "Single Storey": 1,
+        "Two Storey": 2,
+        "Three+ Storey": 3,
+      };
+      const storeyNumber = storeyMap[filters.storeys];
+      if (storeyNumber) {
+        if (storeyNumber === 3) {
+          results = results.filter(plan => plan.storeys >= 3);
+        } else {
+          results = results.filter(plan => plan.storeys === storeyNumber);
+        }
+      }
+    }
+
+    if (filters.councilArea && filters.councilArea !== "Any Council") {
+      results = results.filter(plan => plan.councilArea === filters.councilArea);
+    }
+
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      results = results.filter(plan => 
+        plan.title.toLowerCase().includes(searchLower) ||
+        (plan.description && plan.description.toLowerCase().includes(searchLower))
+      );
+    }
+
+    results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    if (filters.offset) {
+      results = results.slice(filters.offset);
+    }
+
+    if (filters.limit) {
+      results = results.slice(0, filters.limit);
+    }
+
+    return results;
+  }
+
+  async getPlan(id: string): Promise<PlanType | null> {
+    return this.plans.get(id) || null;
+  }
+
+  async createPlan(planData: InsertPlan): Promise<PlanType> {
+    const id = (this.nextId++).toString();
+    const plan = {
+      _id: id as any,
+      ...planData,
+      status: planData.status || "active",
+      downloadCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as PlanType;
+    this.plans.set(id, plan);
+    return plan;
+  }
+
+  async updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null> {
+    const existing = this.plans.get(id);
+    if (!existing) return null;
+    
+    const updated = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.plans.set(id, updated);
+    return updated;
+  }
+
+  async deletePlan(id: string): Promise<void> {
+    this.plans.delete(id);
+  }
+
+  async incrementDownloadCount(id: string): Promise<void> {
+    const plan = this.plans.get(id);
+    if (plan) {
+      plan.downloadCount = (plan.downloadCount || 0) + 1;
+      this.plans.set(id, plan);
+    }
+  }
+
+  async getRecentPlans(limit = 10): Promise<PlanType[]> {
+    const plans = Array.from(this.plans.values())
+      .filter(plan => plan.status === "active")
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
+    return plans;
+  }
+
+  async getPlanStats(): Promise<PlanStats> {
+    const activePlans = Array.from(this.plans.values()).filter(plan => plan.status === "active");
+    const totalPlans = activePlans.length;
+    const totalDownloads = activePlans.reduce((sum, plan) => sum + (plan.downloadCount || 0), 0);
+    
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentUploads = activePlans.filter(plan => new Date(plan.createdAt) >= oneDayAgo).length;
+
+    return {
+      totalPlans,
+      totalDownloads,
+      recentUploads,
+    };
+  }
+}
+
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<UserType | null> {
     const user = await User.findOne({ id });
@@ -175,4 +324,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Export storage instance based on MongoDB availability
+export const storage = process.env.MONGODB_URI ? new DatabaseStorage() : new MemoryStorage();
