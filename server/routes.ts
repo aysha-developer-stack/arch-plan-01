@@ -95,8 +95,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Plan not found" });
       }
 
-      const filePath = path.join(process.cwd(), plan.filePath);
+      // Handle both absolute and relative paths
+      let filePath;
+      if (path.isAbsolute(plan.filePath)) {
+        filePath = plan.filePath;
+      } else {
+        filePath = path.join(process.cwd(), plan.filePath);
+      }
+
+      console.log("Looking for file at:", filePath);
+      
       if (!fs.existsSync(filePath)) {
+        console.error("File not found at path:", filePath);
         return res.status(404).json({ message: "File not found" });
       }
 
@@ -145,10 +155,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.claims.sub;
+      // Convert absolute path to relative path for consistency
+      const relativePath = path.relative(process.cwd(), req.file.path);
+      
       const planData = insertPlanSchema.parse({
         ...req.body,
         fileName: req.file.originalname,
-        filePath: req.file.path,
+        filePath: relativePath,
         fileSize: req.file.size,
         uploadedBy: userId,
         bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : null,
@@ -188,7 +201,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete file from filesystem
-      const filePath = path.join(process.cwd(), plan.filePath);
+      let filePath;
+      if (path.isAbsolute(plan.filePath)) {
+        filePath = plan.filePath;
+      } else {
+        filePath = path.join(process.cwd(), plan.filePath);
+      }
+      
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
