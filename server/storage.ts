@@ -65,9 +65,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchPlans(filters: PlanFilters): Promise<Plan[]> {
-    let query = db.select().from(plans).where(eq(plans.status, "active"));
-
-    const conditions = [];
+    const conditions = [eq(plans.status, "active")];
 
     if (filters.lotSize && filters.lotSize !== "Any Size") {
       conditions.push(eq(plans.lotSize, filters.lotSize));
@@ -111,21 +109,15 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+    const baseQuery = db.select().from(plans).where(and(...conditions)).orderBy(desc(plans.createdAt));
+
+    if (filters.limit && filters.offset) {
+      return await baseQuery.limit(filters.limit).offset(filters.offset);
+    } else if (filters.limit) {
+      return await baseQuery.limit(filters.limit);
+    } else {
+      return await baseQuery;
     }
-
-    query = query.orderBy(desc(plans.createdAt));
-
-    if (filters.limit) {
-      query = query.limit(filters.limit);
-    }
-
-    if (filters.offset) {
-      query = query.offset(filters.offset);
-    }
-
-    return await query;
   }
 
   async getPlan(id: string): Promise<Plan | undefined> {

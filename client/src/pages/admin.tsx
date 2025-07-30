@@ -3,10 +3,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import AdminInterface from "@/components/AdminInterface";
 import Header from "@/components/Header";
+import type { User } from "@shared/schema";
 
 export default function Admin() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth() as { 
+    isAuthenticated: boolean; 
+    isLoading: boolean; 
+    user: User | undefined 
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

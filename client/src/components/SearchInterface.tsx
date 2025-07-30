@@ -95,7 +95,7 @@ export default function SearchInterface() {
                   <SelectValue placeholder="Any Size" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Size</SelectItem>
+                  <SelectItem value="Any Size">Any Size</SelectItem>
                   <SelectItem value="Small (< 400m²)">Small (&lt; 400m²)</SelectItem>
                   <SelectItem value="Medium (400-800m²)">Medium (400-800m²)</SelectItem>
                   <SelectItem value="Large (> 800m²)">Large (&gt; 800m²)</SelectItem>
@@ -111,7 +111,7 @@ export default function SearchInterface() {
                   <SelectValue placeholder="Any Orientation" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Orientation</SelectItem>
+                  <SelectItem value="Any Orientation">Any Orientation</SelectItem>
                   <SelectItem value="North Facing">North Facing</SelectItem>
                   <SelectItem value="South Facing">South Facing</SelectItem>
                   <SelectItem value="East Facing">East Facing</SelectItem>
@@ -128,7 +128,7 @@ export default function SearchInterface() {
                   <SelectValue placeholder="Any Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Type</SelectItem>
+                  <SelectItem value="Any Type">Any Type</SelectItem>
                   <SelectItem value="Flat Site">Flat Site</SelectItem>
                   <SelectItem value="Sloping Site">Sloping Site</SelectItem>
                   <SelectItem value="Corner Lot">Corner Lot</SelectItem>
@@ -145,7 +145,7 @@ export default function SearchInterface() {
                   <SelectValue placeholder="Any Foundation" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Foundation</SelectItem>
+                  <SelectItem value="Any Foundation">Any Foundation</SelectItem>
                   <SelectItem value="Slab on Ground">Slab on Ground</SelectItem>
                   <SelectItem value="Suspended Slab">Suspended Slab</SelectItem>
                   <SelectItem value="Basement">Basement</SelectItem>
@@ -162,7 +162,7 @@ export default function SearchInterface() {
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any</SelectItem>
+                  <SelectItem value="Any">Any</SelectItem>
                   <SelectItem value="Single Storey">Single Storey</SelectItem>
                   <SelectItem value="Two Storey">Two Storey</SelectItem>
                   <SelectItem value="Three+ Storey">Three+ Storey</SelectItem>
@@ -178,7 +178,7 @@ export default function SearchInterface() {
                   <SelectValue placeholder="Any Council" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Council</SelectItem>
+                  <SelectItem value="Any Council">Any Council</SelectItem>
                   <SelectItem value="Sydney City">Sydney City</SelectItem>
                   <SelectItem value="Melbourne City">Melbourne City</SelectItem>
                   <SelectItem value="Brisbane City">Brisbane City</SelectItem>
