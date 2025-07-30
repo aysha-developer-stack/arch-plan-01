@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Eye, Download, Home, Compass, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Plan } from "@shared/schema";
+import type { PlanType } from "@shared/schema";
 
 interface PlanCardProps {
-  plan: Plan;
+  plan: PlanType;
 }
 
 export default function PlanCard({ plan }: PlanCardProps) {

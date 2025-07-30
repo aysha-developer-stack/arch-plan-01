@@ -1,27 +1,26 @@
 import {
-  users,
-  plans,
-  type User,
+  User,
+  Plan,
+  type UserType,
   type UpsertUser,
-  type Plan,
+  type PlanType,
   type InsertPlan,
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, ilike, and, sql, desc } from "drizzle-orm";
+import mongoose from "mongoose";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUser(id: string): Promise<UserType | null>;
+  upsertUser(user: UpsertUser): Promise<UserType>;
 
   // Plan operations
-  searchPlans(filters: PlanFilters): Promise<Plan[]>;
-  getPlan(id: string): Promise<Plan | undefined>;
-  createPlan(plan: InsertPlan): Promise<Plan>;
-  updatePlan(id: string, updates: Partial<InsertPlan>): Promise<Plan>;
+  searchPlans(filters: PlanFilters): Promise<PlanType[]>;
+  getPlan(id: string): Promise<PlanType | null>;
+  createPlan(plan: InsertPlan): Promise<PlanType>;
+  updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null>;
   deletePlan(id: string): Promise<void>;
   incrementDownloadCount(id: string): Promise<void>;
-  getRecentPlans(limit?: number): Promise<Plan[]>;
+  getRecentPlans(limit?: number): Promise<PlanType[]>;
   getPlanStats(): Promise<PlanStats>;
 }
 
@@ -44,43 +43,37 @@ export interface PlanStats {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+  async getUser(id: string): Promise<UserType | null> {
+    const user = await User.findOne({ id });
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+  async upsertUser(userData: UpsertUser): Promise<UserType> {
+    const user = await User.findOneAndUpdate(
+      { id: userData.id },
+      { ...userData, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    return user!;
   }
 
-  async searchPlans(filters: PlanFilters): Promise<Plan[]> {
-    const conditions = [eq(plans.status, "active")];
+  async searchPlans(filters: PlanFilters): Promise<PlanType[]> {
+    const query: any = { status: "active" };
 
     if (filters.lotSize && filters.lotSize !== "Any Size") {
-      conditions.push(eq(plans.lotSize, filters.lotSize));
+      query.lotSize = filters.lotSize;
     }
 
     if (filters.orientation && filters.orientation !== "Any Orientation") {
-      conditions.push(eq(plans.orientation, filters.orientation));
+      query.orientation = filters.orientation;
     }
 
     if (filters.siteType && filters.siteType !== "Any Type") {
-      conditions.push(eq(plans.siteType, filters.siteType));
+      query.siteType = filters.siteType;
     }
 
     if (filters.foundationType && filters.foundationType !== "Any Foundation") {
-      conditions.push(eq(plans.foundationType, filters.foundationType));
+      query.foundationType = filters.foundationType;
     }
 
     if (filters.storeys && filters.storeys !== "Any") {
@@ -92,96 +85,92 @@ export class DatabaseStorage implements IStorage {
       const storeyNumber = storeyMap[filters.storeys];
       if (storeyNumber) {
         if (storeyNumber === 3) {
-          conditions.push(sql`${plans.storeys} >= 3`);
+          query.storeys = { $gte: 3 };
         } else {
-          conditions.push(eq(plans.storeys, storeyNumber));
+          query.storeys = storeyNumber;
         }
       }
     }
 
     if (filters.councilArea && filters.councilArea !== "Any Council") {
-      conditions.push(eq(plans.councilArea, filters.councilArea));
+      query.councilArea = filters.councilArea;
     }
 
     if (filters.search) {
-      conditions.push(
-        sql`(${ilike(plans.title, `%${filters.search}%`)} OR ${ilike(plans.description, `%${filters.search}%`)})`
-      );
+      query.$or = [
+        { title: { $regex: filters.search, $options: 'i' } },
+        { description: { $regex: filters.search, $options: 'i' } }
+      ];
     }
 
-    const baseQuery = db.select().from(plans).where(and(...conditions)).orderBy(desc(plans.createdAt));
+    let mongoQuery = Plan.find(query).sort({ createdAt: -1 });
 
-    if (filters.limit && filters.offset) {
-      return await baseQuery.limit(filters.limit).offset(filters.offset);
-    } else if (filters.limit) {
-      return await baseQuery.limit(filters.limit);
-    } else {
-      return await baseQuery;
+    if (filters.limit) {
+      mongoQuery = mongoQuery.limit(filters.limit);
     }
+
+    if (filters.offset) {
+      mongoQuery = mongoQuery.skip(filters.offset);
+    }
+
+    return await mongoQuery.exec();
   }
 
-  async getPlan(id: string): Promise<Plan | undefined> {
-    const [plan] = await db.select().from(plans).where(eq(plans.id, id));
+  async getPlan(id: string): Promise<PlanType | null> {
+    const plan = await Plan.findById(id);
     return plan;
   }
 
-  async createPlan(plan: InsertPlan): Promise<Plan> {
-    const [newPlan] = await db.insert(plans).values(plan).returning();
-    return newPlan;
+  async createPlan(planData: InsertPlan): Promise<PlanType> {
+    const plan = new Plan(planData);
+    return await plan.save();
   }
 
-  async updatePlan(id: string, updates: Partial<InsertPlan>): Promise<Plan> {
-    const [updatedPlan] = await db
-      .update(plans)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(plans.id, id))
-      .returning();
-    return updatedPlan;
+  async updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null> {
+    const plan = await Plan.findByIdAndUpdate(
+      id,
+      { ...updates, updatedAt: new Date() },
+      { new: true }
+    );
+    return plan;
   }
 
   async deletePlan(id: string): Promise<void> {
-    await db.delete(plans).where(eq(plans.id, id));
+    await Plan.findByIdAndDelete(id);
   }
 
   async incrementDownloadCount(id: string): Promise<void> {
-    await db
-      .update(plans)
-      .set({ downloadCount: sql`${plans.downloadCount} + 1` })
-      .where(eq(plans.id, id));
+    await Plan.findByIdAndUpdate(
+      id,
+      { $inc: { downloadCount: 1 } }
+    );
   }
 
-  async getRecentPlans(limit = 10): Promise<Plan[]> {
-    return await db
-      .select()
-      .from(plans)
-      .where(eq(plans.status, "active"))
-      .orderBy(desc(plans.createdAt))
-      .limit(limit);
+  async getRecentPlans(limit = 10): Promise<PlanType[]> {
+    return await Plan.find({ status: "active" })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .exec();
   }
 
   async getPlanStats(): Promise<PlanStats> {
-    const [statsResult] = await db
-      .select({
-        totalPlans: sql<number>`count(*)`,
-        totalDownloads: sql<number>`sum(${plans.downloadCount})`,
-      })
-      .from(plans)
-      .where(eq(plans.status, "active"));
-
-    const [recentUploadsResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(plans)
-      .where(
-        and(
-          eq(plans.status, "active"),
-          sql`${plans.createdAt} >= now() - interval '24 hours'`
-        )
-      );
+    const totalPlans = await Plan.countDocuments({ status: "active" });
+    
+    const downloadStats = await Plan.aggregate([
+      { $match: { status: "active" } },
+      { $group: { _id: null, totalDownloads: { $sum: "$downloadCount" } } }
+    ]);
+    
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentUploads = await Plan.countDocuments({
+      status: "active",
+      createdAt: { $gte: oneDayAgo }
+    });
 
     return {
-      totalPlans: statsResult.totalPlans || 0,
-      totalDownloads: statsResult.totalDownloads || 0,
-      recentUploads: recentUploadsResult.count || 0,
+      totalPlans,
+      totalDownloads: downloadStats[0]?.totalDownloads || 0,
+      recentUploads,
     };
   }
 }

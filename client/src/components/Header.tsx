@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Bell, Search } from "lucide-react";
-import type { User } from "@shared/schema";
+import type { UserType } from "@shared/schema";
 
 interface HeaderProps {
-  user?: User;
+  user?: UserType;
   activeTab: "search" | "admin";
   onTabChange: (tab: "search" | "admin") => void;
 }

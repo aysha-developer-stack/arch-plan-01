@@ -26,7 +26,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Plan } from "@shared/schema";
+import type { PlanType } from "@shared/schema";
 
 interface AdminStats {
   totalPlans: number;
@@ -74,7 +74,7 @@ export default function AdminInterface() {
   });
 
   // Fetch admin plans
-  const { data: plans = [], isLoading: plansLoading } = useQuery<Plan[]>({
+  const { data: plans = [], isLoading: plansLoading } = useQuery<PlanType[]>({
     queryKey: ["/api/admin/plans"],
     retry: false,
   });

@@ -3,10 +3,10 @@ import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/Header";
 import SearchInterface from "@/components/SearchInterface";
 import AdminInterface from "@/components/AdminInterface";
-import type { User } from "@shared/schema";
+import type { UserType } from "@shared/schema";
 
 export default function Home() {
-  const { user } = useAuth() as { user: User | undefined };
+  const { user } = useAuth() as { user: UserType | undefined };
   const [activeTab, setActiveTab] = useState<"search" | "admin">("search");
 
   return (

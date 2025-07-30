@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, Filter, X } from "lucide-react";
 import PlanCard from "./PlanCard";
-import type { Plan } from "@shared/schema";
+import type { PlanType } from "@shared/schema";
 
 interface SearchFilters {
   lotSize: string;
@@ -29,7 +29,7 @@ export default function SearchInterface() {
     search: "",
   });
 
-  const { data: plans = [], isLoading } = useQuery<Plan[]>({
+  const { data: plans = [], isLoading } = useQuery<PlanType[]>({
     queryKey: ["/api/plans/search", filters],
     queryFn: async () => {
       const params = new URLSearchParams();

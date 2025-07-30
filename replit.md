@@ -11,11 +11,14 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 ### January 30, 2025
-- Fixed file upload functionality in admin interface
-- Resolved SelectItem empty value errors in search filters  
-- Updated apiRequest function to properly handle FormData uploads
-- Fixed database query type issues in storage layer
-- Application now fully functional for uploading and managing architectural plans
+- **Major Database Migration**: Successfully migrated from PostgreSQL/Drizzle to MongoDB/Mongoose
+- **Complete Schema Conversion**: Converted all database models to Mongoose schemas with proper interfaces
+- **Authentication Update**: Replaced PostgreSQL sessions with MongoDB sessions using connect-mongo
+- **Storage Layer Rewrite**: Converted all CRUD operations from Drizzle queries to Mongoose methods  
+- **Type System Updates**: Updated all client components to use new MongoDB-based type definitions
+- **Query Optimization**: Implemented MongoDB aggregation for statistics and regex-based search
+- **ObjectId Integration**: Added proper MongoDB ObjectId handling throughout the application
+- **Environment Setup**: Configured MongoDB Atlas connection and environment variables
 
 ## System Architecture
 
@@ -36,13 +39,13 @@ Preferred communication style: Simple, everyday language.
 - **API Design**: RESTful endpoints with JSON responses
 
 ### Database Architecture
-- **Database**: PostgreSQL (via Neon serverless)
-- **ORM**: Drizzle ORM with schema-first approach
-- **Tables**: 
+- **Database**: MongoDB (via MongoDB Atlas)
+- **ODM**: Mongoose with document-based approach
+- **Collections**: 
   - `users` - User authentication and profile data
   - `plans` - Architectural plan metadata and file information
-  - `sessions` - Session storage for authentication
-- **Migrations**: Drizzle Kit for schema migrations
+  - `sessions` - Session storage for authentication (managed by connect-mongo)
+- **Schema Management**: Mongoose schemas with TypeScript interfaces
 
 ## Key Components
 
