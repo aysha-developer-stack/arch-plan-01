@@ -114,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Increment download count
-      await storage.incrementDownloadCount(plan.id);
+      await storage.incrementDownloadCount(plan._id.toString());
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${plan.fileName}"`);

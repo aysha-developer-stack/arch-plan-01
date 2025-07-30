@@ -21,7 +21,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
   const downloadMutation = useMutation({
     mutationFn: async () => {
       setIsDownloading(true);
-      const response = await fetch(`/api/plans/${plan.id}/download`);
+      const response = await fetch(`/api/plans/${plan._id}/download`);
       if (!response.ok) {
         throw new Error("Failed to download plan");
       }
