@@ -106,6 +106,7 @@ export default function AdminInterface() {
         councilArea: "",
         file: null,
       });
+      resetFileInput();
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -186,14 +187,25 @@ export default function AdminInterface() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === "application/pdf") {
-      setUploadForm(prev => ({ ...prev, file }));
-    } else {
-      toast({
-        title: "Invalid File",
-        description: "Please select a PDF file",
-        variant: "destructive",
-      });
+    if (file) {
+      if (file.type === "application/pdf") {
+        setUploadForm(prev => ({ ...prev, file }));
+      } else {
+        toast({
+          title: "Invalid File",
+          description: "Please select a PDF file",
+          variant: "destructive",
+        });
+        // Reset the input
+        e.target.value = "";
+      }
+    }
+  };
+
+  const resetFileInput = () => {
+    const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = "";
     }
   };
 

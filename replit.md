@@ -8,6 +8,15 @@ ArchPlan is a full-stack web application for managing and searching architectura
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### January 30, 2025
+- Fixed file upload functionality in admin interface
+- Resolved SelectItem empty value errors in search filters  
+- Updated apiRequest function to properly handle FormData uploads
+- Fixed database query type issues in storage layer
+- Application now fully functional for uploading and managing architectural plans
+
 ## System Architecture
 
 ### Frontend Architecture
