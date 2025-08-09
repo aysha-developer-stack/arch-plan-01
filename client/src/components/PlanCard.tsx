@@ -26,7 +26,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
       setIsDownloading(true);
       
       try {
-        const response = await apiClient.get(`/api/plans/${plan._id}/download`, {
+        const response = await apiClient.get(`/plans/${plan._id}/download`, {
           responseType: 'blob',
         });
         
@@ -98,9 +98,21 @@ export default function PlanCard({ plan }: PlanCardProps) {
         // Type guard to check if error is an AxiosError
         if (error instanceof AxiosError) {
           if (error.response?.status === 404) {
-            throw new Error("Plan file not found on server");
+            // Try to get the detailed error message from the backend
+            const errorData = error.response?.data;
+            if (errorData && typeof errorData === 'object' && 'message' in errorData) {
+              throw new Error(errorData.message);
+            } else {
+              throw new Error("Plan file not found on server");
+            }
           } else if (error.response?.status === 500) {
-            throw new Error("Server error while downloading plan");
+            // Try to get the detailed error message from the backend
+            const errorData = error.response?.data;
+            if (errorData && typeof errorData === 'object' && 'message' in errorData) {
+              throw new Error(errorData.message);
+            } else {
+              throw new Error("Server error while downloading plan");
+            }
           } else {
             throw new Error("Failed to download plan: " + (error.message || "Unknown error"));
           }
