@@ -1,0 +1,19 @@
+RAILWAY ENVIRONMENT VARIABLES - COPY AND PASTE:
+
+NODE_ENV=production
+PORT=3000
+MONGODB_URI=mongodb://archplan:Archplan1234%24@ac-wetjcv6-shard-00-00.jsicxbh.mongodb.net:27017,ac-wetjcv6-shard-00-01.jsicxbh.mongodb.net:27017,ac-wetjcv6-shard-00-02.jsicxbh.mongodb.net:27017/Archplan?replicaSet=atlas-eacbt0-shard-0&ssl=true&authSource=admin
+JWT_SECRET=railway_archplan_jwt_secret_2024_production_key
+JWT_EXPIRES_IN=7d
+SESSION_SECRET=railway_archplan_session_secret_2024_production_key
+
+INSTRUCTIONS:
+1. Go to railway.app
+2. Login with GitHub
+3. Deploy your ArchPlan repo
+4. Go to Variables tab
+5. Add each variable above (one by one)
+6. After deployment, add CORS_ORIGIN with your Railway URL
+
+AFTER DEPLOYMENT ADD:
+CORS_ORIGIN=https://your-app-name.up.railway.app

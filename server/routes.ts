@@ -457,12 +457,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         console.error("❌ No physical file and no content in database!");
+        console.log("💡 This plan was likely uploaded before the database storage fix.");
+        console.log("💡 Solution: Re-upload this plan through the admin panel.");
+        
         return res.status(404).json({ 
-          message: "Plan file not found and no content available in database",
+          message: "File not available - please re-upload this plan through the admin panel",
           details: {
             originalPath,
             attemptedPath: filePath,
-            hasContent: !!plan.content
+            hasContent: !!plan.content,
+            solution: "This plan was uploaded before database storage was implemented. Please re-upload it through the admin panel."
           }
         });
       }
