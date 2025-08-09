@@ -22,146 +22,63 @@ export default function PlanCard({ plan }: PlanCardProps) {
 
   const downloadMutation = useMutation({
     mutationFn: async () => {
-      console.log('=== DOWNLOAD DEBUG START ===');
-      console.log('Starting download for plan:', plan);
-      console.log('Plan ID:', plan._id);
-      console.log('Plan fileName:', plan.fileName);
-      console.log('Plan filePath:', plan.filePath);
-      console.log('Request URL:', `/api/plans/${plan._id}/download`);
-      console.log('=== DOWNLOAD DEBUG END ===');
-      
+      console.log('🚀 Starting download for plan:', plan.fileName);
       setIsDownloading(true);
       
       try {
-        console.log('🚀 STARTING DOWNLOAD - Enhanced Error Detection Active');
         const response = await apiClient.get(`/api/plans/${plan._id}/download`, {
           responseType: 'blob',
         });
         
         console.log('Download response status:', response.status);
         console.log('Download response headers:', response.headers);
-        console.log('Response data:', response.data);
-        console.log('Response data type:', typeof response.data);
         console.log('Response data size:', response.data.size);
-        console.log('Response data constructor:', response.data.constructor.name);
         
-        // IMMEDIATE CHECK - if response is suspiciously small, it's likely an error
-        if (response.data.size < 10000) { // PDF files are almost always > 10KB
-          console.log('⚠️ SUSPICIOUS: Response is very small for a PDF file');
-          console.log('🔍 FORCE CHECKING: Treating small response as potential error');
+        // Check if response is not OK or if content-type indicates an error
+        if (!response.status || response.status >= 400) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const contentType = response.headers['content-type'] || '';
+        
+        // If content-type is JSON, it's an error response - read as text
+        if (contentType.includes('application/json') || contentType.includes('text/html')) {
+          console.log('Error response detected (JSON/HTML content-type)');
+          const errorText = await response.data.text();
+          console.log('Error response text:', errorText);
           
           try {
-            const testText = await response.data.text();
-            console.log('🔍 Small response content:', testText);
-            
-            // Try to parse as JSON
-            const jsonData = JSON.parse(testText);
-            if (jsonData.message || jsonData.error) {
-              console.log('🚨 CONFIRMED: Small response is JSON error, blocking download');
-              throw new Error(jsonData.message + (jsonData.details?.solution ? ` - ${jsonData.details.solution}` : ''));
-            }
+            const errorData = JSON.parse(errorText);
+            throw new Error(errorData.message || 'Server returned an error');
           } catch (parseError) {
-            if (parseError instanceof Error && !parseError.message.includes('Unexpected token')) {
-              // If it's our custom error message, re-throw it
-              throw parseError;
-            }
-            console.log('🔍 Small response is not JSON, allowing download');
+            throw new Error('Server returned an error response');
           }
         }
         
-        // Verify response data exists and is not empty
-        if (!response.data) {
+        // Verify we have data
+        if (!response.data || response.data.size === 0) {
           throw new Error("No data received from server");
         }
-
-        // Check if the response is actually an error JSON disguised as a blob
-        const contentType = response.headers['content-type'] || '';
-        console.log('Response content-type:', contentType);
-        console.log('Response data size:', response.data.size);
         
-        // More robust error detection - check for JSON content type OR small file size OR try to parse as JSON
-        let isErrorResponse = false;
-        let errorText = '';
-        
-        if (contentType.includes('application/json')) {
-          isErrorResponse = true;
-          console.log('Detected JSON content-type, treating as error response');
-        } else if (response.data.size < 5000) { // PDF files are typically much larger
-          console.log('Small response size detected, checking if it\'s JSON error');
-          try {
-            // Clone the blob before reading it
-            const clonedBlob = response.data.slice();
-            errorText = await clonedBlob.text();
-            const parsed = JSON.parse(errorText);
-            if (parsed.message || parsed.error) {
-              isErrorResponse = true;
-              console.log('Successfully parsed small response as JSON error:', parsed);
-            }
-          } catch (parseError) {
-            console.log('Small response is not JSON, treating as valid PDF. Parse error:', parseError);
-            console.log('Response text was:', errorText);
-          }
-        } else {
-          // For larger responses, still try to detect if it's actually JSON
-          console.log('Large response, but let\'s check first few bytes...');
-          try {
-            const clonedBlob = response.data.slice(0, 500); // Check first 500 bytes
-            const preview = await clonedBlob.text();
-            console.log('Response preview (first 500 bytes):', preview);
-            if (preview.trim().startsWith('{') || preview.trim().startsWith('[')) {
-              console.log('Large response appears to be JSON, checking full content...');
-              const fullText = await response.data.text();
-              const parsed = JSON.parse(fullText);
-              if (parsed.message || parsed.error) {
-                isErrorResponse = true;
-                errorText = fullText;
-                console.log('Large JSON error response detected:', parsed);
-              }
-            }
-          } catch (parseError) {
-            console.log('Large response is not JSON, treating as valid PDF');
-          }
-        }
-        
-        if (isErrorResponse) {
-          try {
-            let text = errorText;
-            if (!text) {
-              text = await response.data.text();
-            }
-            const errorData = JSON.parse(text);
-            if (errorData.message) {
-              // This is an error response from the backend
-              console.log('Backend error message:', errorData.message);
-              throw new Error(errorData.message + (errorData.details?.solution ? ` - ${errorData.details.solution}` : ''));
-            }
-          } catch (parseError) {
-            console.log('Could not parse error response:', parseError);
-            throw new Error('Server returned an error response that could not be parsed');
-          }
-        }
-        
-        // Additional safety check - try to detect JSON errors even if not caught above
-        try {
+        // For very small responses that might be JSON errors disguised as blobs
+        if (response.data.size < 1000 && !contentType.includes('application/pdf')) {
+          console.log('Very small response detected, checking if it\'s an error...');
           const clonedBlob = response.data.slice();
-          const firstChunk = await clonedBlob.slice(0, 100).text();
-          console.log('First 100 characters of response:', firstChunk);
+          const text = await clonedBlob.text();
           
-          if (firstChunk.trim().startsWith('{"message"') || firstChunk.includes('"File not available"')) {
-            console.log('🚨 DETECTED JSON ERROR RESPONSE - preventing download');
-            const fullText = await response.data.text();
-            const errorData = JSON.parse(fullText);
-            throw new Error(errorData.message + (errorData.details?.solution ? ` - ${errorData.details.solution}` : ''));
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed.message || parsed.error) {
+              throw new Error(parsed.message || parsed.error || 'Server returned an error');
+            }
+          } catch (parseError) {
+            // If it's not JSON, continue with download
+            console.log('Small response is not JSON, proceeding with download');
           }
-        } catch (safetyError) {
-          console.log('Safety check failed, but continuing with download:', safetyError);
         }
         
-        // Create blob URL and trigger download
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-        
-        // Create temporary download link and trigger download
+        // Create download link and trigger download
+        const url = window.URL.createObjectURL(response.data);
         const link = document.createElement('a');
         link.href = url;
         link.download = plan.fileName || 'plan.pdf';
@@ -173,7 +90,6 @@ export default function PlanCard({ plan }: PlanCardProps) {
         window.URL.revokeObjectURL(url);
         
         console.log('Download triggered successfully for:', plan.fileName);
-        
         return response.data;
         
       } catch (error) {

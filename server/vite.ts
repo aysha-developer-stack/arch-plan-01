@@ -91,7 +91,17 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // Serve index.html for any other route (SPA fallback)
+  // But skip API routes - let them be handled by Express routes
   app.get('*', (req, res) => {
+    const url = req.originalUrl;
+    
+    // Skip API routes - let them be handled by Express routes
+    if (url.startsWith('/api/')) {
+      console.log(`🔄 Production static: Skipping API route ${url}`);
+      return res.status(404).json({ message: 'API endpoint not found' });
+    }
+    
+    console.log(`📄 Production static: Serving SPA for ${url}`);
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
