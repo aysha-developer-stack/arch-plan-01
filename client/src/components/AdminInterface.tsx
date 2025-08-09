@@ -693,18 +693,41 @@ export default function AdminInterface() {
                                          
                                          // Check if the response is actually an error JSON disguised as a blob
                                          const contentType = response.headers['content-type'] || '';
-                                         if (contentType.includes('application/json') || response.data.size < 1000) {
-                                           // Likely an error response, try to parse it
+                                         console.log('Response content-type:', contentType);
+                                         console.log('Response data size:', response.data.size);
+                                         
+                                         // More robust error detection - check for JSON content type OR small file size OR try to parse as JSON
+                                         let isErrorResponse = false;
+                                         
+                                         if (contentType.includes('application/json')) {
+                                           isErrorResponse = true;
+                                           console.log('Detected JSON content-type, treating as error response');
+                                         } else if (response.data.size < 5000) { // PDF files are typically much larger
+                                           console.log('Small response size detected, checking if it\'s JSON error');
+                                           try {
+                                             const text = await response.data.text();
+                                             const parsed = JSON.parse(text);
+                                             if (parsed.message || parsed.error) {
+                                               isErrorResponse = true;
+                                               console.log('Successfully parsed small response as JSON error');
+                                             }
+                                           } catch (parseError) {
+                                             console.log('Small response is not JSON, treating as valid PDF');
+                                           }
+                                         }
+                                         
+                                         if (isErrorResponse) {
                                            try {
                                              const text = await response.data.text();
                                              const errorData = JSON.parse(text);
                                              if (errorData.message) {
                                                // This is an error response from the backend
+                                               console.log('Backend error message:', errorData.message);
                                                throw new Error(errorData.message + (errorData.details?.solution ? ` - ${errorData.details.solution}` : ''));
                                              }
                                            } catch (parseError) {
-                                             // If we can't parse it, it might still be a valid small PDF
-                                             console.log('Could not parse as JSON, treating as PDF:', parseError);
+                                             console.log('Could not parse error response:', parseError);
+                                             throw new Error('Server returned an error response that could not be parsed');
                                            }
                                          }
                                          
