@@ -437,6 +437,271 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Migration Tool - Scan and fix legacy plans with missing files
+  app.get("/api/admin/plans/migration-scan", async (req, res) => {
+    try {
+      console.log("🔍 Starting legacy plan migration scan...");
+      
+      // Get all plans
+      const allPlans = await storage.searchPlans({ limit: 1000 });
+      console.log(`📊 Found ${allPlans.length} total plans to scan`);
+      
+      const results = {
+        totalPlans: allPlans.length,
+        healthyPlans: 0,
+        recoverablePlans: 0,
+        problematicPlans: 0,
+        details: [] as any[]
+      };
+      
+      for (const plan of allPlans) {
+        const planResult = {
+          id: plan._id.toString(),
+          title: plan.title,
+          fileName: plan.fileName,
+          originalPath: plan.filePath,
+          status: 'unknown' as 'healthy' | 'recoverable' | 'problematic',
+          issues: [] as string[],
+          solutions: [] as string[],
+          hasContent: !!plan.content,
+          contentSize: plan.content ? plan.content.length : 0
+        };
+        
+        // Check if plan has content in database
+        if (plan.content) {
+          planResult.status = 'healthy';
+          planResult.solutions.push('Content available in database');
+          results.healthyPlans++;
+        } else if (plan.filePath) {
+          // Try to find the file using the same logic as download endpoint
+          let fileFound = false;
+          const originalPath = plan.filePath;
+          
+          // Strategy 1: Try the path as stored in DB
+          let filePath;
+          if (path.isAbsolute(originalPath)) {
+            filePath = originalPath;
+          } else {
+            filePath = path.join(process.cwd(), originalPath);
+          }
+          
+          if (fs.existsSync(filePath)) {
+            fileFound = true;
+            planResult.status = 'healthy';
+            planResult.solutions.push(`File found at: ${filePath}`);
+          }
+          
+          // Strategy 2: Try relative to server directory
+          if (!fileFound) {
+            const serverRelativePath = path.join(__dirname, '..', originalPath);
+            if (fs.existsSync(serverRelativePath)) {
+              fileFound = true;
+              planResult.status = 'recoverable';
+              planResult.solutions.push(`File found at: ${serverRelativePath}`);
+              planResult.solutions.push('Can be migrated to correct location');
+            }
+          }
+          
+          // Strategy 3: Try uploads directory
+          if (!fileFound) {
+            const fileName = path.basename(originalPath);
+            const uploadsPath = path.join(process.cwd(), 'uploads', fileName);
+            if (fs.existsSync(uploadsPath)) {
+              fileFound = true;
+              planResult.status = 'recoverable';
+              planResult.solutions.push(`File found in uploads: ${uploadsPath}`);
+              planResult.solutions.push('Can update database path reference');
+            }
+          }
+          
+          // Strategy 4: Try server/uploads directory
+          if (!fileFound) {
+            const fileName = path.basename(originalPath);
+            const serverUploadsPath = path.join(__dirname, 'uploads', fileName);
+            if (fs.existsSync(serverUploadsPath)) {
+              fileFound = true;
+              planResult.status = 'recoverable';
+              planResult.solutions.push(`File found in server/uploads: ${serverUploadsPath}`);
+              planResult.solutions.push('Can update database path reference');
+            }
+          }
+          
+          if (fileFound) {
+            if (planResult.status === 'healthy') {
+              results.healthyPlans++;
+            } else {
+              results.recoverablePlans++;
+            }
+          } else {
+            planResult.status = 'problematic';
+            planResult.issues.push('Physical file not found in any location');
+            planResult.issues.push('No content stored in database');
+            planResult.solutions.push('Requires manual re-upload through admin panel');
+            results.problematicPlans++;
+          }
+        } else {
+          // No file path and no content
+          planResult.status = 'problematic';
+          planResult.issues.push('No file path specified');
+          planResult.issues.push('No content stored in database');
+          planResult.solutions.push('Requires manual re-upload through admin panel');
+          results.problematicPlans++;
+        }
+        
+        results.details.push(planResult);
+      }
+      
+      console.log(`✅ Migration scan complete:`);
+      console.log(`   - Healthy plans: ${results.healthyPlans}`);
+      console.log(`   - Recoverable plans: ${results.recoverablePlans}`);
+      console.log(`   - Problematic plans: ${results.problematicPlans}`);
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Migration scan error:", error);
+      res.status(500).json({ 
+        message: "Migration scan failed", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  // Admin Migration Tool - Fix recoverable plans
+  app.post("/api/admin/plans/migration-fix", async (req, res) => {
+    try {
+      const { planIds, action } = req.body;
+      
+      if (!planIds || !Array.isArray(planIds)) {
+        return res.status(400).json({ message: "planIds array is required" });
+      }
+      
+      if (!action || !['migrate-files', 'store-in-db', 'update-paths'].includes(action)) {
+        return res.status(400).json({ 
+          message: "action is required (migrate-files, store-in-db, or update-paths)" 
+        });
+      }
+      
+      console.log(`🔧 Starting migration fix for ${planIds.length} plans with action: ${action}`);
+      
+      const results = {
+        totalProcessed: 0,
+        successful: 0,
+        failed: 0,
+        details: [] as any[]
+      };
+      
+      for (const planId of planIds) {
+        results.totalProcessed++;
+        const planResult = {
+          id: planId,
+          success: false,
+          action: action,
+          message: '',
+          error: null as string | null
+        };
+        
+        try {
+          const plan = await storage.getPlan(planId);
+          if (!plan) {
+            planResult.error = 'Plan not found';
+            results.details.push(planResult);
+            results.failed++;
+            continue;
+          }
+          
+          if (action === 'store-in-db' && plan.filePath) {
+            // Find the file and store its content in database
+            let fileFound = false;
+            let filePath = '';
+            let fileContent = '';
+            
+            // Use same search logic as scan
+            const originalPath = plan.filePath;
+            
+            // Try different locations
+            const searchPaths = [
+              path.isAbsolute(originalPath) ? originalPath : path.join(process.cwd(), originalPath),
+              path.join(__dirname, '..', originalPath),
+              path.join(process.cwd(), 'uploads', path.basename(originalPath)),
+              path.join(__dirname, 'uploads', path.basename(originalPath))
+            ];
+            
+            for (const searchPath of searchPaths) {
+              if (fs.existsSync(searchPath)) {
+                filePath = searchPath;
+                fileFound = true;
+                break;
+              }
+            }
+            
+            if (fileFound) {
+              // Read file and convert to base64
+              const fileBuffer = fs.readFileSync(filePath);
+              fileContent = fileBuffer.toString('base64');
+              
+              // Update plan with content
+              await storage.updatePlan(planId, { content: fileContent });
+              
+              planResult.success = true;
+              planResult.message = `File content stored in database (${fileBuffer.length} bytes)`;
+              results.successful++;
+            } else {
+              planResult.error = 'File not found in any location';
+              results.failed++;
+            }
+          } else if (action === 'update-paths' && plan.filePath) {
+            // Update database with correct file path
+            let correctPath = '';
+            const originalPath = plan.filePath;
+            
+            const searchPaths = [
+              { path: path.join(process.cwd(), 'uploads', path.basename(originalPath)), dbPath: `uploads/${path.basename(originalPath)}` },
+              { path: path.join(__dirname, 'uploads', path.basename(originalPath)), dbPath: `server/uploads/${path.basename(originalPath)}` }
+            ];
+            
+            for (const { path: searchPath, dbPath } of searchPaths) {
+              if (fs.existsSync(searchPath)) {
+                correctPath = dbPath;
+                break;
+              }
+            }
+            
+            if (correctPath) {
+              await storage.updatePlan(planId, { filePath: correctPath });
+              planResult.success = true;
+              planResult.message = `Updated file path to: ${correctPath}`;
+              results.successful++;
+            } else {
+              planResult.error = 'File not found in any recoverable location';
+              results.failed++;
+            }
+          } else {
+            planResult.error = `Action ${action} not implemented or invalid for this plan`;
+            results.failed++;
+          }
+          
+        } catch (error) {
+          planResult.error = error instanceof Error ? error.message : String(error);
+          results.failed++;
+        }
+        
+        results.details.push(planResult);
+      }
+      
+      console.log(`✅ Migration fix complete:`);
+      console.log(`   - Successful: ${results.successful}`);
+      console.log(`   - Failed: ${results.failed}`);
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Migration fix error:", error);
+      res.status(500).json({ 
+        message: "Migration fix failed", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
   // Download plan PDF
   app.get("/api/plans/:id/download", async (req, res) => {
     console.log("🚀 === DOWNLOAD REQUEST STARTED ===");

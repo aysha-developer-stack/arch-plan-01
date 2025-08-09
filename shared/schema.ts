@@ -95,6 +95,7 @@ export const insertPlanSchema = z.object({
   fileName: z.string().max(255),
   filePath: z.string().max(500),
   fileSize: z.number(),
+  content: z.string().optional(), // Base64 encoded file content
   planType: z.string().max(100),
   storeys: z.number(),
   lotSize: z.string().max(50).optional(),
