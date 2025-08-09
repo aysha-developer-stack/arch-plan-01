@@ -615,7 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
-      
+
       const debugInfo = {
         id: plan._id,
         title: plan.title,
@@ -625,9 +625,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasContent: !!plan.content,
         contentLength: plan.content ? plan.content.length : 0,
         contentPreview: plan.content ? plan.content.substring(0, 100) + '...' : null,
-        contentType: typeof plan.content
+        contentType: typeof plan.content,
+        deploymentInfo: {
+          nodeEnv: process.env.NODE_ENV,
+          workingDir: process.cwd(),
+          timestamp: new Date().toISOString()
+        }
       };
-      
+
       res.json(debugInfo);
     } catch (error) {
       console.error("Debug endpoint error:", error);
