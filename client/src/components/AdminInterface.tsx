@@ -691,6 +691,23 @@ export default function AdminInterface() {
                                          
                                          console.log('📥 Download response received:', response.status);
                                          
+                                         // Check if the response is actually an error JSON disguised as a blob
+                                         const contentType = response.headers['content-type'] || '';
+                                         if (contentType.includes('application/json') || response.data.size < 1000) {
+                                           // Likely an error response, try to parse it
+                                           try {
+                                             const text = await response.data.text();
+                                             const errorData = JSON.parse(text);
+                                             if (errorData.message) {
+                                               // This is an error response from the backend
+                                               throw new Error(errorData.message + (errorData.details?.solution ? ` - ${errorData.details.solution}` : ''));
+                                             }
+                                           } catch (parseError) {
+                                             // If we can't parse it, it might still be a valid small PDF
+                                             console.log('Could not parse as JSON, treating as PDF:', parseError);
+                                           }
+                                         }
+                                         
                                          // Create blob URL and trigger download
                                          const blob = new Blob([response.data], { type: 'application/pdf' });
                                          const url = window.URL.createObjectURL(blob);
@@ -712,9 +729,16 @@ export default function AdminInterface() {
                                          });
                                        } catch (error) {
                                          console.error('Download error:', error);
+                                         
+                                         // Extract meaningful error message
+                                         let errorMessage = "Failed to download the file. Please try again.";
+                                         if (error instanceof Error) {
+                                           errorMessage = error.message;
+                                         }
+                                         
                                          showToast({
                                            title: "Download Failed",
-                                           description: "Failed to download the file. Please try again.",
+                                           description: errorMessage,
                                            variant: "destructive",
                                          });
                                        }
