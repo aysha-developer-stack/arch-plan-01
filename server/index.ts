@@ -74,10 +74,10 @@ const startServer = async () => {
     // Connect to database
     await connectDB();
     console.log("🚀 Connected to database");
-    
+
     // Register API routes
     const server = await registerRoutes(app);
-    
+
     // Setup Vite in development or serve static files in production
     if (process.env.NODE_ENV === "development") {
       console.log("🛠️ Setting up Vite development server...");
@@ -86,13 +86,13 @@ const startServer = async () => {
       console.log("📦 Serving static files...");
       serveStatic(app);
     }
-    
+
     // Start the server
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
-    
+
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
