@@ -48,6 +48,25 @@ export default function PlanCard({ plan }: PlanCardProps) {
         // IMMEDIATE CHECK - if response is suspiciously small, it's likely an error
         if (response.data.size < 10000) { // PDF files are almost always > 10KB
           console.log('⚠️ SUSPICIOUS: Response is very small for a PDF file');
+          console.log('🔍 FORCE CHECKING: Treating small response as potential error');
+          
+          try {
+            const testText = await response.data.text();
+            console.log('🔍 Small response content:', testText);
+            
+            // Try to parse as JSON
+            const jsonData = JSON.parse(testText);
+            if (jsonData.message || jsonData.error) {
+              console.log('🚨 CONFIRMED: Small response is JSON error, blocking download');
+              throw new Error(jsonData.message + (jsonData.details?.solution ? ` - ${jsonData.details.solution}` : ''));
+            }
+          } catch (parseError) {
+            if (parseError instanceof Error && !parseError.message.includes('Unexpected token')) {
+              // If it's our custom error message, re-throw it
+              throw parseError;
+            }
+            console.log('🔍 Small response is not JSON, allowing download');
+          }
         }
         
         // Verify response data exists and is not empty
