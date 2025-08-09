@@ -54,8 +54,11 @@ export async function setupVite(app: Express, server: Server) {
 
     // Skip API routes - let them be handled by Express routes
     if (url.startsWith('/api/')) {
+      console.log(`🔄 Vite middleware: Skipping API route ${url}`);
       return next();
     }
+
+    console.log(`📄 Vite middleware: Serving SPA for ${url}`);
 
     try {
       const clientTemplate = path.resolve(

@@ -848,15 +848,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("   - Buffer length:", contentBuffer.length);
           console.log("   - Buffer first 10 bytes:", contentBuffer.slice(0, 10));
           
+          // Validate PDF header
+          const pdfHeader = contentBuffer.slice(0, 4);
+          if (pdfHeader.toString() !== '%PDF') {
+            console.error("❌ Invalid PDF header in database content:", pdfHeader.toString());
+            return res.status(500).json({ 
+              message: "Stored file is not a valid PDF",
+              details: { header: pdfHeader.toString() }
+            });
+          }
+          
           const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
           
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
           res.setHeader('Content-Length', contentBuffer.length.toString());
           res.setHeader('Cache-Control', 'no-cache');
+          res.setHeader('Accept-Ranges', 'bytes');
           
           console.log(`🚀 Serving plan from database: ${contentBuffer.length} bytes`);
-          return res.send(contentBuffer);
+          return res.end(contentBuffer, 'binary');
         }
         
         console.error("❌ No physical file and no content in database!");
@@ -931,16 +942,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fs.closeSync(fd);
         
         const header = buffer.toString('hex', 0, bytesRead);
+        const headerText = buffer.toString('ascii', 0, Math.min(4, bytesRead));
         console.log(`📄 File header (first ${bytesRead} bytes): ${header}`);
+        console.log(`📄 File header as text: ${headerText}`);
         
-        // PDF files should start with %PDF (hex: 25504446)
-        if (!header.startsWith('25504446')) {
-          console.warn(`⚠️  Warning: File may not be a valid PDF. Expected: 25504446, Got: ${header.substring(0, 8)}`);
+        // PDF files should start with %PDF
+        if (headerText !== '%PDF') {
+          console.error(`❌ Invalid PDF file! Expected: %PDF, Got: ${headerText}`);
+          return res.status(500).json({ 
+            message: "File is not a valid PDF",
+            details: { 
+              expectedHeader: "%PDF",
+              actualHeader: headerText,
+              filePath: filePath
+            }
+          });
         } else {
-          console.log(`✅ Valid PDF header detected`);
+          console.log(`✅ Valid PDF header detected: ${headerText}`);
         }
       } catch (headerError) {
         console.error(`❌ Error reading file header:`, headerError);
+        return res.status(500).json({ 
+          message: "Failed to validate PDF file",
+          error: headerError instanceof Error ? headerError.message : String(headerError)
+        });
       }
       
       // Set comprehensive headers for PDF download
@@ -958,35 +983,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`   File name: ${plan.fileName}`);
       console.log(`   File path: ${filePath}`);
       
-      // Use streaming for better binary data handling
+      // Use sendFile for more reliable PDF serving
       const absolutePath = path.resolve(filePath);
       console.log("Sending file from absolute path:", absolutePath);
       
-      // Create a read stream for the file
-      const fileStream = fs.createReadStream(absolutePath);
-      
-      // Handle stream errors
-      fileStream.on('error', (streamErr) => {
-        console.error("❌ File stream error:", streamErr);
-        if (!res.headersSent) {
-          res.status(500).json({ message: "Failed to read file" });
+      // Use res.sendFile which handles binary data more reliably than streaming
+      res.sendFile(absolutePath, (err) => {
+        if (err) {
+          console.error("❌ SendFile error:", err);
+          if (!res.headersSent) {
+            res.status(500).json({ message: "Failed to send file" });
+          }
+        } else {
+          console.log("✅ File sent successfully!");
+          console.log("🎉 === DOWNLOAD REQUEST COMPLETED ===");
         }
       });
-      
-      // Handle successful stream completion
-      fileStream.on('end', () => {
-        console.log("✅ File stream completed successfully!");
-        console.log("🎉 === DOWNLOAD REQUEST COMPLETED ===");
-      });
-      
-      // Handle client disconnection
-      req.on('close', () => {
-        console.log("🔌 Client disconnected during download");
-        fileStream.destroy();
-      });
-      
-      // Pipe the file stream to response
-      fileStream.pipe(res);
     } catch (error) {
       console.error("💥 Unexpected error in download handler:", error);
       console.error("   Error stack:", (error as Error).stack);
@@ -1137,6 +1149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Download plan endpoint
   app.get("/api/plans/:id/download", async (req, res) => {
+    console.log(`🔽 Download endpoint hit for plan ID: ${req.params.id}`);
+    console.log(`🔽 Full request URL: ${req.originalUrl}`);
     try {
       const plan = await storage.getPlan(req.params.id);
       if (!plan) {
