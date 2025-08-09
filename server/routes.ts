@@ -1136,7 +1136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download plan endpoint
-  app.get("/plans/:id/download", async (req, res) => {
+  app.get("/api/plans/:id/download", async (req, res) => {
     try {
       const plan = await storage.getPlan(req.params.id);
       if (!plan) {
