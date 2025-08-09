@@ -27,13 +27,13 @@ export default function PlanCard({ plan }: PlanCardProps) {
       console.log('Plan ID:', plan._id);
       console.log('Plan fileName:', plan.fileName);
       console.log('Plan filePath:', plan.filePath);
-      console.log('Request URL:', `/plans/${plan._id}/download`);
+      console.log('Request URL:', `/api/plans/${plan._id}/download`);
       console.log('=== DOWNLOAD DEBUG END ===');
       
       setIsDownloading(true);
       
       try {
-        const response = await apiClient.get(`/plans/${plan._id}/download`, {
+        const response = await apiClient.get(`/api/plans/${plan._id}/download`, {
           responseType: 'blob',
         });
         
