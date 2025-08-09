@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import jwt from "jsonwebtoken";
 import { storage } from "./storage";
@@ -67,6 +68,9 @@ function cleanupExpiredSession() {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Skip auth setup for now to get the app running
   // await setupAuth(app);
+
+  // Serve static files from uploads directory
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Auth routes (simplified for demo)
   app.post("/api/login", async (req, res) => {
@@ -265,309 +269,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const downloadSessions = new Map<string, number>();
   const SESSION_TIMEOUT = 30000; // 30 seconds
 
-  // View plan PDF in browser (prevents IDM interference)
+  // View plan PDF in browser (simplified and more reliable)
   app.get("/api/plans/:id/view", async (req, res) => {
-    const planId = req.params.id;
-    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
-    const sessionKey = `${planId}-${clientIP}`;
-    const now = Date.now();
-    
-    // Check if this is a duplicate request within the session timeout
-    const lastRequestTime = downloadSessions.get(sessionKey);
-    const isDuplicateRequest = lastRequestTime && (now - lastRequestTime) < SESSION_TIMEOUT;
-    
-    if (!isDuplicateRequest) {
-      // This is a new download session, track it
-      downloadSessions.set(sessionKey, now);
-      
-      // Clean up old sessions (older than 5 minutes)
-      Array.from(downloadSessions.entries()).forEach(([key, timestamp]) => {
-        if (now - timestamp > 300000) { // 5 minutes
-          downloadSessions.delete(key);
-        }
-      });
-      
-      console.log(`🆕 New download session started for plan ${planId} from ${clientIP}`);
-      
-      // --- Per-user download tracking ---
-      let userId: string | null = null;
-      try {
-        const authHeader = req.headers["authorization"] || req.headers["Authorization"];
-        if (authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-          const token = authHeader.slice(7);
-          // Use your actual JWT secret here or from env
-          const secret = process.env.JWT_SECRET || "dev-secret";
-          const payload: any = jwt.verify(token, secret);
-          userId = payload?.id || payload?.userId || null;
-        }
-      } catch (err) {
-        console.warn("JWT extraction failed or not present", err);
-      }
-      // --- Per-user download tracking ---
-      if (userId) {
-        try {
-          await storage.incrementUserDownloadCount(userId);
-          console.log(`✅ Incremented downloadCount for user: ${userId}`);
-        } catch (err) {
-          console.warn("Could not increment user downloadCount", err);
-        }
-      }
-    } else {
-      console.log(`🔄 Duplicate request detected for plan ${planId} from ${clientIP} (within ${SESSION_TIMEOUT}ms)`);
-    }
-    const requestKey = `${req.params.id}-${req.ip}`;
-    
-    // Check if there's already an active request for this plan from this IP
-    if (activeRequests.has(requestKey)) {
-      console.log("⚠️ Duplicate request detected, ignoring:", requestKey);
-      return;
-    }
-    
-    // Mark this request as active
-    activeRequests.set(requestKey, true);
-    
-    // Clean up on request end
-    req.on('close', () => {
-      activeRequests.delete(requestKey);
-      console.log("🧹 Cleaned up request:", requestKey);
-    });
-    
-    console.log("👁️ === PDF VIEW REQUEST STARTED ===");
-    console.log("📋 Request details:", {
-      method: req.method,
-      url: req.url,
-      params: req.params,
-      userAgent: req.headers['user-agent'],
-      requestKey
-    });
-    
     try {
-      console.log("🔍 Looking up plan with ID:", req.params.id);
-      const plan = await storage.getPlan(req.params.id);
-      console.log("📄 Plan lookup result:", plan ? {
-        id: plan._id,
-        fileName: plan.fileName,
-        filePath: plan.filePath,
-        title: plan.title
-      } : "❌ Plan not found");
+      console.log("👁️ PDF View request for plan ID:", req.params.id);
       
+      const plan = await storage.getPlan(req.params.id);
       if (!plan) {
-        console.error("Plan not found for ID:", req.params.id);
-        return res.status(404).json({ message: "Plan not found" });
+        console.log("❌ Plan not found:", req.params.id);
+        return res.status(404).send('Plan not found');
       }
 
-      // Handle file path resolution with multiple fallback strategies
-      let filePath;
-      const originalPath = plan.filePath;
-      console.log("Original file path from DB:", originalPath);
-      console.log("Current working directory:", process.cwd());
-      
-      // Normalize Windows backslashes to forward slashes for cross-platform compatibility
-      const normalizedPath = originalPath.replace(/\\/g, '/');
-      console.log("Normalized file path:", normalizedPath);
-      
-      // Strategy 1: Try the path as stored in DB (could be absolute or relative)
-      if (path.isAbsolute(normalizedPath)) {
-        filePath = normalizedPath;
-      } else {
-        filePath = path.join(process.cwd(), normalizedPath);
-      }
-      
-      console.log("Strategy 1 - Trying path:", filePath);
-      console.log("Strategy 1 - File exists:", fs.existsSync(filePath));
-      
-      // Strategy 2: If not found, try relative to server directory
-      if (!fs.existsSync(filePath)) {
-        const serverRelativePath = path.join(__dirname, '..', originalPath);
-        console.log("Strategy 2 - Trying server relative path:", serverRelativePath);
-        console.log("Strategy 2 - File exists:", fs.existsSync(serverRelativePath));
-        if (fs.existsSync(serverRelativePath)) {
-          filePath = serverRelativePath;
-        }
-      }
-      
-      // Strategy 3: If still not found, try looking in uploads directory
-      if (!fs.existsSync(filePath)) {
-        const fileName = path.basename(originalPath);
-        const uploadsPath = path.join(process.cwd(), 'uploads', fileName);
-        console.log("Strategy 3 - Trying uploads directory:", uploadsPath);
-        console.log("Strategy 3 - File exists:", fs.existsSync(uploadsPath));
-        if (fs.existsSync(uploadsPath)) {
-          filePath = uploadsPath;
-        }
-      }
-      
-      // Strategy 4: Try server/uploads directory
-      if (!fs.existsSync(filePath)) {
-        const fileName = path.basename(originalPath);
-        const serverUploadsPath = path.join(__dirname, 'uploads', fileName);
-        console.log("Strategy 4 - Trying server/uploads:", serverUploadsPath);
-        console.log("Strategy 4 - File exists:", fs.existsSync(serverUploadsPath));
-        if (fs.existsSync(serverUploadsPath)) {
-          filePath = serverUploadsPath;
-        }
-      }
-      
-      console.log("Final file path to use:", filePath);
-      console.log("Final file exists check:", fs.existsSync(filePath));
-      
-      if (!fs.existsSync(filePath)) {
-        console.log("⚠️ Physical file not found, checking if plan has content data in database...");
-        console.log("   Original path:", originalPath);
-        console.log("   Final attempted path:", filePath);
+      // Check if plan has content stored in database first
+      if (plan.content) {
+        console.log("✅ Serving PDF from database content");
+        const contentBuffer = Buffer.from(plan.content, 'base64');
         
-        // Check if plan has content stored in database
-        console.log("🔍 Checking plan content in database...");
-        console.log("   - Has content property:", !!plan.content);
-        console.log("   - Content type:", typeof plan.content);
-        console.log("   - Content length:", plan.content ? plan.content.length : 0);
-        console.log("   - Content preview:", plan.content ? plan.content.substring(0, 50) + '...' : 'null');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline; filename="' + (plan.fileName || 'plan.pdf') + '"');
+        res.setHeader('Content-Length', contentBuffer.length.toString());
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         
-        // Increment download count once for successful download (regardless of source)
-        console.log("🔢 Attempting to increment download count for plan:", plan._id.toString());
-        console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
-        try {
-          await storage.incrementDownloadCount(plan._id.toString());
-          console.log("✅ Download count incremented successfully");
-          
-          // Verify the increment worked by fetching the plan again
-          const updatedPlan = await storage.getPlan(plan._id.toString());
-          console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
-        } catch (error) {
-          console.error("❌ Failed to increment download count:", error);
-          console.error("❌ Error details:", error instanceof Error ? error.stack : error);
-          // Continue with download even if count increment fails
-        }
+        return res.send(contentBuffer);
+      }
+
+      // Fallback to file system with normalized paths
+      if (plan.filePath) {
+        // Normalize path for cross-platform compatibility
+        const normalizedPath = plan.filePath.replace(/\\/g, '/');
+        const filePath = path.isAbsolute(normalizedPath) 
+          ? normalizedPath 
+          : path.join(process.cwd(), normalizedPath);
         
-        if (plan.content) {
-          console.log("✅ Found plan content in database, serving from memory");
-          
-          // Serve content from database
-          console.log("🔄 Converting base64 content to buffer...");
-          const contentBuffer = Buffer.from(plan.content, 'base64');
-          console.log("   - Buffer created successfully:", !!contentBuffer);
-          console.log("   - Buffer length:", contentBuffer.length);
-          console.log("   - Buffer first 10 bytes:", contentBuffer.slice(0, 10));
-          
-          const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
+        console.log("🔍 Checking file path:", filePath);
+        
+        if (fs.existsSync(filePath)) {
+          console.log("✅ Serving PDF from file system");
           
           res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-          res.setHeader('Content-Length', contentBuffer.length.toString());
+          res.setHeader('Content-Disposition', 'inline; filename="' + (plan.fileName || 'plan.pdf') + '"');
           res.setHeader('Cache-Control', 'no-cache');
+          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
           
-          console.log(`🚀 Serving plan from database: ${contentBuffer.length} bytes`);
-          return res.send(contentBuffer);
+          return res.sendFile(path.resolve(filePath));
         }
-        
-        console.error("❌ No physical file and no content in database!");
-        console.log("💡 This plan was likely uploaded before the database storage fix.");
-        console.log("💡 Solution: Re-upload this plan through the admin panel.");
-        
-        return res.status(404).json({ 
-          message: "File not available - please re-upload this plan through the admin panel",
-          details: {
-            originalPath,
-            attemptedPath: filePath,
-            hasContent: !!plan.content,
-            solution: "This plan was uploaded before database storage was implemented. Please re-upload it through the admin panel."
-          }
-        });
       }
 
-      console.log("✅ File found! Setting headers and serving file...");
+      console.log("❌ No file or content available for plan:", req.params.id);
+      return res.status(404).send('File not found');
       
-      // Only increment download count for new download sessions (prevent duplicates)
-      if (!isDuplicateRequest) {
-        console.log("🔢 Attempting to increment download count for plan:", plan._id.toString());
-        console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
-        try {
-          await storage.incrementDownloadCount(plan._id.toString());
-          console.log("✅ Download count incremented successfully");
-          
-          // Verify the increment worked by fetching the plan again
-          const updatedPlan = await storage.getPlan(plan._id.toString());
-          console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
-        } catch (error) {
-          console.error("❌ Failed to increment download count:", error);
-          console.error("❌ Error details:", error instanceof Error ? error.stack : error);
-          // Continue with download even if count increment fails
-        }
-      } else {
-        console.log("🔄 Skipping download count increment (duplicate request)");
-      }
-      
-      // Get file stats for proper headers
-      const stats = fs.statSync(filePath);
-      const fileSize = stats.size;
-      
-      // Set headers specifically to prevent IDM interference and force browser viewing
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", "inline; filename=\"plan.pdf\"");
-      res.setHeader("Content-Length", fileSize.toString());
-      res.setHeader("Accept-Ranges", "bytes");
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-      res.setHeader("X-Content-Type-Options", "nosniff");
-      res.setHeader("X-Frame-Options", "SAMEORIGIN");
-      
-      console.log(`📊 File size: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
-      console.log("🚀 Starting file stream...");
-      
-      // Use streaming instead of sendFile for better control
-      const fileStream = fs.createReadStream(filePath);
-      
-      // Handle stream errors
-      fileStream.on('error', (streamErr) => {
-        console.error("❌ File stream error:", streamErr);
-        activeRequests.delete(requestKey);
-        
-        if (!res.headersSent) {
-          res.status(500).json({ message: "Failed to read file" });
-        }
-      });
-      
-      // Handle successful stream end
-      fileStream.on('end', () => {
-        console.log("✅ File stream completed successfully!");
-        console.log("🎉 === PDF VIEW REQUEST COMPLETED ===");
-        activeRequests.delete(requestKey);
-      });
-      
-      // Handle client disconnection
-      req.on('close', () => {
-        console.log("🔌 Client disconnected during stream (normal behavior)");
-        fileStream.destroy(); // Clean up the stream
-        activeRequests.delete(requestKey);
-      });
-      
-      // Handle response errors (including ECONNABORTED)
-      res.on('error', (resErr) => {
-        const errorCode = (resErr as any).code;
-        
-        if (errorCode === 'ECONNABORTED' || errorCode === 'ECONNRESET') {
-          console.log("🔌 Client disconnected during response (normal behavior)");
-        } else {
-          console.error("❌ Response error:", resErr);
-        }
-        
-        fileStream.destroy(); // Clean up the stream
-        activeRequests.delete(requestKey);
-      });
-      
-      // Pipe the file stream to response
-      fileStream.pipe(res);
     } catch (error) {
-      console.error("💥 Unexpected error in view handler:", error);
-      console.error("   Error stack:", (error as Error).stack);
-      if (!res.headersSent) {
-        console.log("📤 Sending 500 error response");
-        res.status(500).json({ message: "Failed to view plan" });
-      }
+      console.error("❌ Error in PDF view endpoint:", error);
+      return res.status(500).send('Server error');
     }
-    
-    console.log("📝 View handler function completed (but file may still be sending)");
   });
 
   // Quick reset for specific plan (GET request for easy browser access)

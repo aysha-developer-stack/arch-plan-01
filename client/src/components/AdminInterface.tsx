@@ -677,64 +677,85 @@ export default function AdminInterface() {
                                   </Dialog>
 
                                   {/* View PDF Button */}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={isLoadingPdf}
-                                    onClick={() => {
-                                      try {
-                                        const planId = plan._id.toString();
-                                        const viewUrl = `/api/plans/${planId}/view`;
-                                        
-                                        // Prevent multiple rapid clicks
-                                        if (isLoadingPdf) {
-                                          console.log('⚠️ PDF already loading, ignoring click');
-                                          return;
-                                        }
-                                        
-                                        // If the same PDF is already loaded and modal is open, just show it
-                                        if (isPdfViewerOpen && currentPdfUrl === viewUrl) {
-                                          console.log('📄 PDF already loaded, showing modal');
-                                          return;
-                                        }
-                                        
-                                        console.log('👁️ Opening PDF with server-side streaming:', viewUrl);
-                                        console.log('🔍 Current modal state - isPdfViewerOpen:', isPdfViewerOpen);
-                                        console.log('🔍 Current PDF URL:', currentPdfUrl);
-                                        
-                                        // Set loading state
-                                        setIsLoadingPdf(true);
-                                        setLastRequestedPdfId(planId);
-                                        
-                                        // Set the PDF URL and open modal
-                                        setCurrentPdfUrl(viewUrl);
-                                        setIsPdfViewerOpen(true);
-                                        
-                                        console.log('✅ Modal should now be open with URL:', viewUrl);
-                                        
-                                        showToast({
-                                          title: "Opening PDF",
-                                          description: "Loading PDF in viewer...",
-                                        });
-                                        
-                                        // Reset loading state after a short delay
-                                        setTimeout(() => {
-                                          setIsLoadingPdf(false);
-                                          setLastRequestedPdfId(null);
-                                          console.log('⏰ Loading state reset after timeout');
-                                        }, 2000);
-                                        
-                                      } catch (error) {
-                                        console.error('View error:', error);
-                                        setIsLoadingPdf(false);
-                                        setLastRequestedPdfId(null);
-                                        showToast({
-                                          title: "Failed to Open",
-                                          description: "Failed to open PDF. Please try again.",
-                                          variant: "destructive",
-                                        });
-                                      }
-                                    }}
+                                   <Button
+                                     variant="outline"
+                                     size="sm"
+                                     disabled={isLoadingPdf}
+                                     onClick={async () => {
+                                       try {
+                                         const planId = plan._id.toString();
+                                         const viewUrl = `/api/plans/${planId}/view`;
+                                         
+                                         // Prevent multiple rapid clicks
+                                         if (isLoadingPdf) {
+                                           console.log('⚠️ PDF already loading, ignoring click');
+                                           return;
+                                         }
+                                         
+                                         // If the same PDF is already loaded and modal is open, just show it
+                                         if (isPdfViewerOpen && currentPdfUrl === viewUrl) {
+                                           console.log('📄 PDF already loaded, showing modal');
+                                           return;
+                                         }
+                                         
+                                         console.log('👁️ Opening PDF with server-side streaming:', viewUrl);
+                                         console.log('🔍 Current modal state - isPdfViewerOpen:', isPdfViewerOpen);
+                                         console.log('🔍 Current PDF URL:', currentPdfUrl);
+                                         
+                                         // Set loading state
+                                         setIsLoadingPdf(true);
+                                         setLastRequestedPdfId(planId);
+                                         
+                                         // First, check if the PDF is available before setting iframe src
+                                         try {
+                                           const response = await fetch(viewUrl, { method: 'HEAD' });
+                                           if (!response.ok) {
+                                             throw new Error(`PDF not available: ${response.status} ${response.statusText}`);
+                                           }
+                                           
+                                           // PDF is available, set the URL and open modal
+                                           setCurrentPdfUrl(viewUrl);
+                                           setIsPdfViewerOpen(true);
+                                           
+                                           console.log('✅ Modal should now be open with URL:', viewUrl);
+                                           
+                                           showToast({
+                                             title: "Opening PDF",
+                                             description: "Loading PDF in viewer...",
+                                           });
+                                           
+                                           // Reset loading state after a reasonable delay only if still loading
+                                           setTimeout(() => {
+                                             if (isLoadingPdf) {
+                                               setIsLoadingPdf(false);
+                                               setLastRequestedPdfId(null);
+                                               console.log('⏰ Loading state reset after timeout (PDF took too long to load)');
+                                             }
+                                           }, 5000); // Increased to 5 seconds
+                                           
+                                         } catch (fetchError) {
+                                           console.error('❌ PDF availability check failed:', fetchError);
+                                           setIsLoadingPdf(false);
+                                           setLastRequestedPdfId(null);
+                                           
+                                           showToast({
+                                             title: "PDF Not Available",
+                                             description: "This plan file is not available. It may need to be re-uploaded through the admin panel.",
+                                             variant: "destructive",
+                                           });
+                                         }
+                                         
+                                       } catch (error) {
+                                         console.error('View error:', error);
+                                         setIsLoadingPdf(false);
+                                         setLastRequestedPdfId(null);
+                                         showToast({
+                                           title: "Failed to Open",
+                                           description: "Failed to open PDF. Please try again.",
+                                           variant: "destructive",
+                                         });
+                                       }
+                                     }}
                                   >
                                     {isLoadingPdf && lastRequestedPdfId === plan._id.toString() ? (
                                       <>
@@ -856,7 +877,7 @@ export default function AdminInterface() {
                     className="w-full h-full border-0 bg-white"
                     title="PDF Viewer"
                     allow="fullscreen"
-                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                    sandbox="allow-same-origin"
                     onLoad={() => {
                       console.log('✅ PDF iframe loaded successfully for URL:', currentPdfUrl);
                       setIsLoadingPdf(false);
@@ -870,9 +891,14 @@ export default function AdminInterface() {
                       console.error('❌ PDF iframe load error for URL:', currentPdfUrl, e);
                       setIsLoadingPdf(false);
                       setLastRequestedPdfId(null);
+                      
+                      // Clear the PDF URL to prevent retry loop
+                      setCurrentPdfUrl('');
+                      setIsPdfViewerOpen(false);
+                      
                       showToast({
-                        title: "Error Loading PDF",
-                        description: "The PDF could not be loaded. Please try refreshing.",
+                        title: "PDF Not Available",
+                        description: "This plan file is not available and may need to be re-uploaded.",
                         variant: "destructive"
                       });
                     }}
