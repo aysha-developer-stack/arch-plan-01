@@ -81,7 +81,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
         const url = window.URL.createObjectURL(response.data);
         const link = document.createElement('a');
         link.href = url;
-        link.download = plan.fileName || 'plan.pdf';
+        link.download = `${plan.title || 'plan'}.pdf`;
         document.body.appendChild(link);
         link.click();
         
