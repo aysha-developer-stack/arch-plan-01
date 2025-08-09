@@ -92,3 +92,4 @@ export function serveStatic(app: Express) {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
+
