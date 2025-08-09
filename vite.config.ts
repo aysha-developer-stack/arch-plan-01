@@ -21,6 +21,7 @@ export default defineConfig(async () => {
   }
 
   return {
+    base: process.env.ARCH_BASE_PATH || "/arch-plan",
     plugins,
     resolve: {
       alias: {
