@@ -676,97 +676,32 @@ export default function AdminInterface() {
                                     </DialogContent>
                                   </Dialog>
 
-                                  {/* View PDF Button */}
+                                   {/* Download PDF Button */}
                                    <Button
                                      variant="outline"
                                      size="sm"
-                                     disabled={isLoadingPdf}
-                                     onClick={async () => {
-                                       try {
-                                         const planId = plan._id.toString();
-                                         const viewUrl = `/api/plans/${planId}/view`;
-                                         
-                                         // Prevent multiple rapid clicks
-                                         if (isLoadingPdf) {
-                                           console.log('⚠️ PDF already loading, ignoring click');
-                                           return;
-                                         }
-                                         
-                                         // If the same PDF is already loaded and modal is open, just show it
-                                         if (isPdfViewerOpen && currentPdfUrl === viewUrl) {
-                                           console.log('📄 PDF already loaded, showing modal');
-                                           return;
-                                         }
-                                         
-                                         console.log('👁️ Opening PDF with server-side streaming:', viewUrl);
-                                         console.log('🔍 Current modal state - isPdfViewerOpen:', isPdfViewerOpen);
-                                         console.log('🔍 Current PDF URL:', currentPdfUrl);
-                                         
-                                         // Set loading state
-                                         setIsLoadingPdf(true);
-                                         setLastRequestedPdfId(planId);
-                                         
-                                         // First, check if the PDF is available before setting iframe src
-                                         try {
-                                           const response = await fetch(viewUrl, { method: 'HEAD' });
-                                           if (!response.ok) {
-                                             throw new Error(`PDF not available: ${response.status} ${response.statusText}`);
-                                           }
-                                           
-                                           // PDF is available, set the URL and open modal
-                                           setCurrentPdfUrl(viewUrl);
-                                           setIsPdfViewerOpen(true);
-                                           
-                                           console.log('✅ Modal should now be open with URL:', viewUrl);
-                                           
-                                           showToast({
-                                             title: "Opening PDF",
-                                             description: "Loading PDF in viewer...",
-                                           });
-                                           
-                                           // Reset loading state after a reasonable delay only if still loading
-                                           setTimeout(() => {
-                                             if (isLoadingPdf) {
-                                               setIsLoadingPdf(false);
-                                               setLastRequestedPdfId(null);
-                                               console.log('⏰ Loading state reset after timeout (PDF took too long to load)');
-                                             }
-                                           }, 5000); // Increased to 5 seconds
-                                           
-                                         } catch (fetchError) {
-                                           console.error('❌ PDF availability check failed:', fetchError);
-                                           setIsLoadingPdf(false);
-                                           setLastRequestedPdfId(null);
-                                           
-                                           showToast({
-                                             title: "PDF Not Available",
-                                             description: "This plan file is not available. It may need to be re-uploaded through the admin panel.",
-                                             variant: "destructive",
-                                           });
-                                         }
-                                         
-                                       } catch (error) {
-                                         console.error('View error:', error);
-                                         setIsLoadingPdf(false);
-                                         setLastRequestedPdfId(null);
-                                         showToast({
-                                           title: "Failed to Open",
-                                           description: "Failed to open PDF. Please try again.",
-                                           variant: "destructive",
-                                         });
-                                       }
+                                     onClick={() => {
+                                       const planId = plan._id.toString();
+                                       const downloadUrl = `/plans/${planId}/download`;
+                                       
+                                       console.log('📥 Downloading PDF:', downloadUrl);
+                                       
+                                       // Create a temporary link and trigger download
+                                       const link = document.createElement('a');
+                                       link.href = downloadUrl;
+                                       link.download = `${plan.title}.pdf`;
+                                       document.body.appendChild(link);
+                                       link.click();
+                                       document.body.removeChild(link);
+                                       
+                                       showToast({
+                                         title: "Download Started",
+                                         description: `Downloading ${plan.title}...`,
+                                       });
                                      }}
-                                  >
-                                    {isLoadingPdf && lastRequestedPdfId === plan._id.toString() ? (
-                                      <>
-                                        <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> Loading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Eye className="w-4 h-4 mr-1" /> View PDF
-                                      </>
-                                    )}
-                                  </Button>
+                                   >
+                                     <Download className="w-4 h-4 mr-1" /> Download
+                                   </Button>
 
                                   {/* Delete Button */}
                                   <Button

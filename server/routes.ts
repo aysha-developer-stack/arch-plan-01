@@ -917,6 +917,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // View plan endpoint for inline PDF viewing in browser
+  app.get("/api/plans/:id/view", async (req, res) => {
+    try {
+      console.log(`🔍 Attempting to view plan with ID: ${req.params.id}`);
+      const plan = await storage.getPlan(req.params.id);
+      if (!plan) {
+        console.log(`❌ Plan not found in database: ${req.params.id}`);
+        return res.status(404).json({ message: "Plan not found" });
+      }
+      console.log(`✅ Plan found: ${plan.title} (${plan.fileName})`);
+      console.log(`📁 File path: ${plan.filePath || 'stored in database'}`);
+      console.log(`💾 Has content: ${plan.content ? 'yes' : 'no'}`);
+    
+
+      let filePath: string;
+      let fileBuffer: Buffer;
+      let fileName: string = plan.fileName || `${plan.title}.pdf`;
+
+      // Try to serve from file system first
+      if (plan.filePath) {
+        filePath = path.join(process.cwd(), plan.filePath);
+        if (fs.existsSync(filePath)) {
+          fileBuffer = fs.readFileSync(filePath);
+        } else if (plan.content) {
+          // Fallback to database content if file doesn't exist
+          fileBuffer = Buffer.from(plan.content, 'base64');
+        } else {
+          return res.status(404).json({ message: "File not found" });
+        }
+      } else if (plan.content) {
+        // Serve from database content
+        fileBuffer = Buffer.from(plan.content, 'base64');
+      } else {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      // Set proper headers for inline PDF viewing
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileBuffer.length.toString());
+      
+      // Send the file
+      res.send(fileBuffer);
+    } catch (error) {
+      console.error("Error viewing plan:", error);
+      res.status(500).json({ message: "Failed to view plan" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
