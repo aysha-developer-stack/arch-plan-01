@@ -294,13 +294,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.send(contentBuffer);
       }
 
-      // Fallback to file system with normalized paths
+      // Fallback to file system with improved path resolution
       if (plan.filePath) {
-        // Normalize path for cross-platform compatibility
-        const normalizedPath = plan.filePath.replace(/\\/g, '/');
-        const filePath = path.isAbsolute(normalizedPath) 
-          ? normalizedPath 
-          : path.join(process.cwd(), normalizedPath);
+        console.log("📁 Original file path from database:", plan.filePath);
+        
+        let filePath;
+        let fileName = plan.fileName;
+        
+        // Extract filename from path if it contains Docker/container paths
+        if (plan.filePath.includes('/app/uploads/') || plan.filePath.includes('\\app\\uploads\\')) {
+          // Extract just the filename from Docker container path
+          fileName = path.basename(plan.filePath);
+          filePath = path.join(process.cwd(), 'uploads', fileName);
+          console.log("🐳 Detected Docker path, using local uploads directory");
+        } else {
+          // Handle normal paths
+          const normalizedPath = plan.filePath.replace(/\\/g, '/');
+          filePath = path.isAbsolute(normalizedPath) 
+            ? normalizedPath 
+            : path.join(process.cwd(), normalizedPath);
+        }
         
         console.log("🔍 Checking file path:", filePath);
         
@@ -308,11 +321,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("✅ Serving PDF from file system");
           
           res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', 'inline; filename="' + (plan.fileName || 'plan.pdf') + '"');
+          res.setHeader('Content-Disposition', 'inline; filename="' + (fileName || 'plan.pdf') + '"');
           res.setHeader('Cache-Control', 'no-cache');
           res.setHeader('X-Frame-Options', 'SAMEORIGIN');
           
           return res.sendFile(path.resolve(filePath));
+        } else {
+          console.log("❌ File not found at:", filePath);
+          
+          // Try to find the file by searching the uploads directory
+          const uploadsDir = path.join(process.cwd(), 'uploads');
+          if (fs.existsSync(uploadsDir)) {
+            const files = fs.readdirSync(uploadsDir);
+            console.log("📂 Available files in uploads:", files);
+            
+            // Look for files with similar names or timestamps
+            const targetFileName = path.basename(plan.filePath);
+            const foundFile = files.find(file => file === targetFileName);
+            
+            if (foundFile) {
+              const foundFilePath = path.join(uploadsDir, foundFile);
+              console.log("🔍 Found matching file:", foundFilePath);
+              
+              res.setHeader('Content-Type', 'application/pdf');
+              res.setHeader('Content-Disposition', 'inline; filename="' + (fileName || 'plan.pdf') + '"');
+              res.setHeader('Cache-Control', 'no-cache');
+              res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+              
+              return res.sendFile(path.resolve(foundFilePath));
+            }
+          }
         }
       }
 
@@ -396,51 +434,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Debug endpoint error:", error);
       res.status(500).json({ message: "Debug failed", error: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  // View plan PDF (for preview in iframe)
-  app.get("/api/plans/:id/view", async (req, res) => {
-    try {
-      const plan = await storage.getPlan(req.params.id);
-      if (!plan) {
-        return res.status(404).json({ message: "Plan not found" });
-      }
-
-      // Handle file path resolution with normalization
-      let filePath;
-      const originalPath = plan.filePath;
-      const normalizedPath = originalPath.replace(/\\/g, '/');
-      
-      if (path.isAbsolute(normalizedPath)) {
-        filePath = normalizedPath;
-      } else {
-        filePath = path.join(process.cwd(), normalizedPath);
-      }
-
-      // Try to serve from file system first
-      if (fs.existsSync(filePath)) {
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'inline');
-        return res.sendFile(path.resolve(filePath));
-      }
-
-      // Fallback to database content
-      if (plan.content) {
-        const contentBuffer = Buffer.from(plan.content, 'base64');
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'inline');
-        res.setHeader('Content-Length', contentBuffer.length.toString());
-        return res.send(contentBuffer);
-      }
-
-      // No file found
-      return res.status(404).json({ 
-        message: "PDF not available - please re-upload this plan through the admin panel" 
-      });
-    } catch (error) {
-      console.error("View PDF error:", error);
-      res.status(500).json({ message: "Error viewing PDF" });
     }
   });
 
@@ -780,15 +773,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Read file content and convert to base64 for database storage
       // This ensures files work on cloud platforms like Railway
       let fileContent: string | undefined;
+      let fileReadError = false;
       try {
         const fileBuffer = fs.readFileSync(req.file.path);
         fileContent = fileBuffer.toString('base64');
         console.log(`📦 File content stored in database: ${fileContent.length} characters (base64)`);
       } catch (fileError) {
+        fileReadError = true;
         console.warn("⚠️ Could not read file for database storage:", fileError);
         // Continue without content - will rely on file system
       }
-      
+
+      // Always set both filePath and content (if available) on the plan record
       const planData = insertPlanSchema.parse({
         ...req.body,
         fileName: req.file.originalname,
@@ -796,19 +792,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileSize: req.file.size,
         uploadedBy: userId,
         storeys: parseInt(req.body.storeys),
-        content: fileContent, // Store file content in database
+        content: fileContent, // Store file content in database if available
       });
 
-      const plan = await storage.createPlan(planData);
-      
-      // Clean up temporary file after storing in database
+      let plan;
       try {
-        fs.unlinkSync(req.file.path);
-        console.log(`🧹 Cleaned up temporary file: ${req.file.path}`);
-      } catch (cleanupError) {
-        console.warn("⚠️ Could not clean up temporary file:", cleanupError);
+        plan = await storage.createPlan(planData);
+      } catch (dbError) {
+        console.error('❌ Failed to save plan to database:', dbError);
+        // Do NOT delete the file if DB save fails
+        if (dbError instanceof Error) {
+          return res.status(500).json({ message: 'Failed to save plan to database', error: dbError.message });
+        } else {
+          return res.status(500).json({ message: 'Failed to save plan to database', error: dbError });
+        }
       }
-      
+
+      // Only clean up (delete) the file if both DB and file read succeeded
+      if (!fileReadError && fileContent) {
+        try {
+          fs.unlinkSync(req.file.path);
+          console.log(`🧹 Cleaned up temporary file: ${req.file.path}`);
+        } catch (cleanupError) {
+          console.warn("⚠️ Could not clean up temporary file:", cleanupError);
+        }
+      } else {
+        console.warn('⚠️ File was NOT deleted from disk due to file read error or missing content.');
+      }
+
       res.json(plan);
     } catch (error) {
       console.error("Error uploading plan:", error);
