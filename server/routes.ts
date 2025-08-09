@@ -362,11 +362,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Original file path from DB:", originalPath);
       console.log("Current working directory:", process.cwd());
       
+      // Normalize Windows backslashes to forward slashes for cross-platform compatibility
+      const normalizedPath = originalPath.replace(/\\/g, '/');
+      console.log("Normalized file path:", normalizedPath);
+      
       // Strategy 1: Try the path as stored in DB (could be absolute or relative)
-      if (path.isAbsolute(originalPath)) {
-        filePath = originalPath;
+      if (path.isAbsolute(normalizedPath)) {
+        filePath = normalizedPath;
       } else {
-        filePath = path.join(process.cwd(), originalPath);
+        filePath = path.join(process.cwd(), normalizedPath);
       }
       
       console.log("Strategy 1 - Trying path:", filePath);
