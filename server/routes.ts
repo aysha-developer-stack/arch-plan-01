@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import jwt from "jsonwebtoken";
 import { storage } from "./storage";
 // import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertPlanSchema } from "@shared/schema";
@@ -34,23 +35,144 @@ const upload = multer({
   },
 });
 
+// Single admin session management
+let activeAdminSession: {
+  userId: string;
+  email: string;
+  loginTime: number;
+  lastActivity: number;
+} | null = null;
+
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+// Helper function to check if session is expired
+function isSessionExpired(session: typeof activeAdminSession): boolean {
+  if (!session) return true;
+  return Date.now() - session.lastActivity > SESSION_TIMEOUT;
+}
+
+// Helper function to clean up expired sessions
+function cleanupExpiredSession() {
+  if (activeAdminSession && isSessionExpired(activeAdminSession)) {
+    console.log(`🧹 Cleaning up expired admin session for ${activeAdminSession.email}`);
+    activeAdminSession = null;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Skip auth setup for now to get the app running
   // await setupAuth(app);
 
   // Auth routes (simplified for demo)
+  app.post("/api/login", async (req, res) => {
+    // Mock login endpoint for development
+    const { email, password } = req.body;
+    
+    // Clean up any expired sessions first
+    cleanupExpiredSession();
+    
+    // Simple mock authentication
+    if (email && password) {
+      // If the same admin is trying to log in again, allow it by clearing the existing session
+      if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
+        if (activeAdminSession.email === email) {
+          console.log(`🔄 Same admin (${email}) is logging in again, allowing session refresh`);
+          activeAdminSession = null;
+        } else {
+          // A different admin is already logged in
+          return res.status(423).json({ 
+            success: false, 
+            message: `Admin portal is currently in use by ${activeAdminSession.email}. Please try again later.`,
+            code: "ADMIN_SESSION_ACTIVE"
+          });
+        }
+      }
+      
+      // Create new admin session
+      const now = Date.now();
+      activeAdminSession = {
+        userId: "admin-user",
+        email: email,
+        loginTime: now,
+        lastActivity: now
+      };
+      
+      const mockUser = {
+        id: "admin-user",
+        email: email,
+        firstName: "Admin",
+        lastName: "User",
+        profileImageUrl: null,
+        token: "admin-jwt-token",
+      };
+      
+      console.log(`🔐 New admin session started for ${email}`);
+      res.json({ success: true, user: mockUser });
+    } else {
+      res.status(400).json({ success: false, message: "Email and password required" });
+    }
+  });
+
+  app.post("/api/logout", async (req, res) => {
+    // Clear the active admin session
+    if (activeAdminSession) {
+      console.log(`🚪 Admin session ended for ${activeAdminSession.email}`);
+      activeAdminSession = null;
+    }
+    res.json({ success: true, message: "Logged out successfully" });
+  });
+
+  // Endpoint to clear admin session when navigating away from admin portal
+  app.post("/api/admin/clear-session", async (req, res) => {
+    const { email } = req.body;
+    if (activeAdminSession && activeAdminSession.email === email) {
+      console.log(`🔄 Clearing admin session for ${email} (navigated away)`);
+      activeAdminSession = null;
+      return res.json({ success: true, message: "Session cleared" });
+    }
+    res.json({ success: false, message: "No matching active session found" });
+  });
+
   app.get("/api/auth/user", async (req: any, res) => {
-    // Return mock user for development
-    const mockUser = {
-      id: "dev-user",
-      email: "dev@example.com",
-      firstName: "Developer",
-      lastName: "User",
-      profileImageUrl: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    res.json(mockUser);
+    // Clean up expired sessions
+    cleanupExpiredSession();
+    
+    // Check if there's an active admin session
+    if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
+      // Update last activity
+      activeAdminSession.lastActivity = Date.now();
+      
+      // Return the active admin user
+      const adminUser = {
+        id: activeAdminSession.userId,
+        email: activeAdminSession.email,
+        firstName: "Admin",
+        lastName: "User",
+        profileImageUrl: null,
+        createdAt: new Date(activeAdminSession.loginTime),
+        updatedAt: new Date(),
+      };
+      return res.json(adminUser);
+    }
+    
+    // No active session
+    res.status(401).json({ message: "No active admin session" });
+  });
+  
+  // Check admin session status
+  app.get("/api/admin/session-status", async (req, res) => {
+    cleanupExpiredSession();
+    
+    if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
+      res.json({
+        active: true,
+        email: activeAdminSession.email,
+        loginTime: activeAdminSession.loginTime,
+        lastActivity: activeAdminSession.lastActivity
+      });
+    } else {
+      res.json({ active: false });
+    }
   });
 
   // Public plan search endpoint
@@ -76,6 +198,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get total downloads across all plans
+  app.get("/api/plans/total-downloads", async (req, res) => {
+    try {
+      const stats = await storage.getPlanStats();
+      res.json({ totalDownloads: stats.totalDownloads });
+    } catch (error) {
+      console.error("Error fetching total downloads:", error);
+      res.status(500).json({ message: "Failed to fetch total downloads" });
+    }
+  });
+
   // Get plan by ID
   app.get("/api/plans/:id", async (req, res) => {
     try {
@@ -90,39 +223,655 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Download plan PDF
-  app.get("/api/plans/:id/download", async (req, res) => {
+  // Track active requests to prevent multiple simultaneous requests
+  const activeRequests = new Map<string, boolean>();
+
+  // Get current user's download count
+  app.get("/api/users/me/downloads", async (req, res) => {
+    try {
+      const authHeader = req.headers["authorization"] || req.headers["Authorization"];
+      if (!authHeader || typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Missing or invalid Authorization header" });
+      }
+      const token = authHeader.slice(7);
+      const secret = process.env.JWT_SECRET || "dev-secret";
+      let userId: string | null = null;
+      try {
+        const payload: any = jwt.verify(token, secret);
+        userId = payload?.id || payload?.userId || null;
+      } catch (err) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found in token" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      return res.json({ downloadCount: user.downloadCount || 0 });
+    } catch (err) {
+      console.error("Failed to get user download count", err);
+      return res.status(500).json({ message: "Failed to get user download count" });
+    }
+  });
+
+  // Track download sessions to prevent duplicate counting
+  const downloadSessions = new Map<string, number>();
+  const SESSION_TIMEOUT = 30000; // 30 seconds
+
+  // View plan PDF in browser (prevents IDM interference)
+  app.get("/api/plans/:id/view", async (req, res) => {
+    const planId = req.params.id;
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    const sessionKey = `${planId}-${clientIP}`;
+    const now = Date.now();
+    
+    // Check if this is a duplicate request within the session timeout
+    const lastRequestTime = downloadSessions.get(sessionKey);
+    const isDuplicateRequest = lastRequestTime && (now - lastRequestTime) < SESSION_TIMEOUT;
+    
+    if (!isDuplicateRequest) {
+      // This is a new download session, track it
+      downloadSessions.set(sessionKey, now);
+      
+      // Clean up old sessions (older than 5 minutes)
+      Array.from(downloadSessions.entries()).forEach(([key, timestamp]) => {
+        if (now - timestamp > 300000) { // 5 minutes
+          downloadSessions.delete(key);
+        }
+      });
+      
+      console.log(`🆕 New download session started for plan ${planId} from ${clientIP}`);
+      
+      // --- Per-user download tracking ---
+      let userId: string | null = null;
+      try {
+        const authHeader = req.headers["authorization"] || req.headers["Authorization"];
+        if (authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+          const token = authHeader.slice(7);
+          // Use your actual JWT secret here or from env
+          const secret = process.env.JWT_SECRET || "dev-secret";
+          const payload: any = jwt.verify(token, secret);
+          userId = payload?.id || payload?.userId || null;
+        }
+      } catch (err) {
+        console.warn("JWT extraction failed or not present", err);
+      }
+      // --- Per-user download tracking ---
+      if (userId) {
+        try {
+          await storage.incrementUserDownloadCount(userId);
+          console.log(`✅ Incremented downloadCount for user: ${userId}`);
+        } catch (err) {
+          console.warn("Could not increment user downloadCount", err);
+        }
+      }
+    } else {
+      console.log(`🔄 Duplicate request detected for plan ${planId} from ${clientIP} (within ${SESSION_TIMEOUT}ms)`);
+    }
+    const requestKey = `${req.params.id}-${req.ip}`;
+    
+    // Check if there's already an active request for this plan from this IP
+    if (activeRequests.has(requestKey)) {
+      console.log("⚠️ Duplicate request detected, ignoring:", requestKey);
+      return;
+    }
+    
+    // Mark this request as active
+    activeRequests.set(requestKey, true);
+    
+    // Clean up on request end
+    req.on('close', () => {
+      activeRequests.delete(requestKey);
+      console.log("🧹 Cleaned up request:", requestKey);
+    });
+    
+    console.log("👁️ === PDF VIEW REQUEST STARTED ===");
+    console.log("📋 Request details:", {
+      method: req.method,
+      url: req.url,
+      params: req.params,
+      userAgent: req.headers['user-agent'],
+      requestKey
+    });
+    
+    try {
+      console.log("🔍 Looking up plan with ID:", req.params.id);
+      const plan = await storage.getPlan(req.params.id);
+      console.log("📄 Plan lookup result:", plan ? {
+        id: plan._id,
+        fileName: plan.fileName,
+        filePath: plan.filePath,
+        title: plan.title
+      } : "❌ Plan not found");
+      
+      if (!plan) {
+        console.error("Plan not found for ID:", req.params.id);
+        return res.status(404).json({ message: "Plan not found" });
+      }
+
+      // Handle file path resolution with multiple fallback strategies
+      let filePath;
+      const originalPath = plan.filePath;
+      console.log("Original file path from DB:", originalPath);
+      console.log("Current working directory:", process.cwd());
+      
+      // Strategy 1: Try the path as stored in DB (could be absolute or relative)
+      if (path.isAbsolute(originalPath)) {
+        filePath = originalPath;
+      } else {
+        filePath = path.join(process.cwd(), originalPath);
+      }
+      
+      console.log("Strategy 1 - Trying path:", filePath);
+      console.log("Strategy 1 - File exists:", fs.existsSync(filePath));
+      
+      // Strategy 2: If not found, try relative to server directory
+      if (!fs.existsSync(filePath)) {
+        const serverRelativePath = path.join(__dirname, '..', originalPath);
+        console.log("Strategy 2 - Trying server relative path:", serverRelativePath);
+        console.log("Strategy 2 - File exists:", fs.existsSync(serverRelativePath));
+        if (fs.existsSync(serverRelativePath)) {
+          filePath = serverRelativePath;
+        }
+      }
+      
+      // Strategy 3: If still not found, try looking in uploads directory
+      if (!fs.existsSync(filePath)) {
+        const fileName = path.basename(originalPath);
+        const uploadsPath = path.join(process.cwd(), 'uploads', fileName);
+        console.log("Strategy 3 - Trying uploads directory:", uploadsPath);
+        console.log("Strategy 3 - File exists:", fs.existsSync(uploadsPath));
+        if (fs.existsSync(uploadsPath)) {
+          filePath = uploadsPath;
+        }
+      }
+      
+      // Strategy 4: Try server/uploads directory
+      if (!fs.existsSync(filePath)) {
+        const fileName = path.basename(originalPath);
+        const serverUploadsPath = path.join(__dirname, 'uploads', fileName);
+        console.log("Strategy 4 - Trying server/uploads:", serverUploadsPath);
+        console.log("Strategy 4 - File exists:", fs.existsSync(serverUploadsPath));
+        if (fs.existsSync(serverUploadsPath)) {
+          filePath = serverUploadsPath;
+        }
+      }
+      
+      console.log("Final file path to use:", filePath);
+      console.log("Final file exists check:", fs.existsSync(filePath));
+      
+      if (!fs.existsSync(filePath)) {
+        console.log("⚠️ Physical file not found, checking if plan has content data in database...");
+        console.log("   Original path:", originalPath);
+        console.log("   Final attempted path:", filePath);
+        
+        // Check if plan has content stored in database
+        console.log("🔍 Checking plan content in database...");
+        console.log("   - Has content property:", !!plan.content);
+        console.log("   - Content type:", typeof plan.content);
+        console.log("   - Content length:", plan.content ? plan.content.length : 0);
+        console.log("   - Content preview:", plan.content ? plan.content.substring(0, 50) + '...' : 'null');
+        
+        // Increment download count once for successful download (regardless of source)
+        console.log("🔢 Attempting to increment download count for plan:", plan._id.toString());
+        console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
+        try {
+          await storage.incrementDownloadCount(plan._id.toString());
+          console.log("✅ Download count incremented successfully");
+          
+          // Verify the increment worked by fetching the plan again
+          const updatedPlan = await storage.getPlan(plan._id.toString());
+          console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
+        } catch (error) {
+          console.error("❌ Failed to increment download count:", error);
+          console.error("❌ Error details:", error instanceof Error ? error.stack : error);
+          // Continue with download even if count increment fails
+        }
+        
+        if (plan.content) {
+          console.log("✅ Found plan content in database, serving from memory");
+          
+          // Serve content from database
+          console.log("🔄 Converting base64 content to buffer...");
+          const contentBuffer = Buffer.from(plan.content, 'base64');
+          console.log("   - Buffer created successfully:", !!contentBuffer);
+          console.log("   - Buffer length:", contentBuffer.length);
+          console.log("   - Buffer first 10 bytes:", contentBuffer.slice(0, 10));
+          
+          const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
+          
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+          res.setHeader('Content-Length', contentBuffer.length.toString());
+          res.setHeader('Cache-Control', 'no-cache');
+          
+          console.log(`🚀 Serving plan from database: ${contentBuffer.length} bytes`);
+          return res.send(contentBuffer);
+        }
+        
+        console.error("❌ No physical file and no content in database!");
+        return res.status(404).json({ 
+          message: "Plan file not found and no content available in database",
+          details: {
+            originalPath,
+            attemptedPath: filePath,
+            hasContent: !!plan.content
+          }
+        });
+      }
+
+      console.log("✅ File found! Setting headers and serving file...");
+      
+      // Only increment download count for new download sessions (prevent duplicates)
+      if (!isDuplicateRequest) {
+        console.log("🔢 Attempting to increment download count for plan:", plan._id.toString());
+        console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
+        try {
+          await storage.incrementDownloadCount(plan._id.toString());
+          console.log("✅ Download count incremented successfully");
+          
+          // Verify the increment worked by fetching the plan again
+          const updatedPlan = await storage.getPlan(plan._id.toString());
+          console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
+        } catch (error) {
+          console.error("❌ Failed to increment download count:", error);
+          console.error("❌ Error details:", error instanceof Error ? error.stack : error);
+          // Continue with download even if count increment fails
+        }
+      } else {
+        console.log("🔄 Skipping download count increment (duplicate request)");
+      }
+      
+      // Get file stats for proper headers
+      const stats = fs.statSync(filePath);
+      const fileSize = stats.size;
+      
+      // Set headers specifically to prevent IDM interference and force browser viewing
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline; filename=\"plan.pdf\"");
+      res.setHeader("Content-Length", fileSize.toString());
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Frame-Options", "SAMEORIGIN");
+      
+      console.log(`📊 File size: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
+      console.log("🚀 Starting file stream...");
+      
+      // Use streaming instead of sendFile for better control
+      const fileStream = fs.createReadStream(filePath);
+      
+      // Handle stream errors
+      fileStream.on('error', (streamErr) => {
+        console.error("❌ File stream error:", streamErr);
+        activeRequests.delete(requestKey);
+        
+        if (!res.headersSent) {
+          res.status(500).json({ message: "Failed to read file" });
+        }
+      });
+      
+      // Handle successful stream end
+      fileStream.on('end', () => {
+        console.log("✅ File stream completed successfully!");
+        console.log("🎉 === PDF VIEW REQUEST COMPLETED ===");
+        activeRequests.delete(requestKey);
+      });
+      
+      // Handle client disconnection
+      req.on('close', () => {
+        console.log("🔌 Client disconnected during stream (normal behavior)");
+        fileStream.destroy(); // Clean up the stream
+        activeRequests.delete(requestKey);
+      });
+      
+      // Handle response errors (including ECONNABORTED)
+      res.on('error', (resErr) => {
+        const errorCode = (resErr as any).code;
+        
+        if (errorCode === 'ECONNABORTED' || errorCode === 'ECONNRESET') {
+          console.log("🔌 Client disconnected during response (normal behavior)");
+        } else {
+          console.error("❌ Response error:", resErr);
+        }
+        
+        fileStream.destroy(); // Clean up the stream
+        activeRequests.delete(requestKey);
+      });
+      
+      // Pipe the file stream to response
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("💥 Unexpected error in view handler:", error);
+      console.error("   Error stack:", (error as Error).stack);
+      if (!res.headersSent) {
+        console.log("📤 Sending 500 error response");
+        res.status(500).json({ message: "Failed to view plan" });
+      }
+    }
+    
+    console.log("📝 View handler function completed (but file may still be sending)");
+  });
+
+  // Quick reset for specific plan (GET request for easy browser access)
+  app.get("/api/plans/689209274ea8755c4fc556af/fix-count", async (req, res) => {
+    try {
+      await storage.resetDownloadCount("689209274ea8755c4fc556af", 1);
+      console.log("✅ Reset download count for plan 689209274ea8755c4fc556af to 1");
+      res.json({ 
+        message: "Download count reset successfully", 
+        planId: "689209274ea8755c4fc556af", 
+        newCount: 1 
+      });
+    } catch (error) {
+      console.error("Reset download count error:", error);
+      res.status(500).json({ 
+        message: "Failed to reset download count", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  // Reset download count endpoint
+  app.post("/api/plans/:id/reset-downloads", async (req, res) => {
+    try {
+      const planId = req.params.id;
+      const newCount = parseInt(req.body.count) || 0;
+      
+      // Update the download count directly in the database
+      await storage.resetDownloadCount(planId, newCount);
+      
+      res.json({ 
+        message: "Download count reset successfully", 
+        planId, 
+        newCount 
+      });
+    } catch (error) {
+      console.error("Reset download count error:", error);
+      res.status(500).json({ 
+        message: "Failed to reset download count", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  // Debug endpoint to inspect plan data
+  app.get("/api/plans/:id/debug", async (req, res) => {
     try {
       const plan = await storage.getPlan(req.params.id);
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
+      
+      const debugInfo = {
+        id: plan._id,
+        title: plan.title,
+        fileName: plan.fileName,
+        filePath: plan.filePath,
+        fileSize: plan.fileSize,
+        hasContent: !!plan.content,
+        contentLength: plan.content ? plan.content.length : 0,
+        contentPreview: plan.content ? plan.content.substring(0, 100) + '...' : null,
+        contentType: typeof plan.content
+      };
+      
+      res.json(debugInfo);
+    } catch (error) {
+      console.error("Debug endpoint error:", error);
+      res.status(500).json({ message: "Debug failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
 
-      // Handle both absolute and relative paths
-      let filePath;
-      if (path.isAbsolute(plan.filePath)) {
-        filePath = plan.filePath;
-      } else {
-        filePath = path.join(process.cwd(), plan.filePath);
+  // Download plan PDF
+  app.get("/api/plans/:id/download", async (req, res) => {
+    console.log("🚀 === DOWNLOAD REQUEST STARTED ===");
+    console.log("📋 Request details:", {
+      method: req.method,
+      url: req.url,
+      params: req.params,
+      planId: req.params.id,
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent']
+    });
+    console.log("🔍 Plan ID being requested:", req.params.id);
+    
+    // --- Duplicate request protection for download count ---
+    const planId = req.params.id;
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    const sessionKey = `download-${planId}-${clientIP}`;
+    const now = Date.now();
+    
+    // Check if this is a duplicate request within the session timeout
+    const lastRequestTime = downloadSessions.get(sessionKey);
+    const isDuplicateRequest = lastRequestTime && (now - lastRequestTime) < SESSION_TIMEOUT;
+    
+    let shouldIncrementCount = false;
+    if (!isDuplicateRequest) {
+      // This is a new download session, track it
+      downloadSessions.set(sessionKey, now);
+      shouldIncrementCount = true;
+      
+      // Clean up old sessions (older than 5 minutes)
+      Array.from(downloadSessions.entries()).forEach(([key, timestamp]) => {
+        if (now - timestamp > 300000) { // 5 minutes
+          downloadSessions.delete(key);
+        }
+      });
+      
+      console.log(`🆕 New download session started for plan ${planId} from ${clientIP}`);
+    } else {
+      console.log(`🔄 Duplicate download request detected for plan ${planId} from ${clientIP} (within ${SESSION_TIMEOUT}ms)`);
+    }
+    
+    try {
+      console.log("🔍 Looking up plan with ID:", req.params.id);
+      const plan = await storage.getPlan(req.params.id);
+      console.log("📄 Plan lookup result:", plan ? {
+        id: plan._id,
+        fileName: plan.fileName,
+        filePath: plan.filePath,
+        title: plan.title
+      } : "❌ Plan not found");
+      
+      if (!plan) {
+        console.error("Plan not found for ID:", req.params.id);
+        return res.status(404).json({ message: "Plan not found" });
       }
 
-      console.log("Looking for file at:", filePath);
+      // Handle file path resolution with multiple fallback strategies
+      let filePath;
+      const originalPath = plan.filePath;
+      console.log("Original file path from DB:", originalPath);
+      console.log("Current working directory:", process.cwd());
+      
+      // Strategy 1: Try the path as stored in DB (could be absolute or relative)
+      if (path.isAbsolute(originalPath)) {
+        filePath = originalPath;
+      } else {
+        filePath = path.join(process.cwd(), originalPath);
+      }
+      
+      console.log("Strategy 1 - Trying path:", filePath);
+      console.log("Strategy 1 - File exists:", fs.existsSync(filePath));
+      
+      // Strategy 2: If not found, try relative to server directory
+      if (!fs.existsSync(filePath)) {
+        const serverRelativePath = path.join(__dirname, '..', originalPath);
+        console.log("Strategy 2 - Trying server relative path:", serverRelativePath);
+        console.log("Strategy 2 - File exists:", fs.existsSync(serverRelativePath));
+        if (fs.existsSync(serverRelativePath)) {
+          filePath = serverRelativePath;
+        }
+      }
+      
+      // Strategy 3: If still not found, try looking in uploads directory
+      if (!fs.existsSync(filePath)) {
+        const fileName = path.basename(originalPath);
+        const uploadsPath = path.join(process.cwd(), 'uploads', fileName);
+        console.log("Strategy 3 - Trying uploads directory:", uploadsPath);
+        console.log("Strategy 3 - File exists:", fs.existsSync(uploadsPath));
+        if (fs.existsSync(uploadsPath)) {
+          filePath = uploadsPath;
+        }
+      }
+      
+      // Strategy 4: Try server/uploads directory
+      if (!fs.existsSync(filePath)) {
+        const fileName = path.basename(originalPath);
+        const serverUploadsPath = path.join(__dirname, 'uploads', fileName);
+        console.log("Strategy 4 - Trying server/uploads:", serverUploadsPath);
+        console.log("Strategy 4 - File exists:", fs.existsSync(serverUploadsPath));
+        if (fs.existsSync(serverUploadsPath)) {
+          filePath = serverUploadsPath;
+        }
+      }
+      
+      console.log("Final file path to use:", filePath);
+      console.log("Final file exists check:", fs.existsSync(filePath));
       
       if (!fs.existsSync(filePath)) {
-        console.error("File not found at path:", filePath);
-        return res.status(404).json({ message: "File not found" });
+        console.error(" File not found after all strategies!");
+        console.error("   Original path:", originalPath);
+        console.error("   Final attempted path:", filePath);
+        console.error("   __dirname:", __dirname);
+        console.error("   process.cwd():", process.cwd());
+        return res.status(404).json({ 
+          message: "File not found",
+          details: {
+            originalPath,
+            attemptedPath: filePath,
+            workingDirectory: process.cwd()
+          }
+        });
       }
 
-      // Increment download count
-      await storage.incrementDownloadCount(plan._id.toString());
-
+      console.log("✅ File found! Setting headers and serving file...");
+      
+      // --- Increment download count for total downloads tracking (only for new sessions) ---
+      if (shouldIncrementCount) {
+        console.log("🔢 Incrementing download count for plan:", plan._id.toString());
+        console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
+        try {
+          await storage.incrementDownloadCount(plan._id.toString());
+          console.log("✅ Download count incremented successfully");
+          
+          // Verify the increment worked by fetching the plan again
+          const updatedPlan = await storage.getPlan(plan._id.toString());
+          console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
+        } catch (error) {
+          console.error("❌ Failed to increment download count:", error);
+          console.error("❌ Error details:", error instanceof Error ? error.stack : error);
+          // Continue with download even if count increment fails
+        }
+      } else {
+        console.log("🔄 Skipping download count increment (duplicate request)");
+      }
+      
+      // Get file stats for proper headers
+      const stats = fs.statSync(filePath);
+      const fileSize = stats.size;
+      
+      console.log(`📊 File stats:`);
+      console.log(`   - Size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+      console.log(`   - Modified: ${stats.mtime}`);
+      console.log(`   - Is file: ${stats.isFile()}`);
+      console.log(`   - Is readable: ${fs.constants.R_OK}`);
+      
+      // Check if file is empty
+      if (fileSize === 0) {
+        console.error("❌ ERROR: File is empty (0 bytes)!");
+        console.error(`   Plan ID: ${plan._id}`);
+        console.error(`   Plan fileName: ${plan.fileName}`);
+        console.error(`   File path: ${filePath}`);
+        return res.status(500).json({ 
+          message: "File is empty",
+          details: {
+            planId: plan._id,
+            fileName: plan.fileName,
+            filePath: filePath,
+            fileSize: fileSize
+          }
+        });
+      }
+      
+      // Read first few bytes to validate it's a PDF
+      try {
+        const buffer = Buffer.alloc(8);
+        const fd = fs.openSync(filePath, 'r');
+        const bytesRead = fs.readSync(fd, buffer, 0, 8, 0);
+        fs.closeSync(fd);
+        
+        const header = buffer.toString('hex', 0, bytesRead);
+        console.log(`📄 File header (first ${bytesRead} bytes): ${header}`);
+        
+        // PDF files should start with %PDF (hex: 25504446)
+        if (!header.startsWith('25504446')) {
+          console.warn(`⚠️  Warning: File may not be a valid PDF. Expected: 25504446, Got: ${header.substring(0, 8)}`);
+        } else {
+          console.log(`✅ Valid PDF header detected`);
+        }
+      } catch (headerError) {
+        console.error(`❌ Error reading file header:`, headerError);
+      }
+      
+      // Set comprehensive headers for PDF download
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${plan.fileName}"`);
-      res.sendFile(filePath);
+      res.setHeader("Content-Disposition", `attachment; filename="${plan.fileName || 'plan.pdf'}"`);  
+      res.setHeader("Content-Length", fileSize.toString());
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      
+      console.log(`🚀 Starting file download for ${fileSize} bytes...`);
+      console.log(`   Plan ID: ${plan._id}`);
+      console.log(`   File name: ${plan.fileName}`);
+      console.log(`   File path: ${filePath}`);
+      
+      // Use streaming for better binary data handling
+      const absolutePath = path.resolve(filePath);
+      console.log("Sending file from absolute path:", absolutePath);
+      
+      // Create a read stream for the file
+      const fileStream = fs.createReadStream(absolutePath);
+      
+      // Handle stream errors
+      fileStream.on('error', (streamErr) => {
+        console.error("❌ File stream error:", streamErr);
+        if (!res.headersSent) {
+          res.status(500).json({ message: "Failed to read file" });
+        }
+      });
+      
+      // Handle successful stream completion
+      fileStream.on('end', () => {
+        console.log("✅ File stream completed successfully!");
+        console.log("🎉 === DOWNLOAD REQUEST COMPLETED ===");
+      });
+      
+      // Handle client disconnection
+      req.on('close', () => {
+        console.log("🔌 Client disconnected during download");
+        fileStream.destroy();
+      });
+      
+      // Pipe the file stream to response
+      fileStream.pipe(res);
     } catch (error) {
-      console.error("Error downloading plan:", error);
-      res.status(500).json({ message: "Failed to download plan" });
+      console.error("💥 Unexpected error in download handler:", error);
+      console.error("   Error stack:", (error as Error).stack);
+      if (!res.headersSent) {
+        console.log("📤 Sending 500 error response");
+        res.status(500).json({ message: "Failed to download plan" });
+      }
     }
+    
+    console.log("📝 Download handler function completed (but file may still be sending)");
   });
 
   // Admin routes (simplified for demo)
@@ -167,7 +916,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filePath: relativePath,
         fileSize: req.file.size,
         uploadedBy: userId,
-        bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : null,
         storeys: parseInt(req.body.storeys),
       });
 
@@ -176,7 +924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error uploading plan:", error);
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid plan data", errors: error.errors });
+        return res.status(400).json({ message: "Invalid plan data", errors: error.issues });
       }
       res.status(500).json({ message: "Failed to upload plan" });
     }
@@ -190,7 +938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating plan:", error);
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid plan data", errors: error.errors });
+        return res.status(400).json({ message: "Invalid plan data", errors: error.issues });
       }
       res.status(500).json({ message: "Failed to update plan" });
     }
@@ -220,6 +968,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting plan:", error);
       res.status(500).json({ message: "Failed to delete plan" });
+    }
+  });
+
+  // Download plan endpoint
+  app.get("/plans/:id/download", async (req, res) => {
+    try {
+      const plan = await storage.getPlan(req.params.id);
+      if (!plan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+
+      let filePath: string;
+      let fileBuffer: Buffer;
+      let fileName: string = plan.fileName || `${plan.title}.pdf`;
+
+      // Try to serve from file system first
+      if (plan.filePath) {
+        filePath = path.join(process.cwd(), plan.filePath);
+        if (fs.existsSync(filePath)) {
+          fileBuffer = fs.readFileSync(filePath);
+        } else if (plan.content) {
+          // Fallback to database content if file doesn't exist
+          fileBuffer = Buffer.from(plan.content, 'base64');
+        } else {
+          return res.status(404).json({ message: "File not found" });
+        }
+      } else if (plan.content) {
+        // Serve from database content
+        fileBuffer = Buffer.from(plan.content, 'base64');
+      } else {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      // Increment download count
+      await storage.incrementDownloadCount(req.params.id);
+      console.log(`📊 Download count incremented for plan: ${plan.title} (ID: ${req.params.id})`);
+
+      // Set proper headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileBuffer.length.toString());
+      
+      // Send the file
+      res.send(fileBuffer);
+    } catch (error) {
+      console.error("Error downloading plan:", error);
+      res.status(500).json({ message: "Failed to download plan" });
     }
   });
 

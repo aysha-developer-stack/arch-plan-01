@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { apiClient } from "@/lib/axios";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,18 +11,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { 
-  BarChart3, 
-  FileText, 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogTrigger 
+} from "@/components/ui/dialog";
+import { 
+  Search, 
+  Filter, 
+  Download, 
+  Eye, 
   Upload, 
-  Users, 
-  TrendingUp, 
-  Download,
+  Home, 
+  User, 
+  FileText, 
+  LogOut, 
+  Plus, 
+  Trash2, 
+  Edit, 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronsLeft, 
+  ChevronsRight,
+  RefreshCw,
+  BarChart3,
+  TrendingUp,
   HardDrive,
-  Eye,
-  Edit,
-  Trash2,
-  CloudUpload
+  CloudUpload,
+  X
 } from "lucide-react";
+
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -37,8 +58,6 @@ interface UploadFormData {
   title: string;
   description: string;
   planType: string;
-  bedrooms: string;
-  bathrooms: string;
   storeys: string;
   lotSize: string;
   orientation: string;
@@ -49,14 +68,40 @@ interface UploadFormData {
 }
 
 export default function AdminInterface() {
-  const { toast } = useToast();
+  // Per-user download count state
+  const [userDownloads, setUserDownloads] = useState<number | null>(null);
+  
+  useEffect(() => {
+    const fetchUserDownloads = async () => {
+      try {
+        const response = await apiClient.get("/users/me/downloads");
+        setUserDownloads(response.data.downloadCount || 0);
+      } catch (error) {
+        const err = error as { response?: { status?: number } };
+        // Don't show error if not authenticated (user might not be logged in yet)
+        if (err.response?.status !== 401) {
+          console.error("Failed to fetch user download count", err);
+        }
+        setUserDownloads(null);
+      }
+    };
+
+    fetchUserDownloads();
+  }, []);
+  // Total Downloads state for dashboard card
+  const [totalDownloads, setTotalDownloads] = useState(0);
+  useEffect(() => {
+    fetch("/api/plans/total-downloads")
+      .then((res) => res.json())
+      .then((data) => setTotalDownloads(data.totalDownloads || 0))
+      .catch((err) => console.error("Failed to fetch total downloads", err));
+  }, []);
+  const { toast: showToast } = useToast();
   const queryClient = useQueryClient();
   const [uploadForm, setUploadForm] = useState<UploadFormData>({
     title: "",
     description: "",
     planType: "",
-    bedrooms: "",
-    bathrooms: "",
     storeys: "",
     lotSize: "",
     orientation: "",
@@ -84,7 +129,7 @@ export default function AdminInterface() {
       return await apiRequest("POST", "/api/admin/plans", formData);
     },
     onSuccess: () => {
-      toast({
+      showToast({
         title: "Success",
         description: "Plan uploaded successfully",
       });
@@ -95,8 +140,6 @@ export default function AdminInterface() {
         title: "",
         description: "",
         planType: "",
-        bedrooms: "",
-        bathrooms: "",
         storeys: "",
         lotSize: "",
         orientation: "",
@@ -109,7 +152,7 @@ export default function AdminInterface() {
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
-        toast({
+        showToast({
           title: "Unauthorized",
           description: "You are logged out. Logging in again...",
           variant: "destructive",
@@ -119,7 +162,7 @@ export default function AdminInterface() {
         }, 500);
         return;
       }
-      toast({
+      showToast({
         title: "Upload Failed",
         description: error.message,
         variant: "destructive",
@@ -133,7 +176,7 @@ export default function AdminInterface() {
       return await apiRequest("DELETE", `/api/admin/plans/${planId}`);
     },
     onSuccess: () => {
-      toast({
+      showToast({
         title: "Success",
         description: "Plan deleted successfully",
       });
@@ -142,7 +185,7 @@ export default function AdminInterface() {
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
-        toast({
+        showToast({
           title: "Unauthorized",
           description: "You are logged out. Logging in again...",
           variant: "destructive",
@@ -152,7 +195,7 @@ export default function AdminInterface() {
         }, 500);
         return;
       }
-      toast({
+      showToast({
         title: "Delete Failed",
         description: error.message,
         variant: "destructive",
@@ -164,7 +207,7 @@ export default function AdminInterface() {
     e.preventDefault();
     
     if (!uploadForm.file) {
-      toast({
+      showToast({
         title: "Error",
         description: "Please select a PDF file to upload",
         variant: "destructive",
@@ -173,13 +216,24 @@ export default function AdminInterface() {
     }
 
     const formData = new FormData();
-    Object.entries(uploadForm).forEach(([key, value]) => {
-      if (key === "file" && value) {
-        formData.append(key, value);
-      } else if (key !== "file" && value) {
-        formData.append(key, value.toString());
-      }
-    });
+    
+    // Only append non-empty values and handle proper data types
+    if (uploadForm.file) formData.append("file", uploadForm.file);
+    if (uploadForm.title.trim()) formData.append("title", uploadForm.title.trim());
+    if (uploadForm.description.trim()) formData.append("description", uploadForm.description.trim());
+    if (uploadForm.planType.trim()) formData.append("planType", uploadForm.planType.trim());
+    
+    // storeys is required as number in schema
+    if (uploadForm.storeys.trim()) formData.append("storeys", uploadForm.storeys.trim());
+    
+    // Optional fields - only append if they have values
+    if (uploadForm.lotSize.trim()) formData.append("lotSize", uploadForm.lotSize.trim());
+    if (uploadForm.orientation.trim()) formData.append("orientation", uploadForm.orientation.trim());
+    if (uploadForm.siteType.trim()) formData.append("siteType", uploadForm.siteType.trim());
+    if (uploadForm.foundationType.trim()) formData.append("foundationType", uploadForm.foundationType.trim());
+    if (uploadForm.councilArea.trim()) formData.append("councilArea", uploadForm.councilArea.trim());
+    
+    // Form data processing - bedrooms and bathrooms fields have been removed
 
     uploadMutation.mutate(formData);
   };
@@ -190,7 +244,7 @@ export default function AdminInterface() {
       if (file.type === "application/pdf") {
         setUploadForm(prev => ({ ...prev, file }));
       } else {
-        toast({
+        showToast({
           title: "Invalid File",
           description: "Please select a PDF file",
           variant: "destructive",
@@ -207,6 +261,16 @@ export default function AdminInterface() {
       fileInput.value = "";
     }
   };
+
+  // PDF Viewer State
+  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
+  const [currentPdfUrl, setCurrentPdfUrl] = useState<string | null>(null);
+  const [pdfViewerKey, setPdfViewerKey] = useState(0);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+  const [lastRequestedPdfId, setLastRequestedPdfId] = useState<string | null>(null);
+  const [pdfLoadTimeout, setPdfLoadTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Get the toast function from useToast hook - using showToast to avoid name conflicts
 
   return (
     <div className="flex h-screen bg-slate-50">
@@ -238,7 +302,23 @@ export default function AdminInterface() {
               </div>
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  {/* Per-user downloads */}
+  {/* <Card>
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-600 mb-1">Your Downloads</p>
+          <p className="text-2xl font-bold text-slate-900">
+            {userDownloads !== null ? userDownloads : <span className="text-slate-400">—</span>}
+          </p>
+        </div>
+        <div className="bg-orange-100 p-3 rounded-lg">
+          <User className="text-orange-600 text-xl" />
+        </div>
+      </div>
+    </CardContent>
+  </Card> */}
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -261,7 +341,7 @@ export default function AdminInterface() {
                       <div>
                         <p className="text-sm text-slate-600 mb-1">Total Downloads</p>
                         <p className="text-2xl font-bold text-slate-900">
-                          {stats?.totalDownloads || 0}
+                          {totalDownloads}
                         </p>
                       </div>
                       <div className="bg-green-100 p-3 rounded-lg">
@@ -287,101 +367,9 @@ export default function AdminInterface() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-slate-600 mb-1">Storage Used</p>
-                        <p className="text-2xl font-bold text-slate-900">1.2TB</p>
-                      </div>
-                      <div className="bg-orange-100 p-3 rounded-lg">
-                        <HardDrive className="text-orange-600 text-xl" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+             
               </div>
             </TabsContent>
-
-            {/* Manage Plans */}
-            <TabsContent value="manage" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">Manage Plans</h3>
-                  <p className="text-slate-600">View, edit, and organize your architectural plans</p>
-                </div>
-              </div>
-
-              <Card>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Plan Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Downloads</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {plansLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8">
-                            Loading plans...
-                          </TableCell>
-                        </TableRow>
-                      ) : plans.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8">
-                            No plans found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        plans.map((plan) => (
-                          <TableRow key={plan.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-slate-900">{plan.title}</p>
-                                <p className="text-sm text-slate-600">
-                                  {plan.bedrooms ? `${plan.bedrooms} bed` : "N/A"}, {plan.bathrooms ? `${plan.bathrooms} bath` : "N/A"}, {plan.storeys} storey
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-slate-600">{plan.planType}</TableCell>
-                            <TableCell className="text-slate-600">{plan.downloadCount}</TableCell>
-                            <TableCell>
-                              <Badge variant={plan.status === "active" ? "default" : "secondary"}>
-                                {plan.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Button variant="ghost" size="sm">
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteMutation.mutate(plan.id)}
-                                  disabled={deleteMutation.isPending}
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             {/* Upload Plans */}
             <TabsContent value="upload" className="space-y-6">
               <div>
@@ -445,45 +433,6 @@ export default function AdminInterface() {
                           </SelectContent>
                         </Select>
                       </div>
-
-                      <div>
-                        <Label htmlFor="bedrooms">Number of Bedrooms</Label>
-                        <Select
-                          value={uploadForm.bedrooms}
-                          onValueChange={(value) => setUploadForm(prev => ({ ...prev, bedrooms: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Bedrooms" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">1 Bedroom</SelectItem>
-                            <SelectItem value="2">2 Bedrooms</SelectItem>
-                            <SelectItem value="3">3 Bedrooms</SelectItem>
-                            <SelectItem value="4">4 Bedrooms</SelectItem>
-                            <SelectItem value="5">5+ Bedrooms</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="bathrooms">Number of Bathrooms</Label>
-                        <Select
-                          value={uploadForm.bathrooms}
-                          onValueChange={(value) => setUploadForm(prev => ({ ...prev, bathrooms: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Bathrooms" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">1 Bathroom</SelectItem>
-                            <SelectItem value="1.5">1.5 Bathrooms</SelectItem>
-                            <SelectItem value="2">2 Bathrooms</SelectItem>
-                            <SelectItem value="2.5">2.5 Bathrooms</SelectItem>
-                            <SelectItem value="3">3+ Bathrooms</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
                       <div>
                         <Label htmlFor="storeys">Number of Storeys</Label>
                         <Select
@@ -537,6 +486,44 @@ export default function AdminInterface() {
                         </Select>
                       </div>
 
+                      {/* Site Type Filter */}
+                      <div>
+                        <Label htmlFor="siteType">Site Type</Label>
+                        <Select
+                          value={uploadForm.siteType}
+                          onValueChange={(value) => setUploadForm(prev => ({ ...prev, siteType: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Site Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Levelled">Levelled</SelectItem>
+                            <SelectItem value="Step Up">Step Up</SelectItem>
+                            <SelectItem value="Step Down">Step Down</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Foundation Type Filter */}
+                      <div>
+                        <Label htmlFor="foundationType">Foundation</Label>
+                        <Select
+                          value={uploadForm.foundationType}
+                          onValueChange={(value) => setUploadForm(prev => ({ ...prev, foundationType: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Foundation" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Any Foundation">Any Foundation</SelectItem>
+                            <SelectItem value="Stumps">Stumps</SelectItem>
+                            <SelectItem value="Slab">Slab</SelectItem>
+                            <SelectItem value="Half Stump">Half Stump</SelectItem>
+                            <SelectItem value="Half Slab">Half Slab</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div>
                         <Label htmlFor="councilArea">Council Area</Label>
                         <Select
@@ -581,9 +568,329 @@ export default function AdminInterface() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Manage Plans Tab */}
+            <TabsContent value="manage" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="w-5 h-5" />
+                    <span>Manage Plans</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {plansLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : plans.length === 0 ? (
+                    <div className="text-center py-8">
+                      <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <p className="text-slate-600">No plans uploaded yet</p>
+                      <p className="text-sm text-slate-500">Upload your first plan to get started</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Storeys</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Downloads</TableHead>
+                            <TableHead>Uploaded</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {plans.map((plan) => (
+                            <TableRow key={plan._id.toString()}>
+                              <TableCell className="font-medium">{plan.title}</TableCell>
+                              <TableCell>{plan.planType}</TableCell>
+                              <TableCell>{plan.storeys}</TableCell>
+                              <TableCell>
+                                <Badge variant={plan.status === 'active' ? 'default' : 'secondary'}>
+                                  {plan.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{plan.downloadCount || 0}</TableCell>
+                              <TableCell>{new Date(plan.createdAt).toLocaleDateString()}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end space-x-2">
+                                  {/* View Details Dialog */}
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="outline" size="sm">
+                                        <Eye className="w-4 h-4" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-2xl">
+                                      <DialogHeader>
+                                        <DialogTitle>{plan.title}</DialogTitle>
+                                        <DialogDescription>
+                                           View detailed information about this plan
+                                         </DialogDescription>
+                                       </DialogHeader>
+                                      <div className="grid grid-cols-2 gap-4 py-4">
+                                        <div>
+                                          <strong>Plan Type:</strong> {plan.planType}
+                                        </div>
+                                        <div>
+                                          <strong>Storeys:</strong> {plan.storeys}
+                                        </div>
+                                        <div>
+                                          <strong>Lot Size:</strong> {plan.lotSize || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Orientation:</strong> {plan.orientation || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Site Type:</strong> {plan.siteType || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Foundation:</strong> {plan.foundationType || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Council Area:</strong> {plan.councilArea || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Downloads:</strong> {plan.downloadCount || 0}
+                                        </div>
+                                        <div>
+                                          <strong>File Size:</strong> {plan.fileSize ? `${(plan.fileSize / 1024 / 1024).toFixed(2)} MB` : 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Status:</strong> 
+                                          <Badge variant={plan.status === 'active' ? 'default' : 'secondary'} className="ml-2">
+                                            {plan.status}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                      {plan.description && (
+                                        <div className="mt-4">
+                                          <strong>Description:</strong>
+                                          <p className="mt-1 text-slate-600">{plan.description}</p>
+                                        </div>
+                                      )}
+                                    </DialogContent>
+                                  </Dialog>
+
+                                  {/* View PDF Button */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isLoadingPdf}
+                                    onClick={() => {
+                                      try {
+                                        const planId = plan._id.toString();
+                                        const viewUrl = `/api/plans/${planId}/view`;
+                                        
+                                        // Prevent multiple rapid clicks
+                                        if (isLoadingPdf) {
+                                          console.log('⚠️ PDF already loading, ignoring click');
+                                          return;
+                                        }
+                                        
+                                        // If the same PDF is already loaded and modal is open, just show it
+                                        if (isPdfViewerOpen && currentPdfUrl === viewUrl) {
+                                          console.log('📄 PDF already loaded, showing modal');
+                                          return;
+                                        }
+                                        
+                                        console.log('👁️ Opening PDF with server-side streaming:', viewUrl);
+                                        console.log('🔍 Current modal state - isPdfViewerOpen:', isPdfViewerOpen);
+                                        console.log('🔍 Current PDF URL:', currentPdfUrl);
+                                        
+                                        // Set loading state
+                                        setIsLoadingPdf(true);
+                                        setLastRequestedPdfId(planId);
+                                        
+                                        // Set the PDF URL and open modal
+                                        setCurrentPdfUrl(viewUrl);
+                                        setIsPdfViewerOpen(true);
+                                        
+                                        console.log('✅ Modal should now be open with URL:', viewUrl);
+                                        
+                                        showToast({
+                                          title: "Opening PDF",
+                                          description: "Loading PDF in viewer...",
+                                        });
+                                        
+                                        // Reset loading state after a short delay
+                                        setTimeout(() => {
+                                          setIsLoadingPdf(false);
+                                          setLastRequestedPdfId(null);
+                                          console.log('⏰ Loading state reset after timeout');
+                                        }, 2000);
+                                        
+                                      } catch (error) {
+                                        console.error('View error:', error);
+                                        setIsLoadingPdf(false);
+                                        setLastRequestedPdfId(null);
+                                        showToast({
+                                          title: "Failed to Open",
+                                          description: "Failed to open PDF. Please try again.",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    {isLoadingPdf && lastRequestedPdfId === plan._id.toString() ? (
+                                      <>
+                                        <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> Loading...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Eye className="w-4 h-4 mr-1" /> View PDF
+                                      </>
+                                    )}
+                                  </Button>
+
+                                  {/* Delete Button */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      if (window.confirm(`Are you sure you want to delete "${plan.title}"? This action cannot be undone.`)) {
+                                        deleteMutation.mutate(plan._id.toString());
+                                      }
+                                    }}
+                                    disabled={deleteMutation.isPending}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
+
+      {/* PDF Viewer Modal */}
+      <Dialog 
+        open={isPdfViewerOpen} 
+        onOpenChange={(open) => {
+          console.log('🔄 PDF Modal onOpenChange:', open);
+          setIsPdfViewerOpen(open);
+          // Clean up loading state when modal closes
+          if (!open) {
+            setIsLoadingPdf(false);
+            setLastRequestedPdfId(null);
+            console.log('🧹 Cleaned up PDF modal state');
+          }
+        }}
+      >
+        <DialogContent className="max-w-6xl h-[90vh] p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>PDF Viewer</DialogTitle>
+            <DialogDescription>
+              View and interact with the selected PDF document
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b bg-white">
+              <h3 className="text-lg font-semibold">PDF Viewer</h3>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (currentPdfUrl) {
+                      console.log('🔄 Refreshing PDF:', currentPdfUrl);
+                      // Force refresh by updating the URL
+                      const refreshUrl = currentPdfUrl + (currentPdfUrl.includes('?') ? '&' : '?') + 'refresh=' + Date.now();
+                      setCurrentPdfUrl(refreshUrl);
+                      setIsLoadingPdf(true);
+                      setLastRequestedPdfId('refresh');
+                      
+                      showToast({
+                        title: "Refreshing",
+                        description: "Reloading PDF...",
+                      });
+                    }
+                  }}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1 ${isLoadingPdf ? 'animate-spin' : ''}`} /> 
+                  {isLoadingPdf ? 'Loading...' : 'Refresh'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    console.log('❌ Closing PDF modal');
+                    setIsPdfViewerOpen(false);
+                    // Clean up state
+                    setIsLoadingPdf(false);
+                    setLastRequestedPdfId(null);
+                  }}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <X className="w-4 h-4 mr-1" /> Close
+                </Button>
+              </div>
+            </div>
+          
+            <div className="h-[calc(100%-60px)] w-full bg-white relative">
+              {currentPdfUrl ? (
+                <>
+                  {isLoadingPdf && (
+                    <div className="absolute inset-0 bg-white/90 flex items-center justify-center z-20">
+                      <div className="text-center">
+                        <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin text-blue-500" />
+                        <p className="text-sm text-gray-600">Loading PDF...</p>
+                      </div>
+                    </div>
+                  )}
+                  <iframe
+                    key={`pdf-${currentPdfUrl}`}
+                    src={currentPdfUrl}
+                    className="w-full h-full border-0 bg-white"
+                    title="PDF Viewer"
+                    allow="fullscreen"
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                    onLoad={() => {
+                      console.log('✅ PDF iframe loaded successfully for URL:', currentPdfUrl);
+                      setIsLoadingPdf(false);
+                      setLastRequestedPdfId(null);
+                      showToast({
+                        title: "PDF Loaded",
+                        description: "PDF is now ready to view",
+                      });
+                    }}
+                    onError={(e) => {
+                      console.error('❌ PDF iframe load error for URL:', currentPdfUrl, e);
+                      setIsLoadingPdf(false);
+                      setLastRequestedPdfId(null);
+                      showToast({
+                        title: "Error Loading PDF",
+                        description: "The PDF could not be loaded. Please try refreshing.",
+                        variant: "destructive"
+                      });
+                    }}
+                  />
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p>No PDF selected</p>
+                    <p className="text-sm mt-2">Please select a plan to view its PDF</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

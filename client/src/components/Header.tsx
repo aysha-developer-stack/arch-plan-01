@@ -1,14 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Bell, Search } from "lucide-react";
+import { useLocation } from "wouter";
 import type { UserType } from "@shared/schema";
 
 interface HeaderProps {
   user?: UserType;
-  activeTab: "search" | "admin";
-  onTabChange: (tab: "search" | "admin") => void;
 }
 
-export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
+export default function Header({ user }: HeaderProps) {
+  const [, setLocation] = useLocation();
+
+  const handleAdminClick = () => {
+    // Redirect to admin login page
+    setLocation('/admin/login');
+  };
+
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,34 +27,23 @@ export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
           </div>
           
           <nav className="hidden md:flex items-center space-x-6">
-            <button
-              onClick={() => onTabChange("search")}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${
-                activeTab === "search"
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
+            <span className="px-3 py-2 text-sm font-medium text-primary border-b-2 border-primary">
               Search Plans
-            </button>
+            </span>
             <button
-              onClick={() => onTabChange("admin")}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${
-                activeTab === "admin"
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              onClick={handleAdminClick}
+              className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
             >
               Admin Portal
             </button>
           </nav>
 
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
+            <Button className="bg-transparent hover:bg-slate-100 p-2">
               <Bell className="h-5 w-5" />
             </Button>
             
-            {user?.profileImageUrl ? (
+            {/* {user?.profileImageUrl ? (
               <img
                 src={user.profileImageUrl}
                 alt="User profile"
@@ -56,15 +51,13 @@ export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
               />
             ) : (
               <div className="w-8 h-8 rounded-full bg-slate-300"></div>
-            )}
+            )} */}
             
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.location.href = "/api/logout"}
+            {/* <Button
+              onClick={() => setLocation("/logout")}
             >
               Logout
-            </Button>
+            </Button> */}
           </div>
         </div>
       </div>

@@ -1,4 +1,7 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+
+dotenv.config(); // Load .env variables
 
 const connectDB = async () => {
   if (!process.env.MONGODB_URI) {
@@ -9,6 +12,8 @@ const connectDB = async () => {
   }
 
   try {
+    // Connect to MongoDB without deprecated options
+    // useNewUrlParser and useUnifiedTopology are no longer needed in MongoDB driver v4+
     const conn = await mongoose.connect(process.env.MONGODB_URI!);
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     return conn;

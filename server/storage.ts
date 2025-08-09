@@ -7,11 +7,16 @@ import {
   type InsertPlan,
 } from "@shared/schema";
 import mongoose from "mongoose";
+import dotenv from "dotenv";
+
+// Ensure environment variables are loaded
+dotenv.config();
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<UserType | null>;
   upsertUser(user: UpsertUser): Promise<UserType>;
+  incrementUserDownloadCount(userId: string): Promise<void>;
 
   // Plan operations
   searchPlans(filters: PlanFilters): Promise<PlanType[]>;
@@ -20,6 +25,7 @@ export interface IStorage {
   updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null>;
   deletePlan(id: string): Promise<void>;
   incrementDownloadCount(id: string): Promise<void>;
+  resetDownloadCount(id: string, count: number): Promise<void>;
   getRecentPlans(limit?: number): Promise<PlanType[]>;
   getPlanStats(): Promise<PlanStats>;
 }
@@ -44,6 +50,13 @@ export interface PlanStats {
 
 // In-memory storage fallback
 export class MemoryStorage implements IStorage {
+  async incrementUserDownloadCount(userId: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.downloadCount = (user.downloadCount || 0) + 1;
+      this.users.set(userId, user);
+    }
+  }
   private users: Map<string, UserType> = new Map();
   private plans: Map<string, PlanType> = new Map();
   private nextId = 1;
@@ -150,7 +163,7 @@ export class MemoryStorage implements IStorage {
       ...existing,
       ...updates,
       updatedAt: new Date(),
-    };
+    } as PlanType;
     this.plans.set(id, updated);
     return updated;
   }
@@ -163,6 +176,14 @@ export class MemoryStorage implements IStorage {
     const plan = this.plans.get(id);
     if (plan) {
       plan.downloadCount = (plan.downloadCount || 0) + 1;
+      this.plans.set(id, plan);
+    }
+  }
+
+  async resetDownloadCount(id: string, count: number): Promise<void> {
+    const plan = this.plans.get(id);
+    if (plan) {
+      plan.downloadCount = count;
       this.plans.set(id, plan);
     }
   }
@@ -192,6 +213,12 @@ export class MemoryStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async incrementUserDownloadCount(userId: string): Promise<void> {
+    await User.findOneAndUpdate(
+      { id: userId },
+      { $inc: { downloadCount: 1 } }
+    );
+  }
   async getUser(id: string): Promise<UserType | null> {
     const user = await User.findOne({ id });
     return user;
@@ -295,6 +322,13 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
+  async resetDownloadCount(id: string, count: number): Promise<void> {
+    await Plan.findByIdAndUpdate(
+      id,
+      { $set: { downloadCount: count } }
+    );
+  }
+
   async getRecentPlans(limit = 10): Promise<PlanType[]> {
     return await Plan.find({ status: "active" })
       .sort({ createdAt: -1 })
@@ -325,4 +359,18 @@ export class DatabaseStorage implements IStorage {
 }
 
 // Export storage instance based on MongoDB availability
-export const storage = process.env.MONGODB_URI ? new DatabaseStorage() : new MemoryStorage();
+console.log('🔍 Storage Configuration:');
+console.log(`   MONGODB_URI exists: ${!!process.env.MONGODB_URI}`);
+console.log(`   MONGODB_URI length: ${process.env.MONGODB_URI?.length || 0}`);
+
+let storage: IStorage;
+
+if (process.env.MONGODB_URI) {
+  console.log('✅ Using MongoDB Database Storage');
+  storage = new DatabaseStorage();
+} else {
+  console.log('⚠️  Using In-Memory Storage (data will not persist)');
+  storage = new MemoryStorage();
+}
+
+export { storage };

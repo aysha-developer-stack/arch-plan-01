@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, X } from "lucide-react";
+import { Search, Filter, X, Download, Sliders, Zap } from "lucide-react";
 import PlanCard from "./PlanCard";
 import type { PlanType } from "@shared/schema";
 
@@ -29,6 +29,9 @@ export default function SearchInterface() {
     search: "",
   });
 
+  // Check if any filter has a value
+  const hasActiveFilters = Object.values(filters).some(value => value !== "");
+
   const { data: plans = [], isLoading } = useQuery<PlanType[]>({
     queryKey: ["/api/plans/search", filters],
     queryFn: async () => {
@@ -38,13 +41,14 @@ export default function SearchInterface() {
           params.append(key, value);
         }
       });
-      
+
       const response = await fetch(`/api/plans/search?${params}`);
       if (!response.ok) {
         throw new Error("Failed to search plans");
       }
       return response.json();
     },
+    enabled: hasActiveFilters, // Only run query when user has applied filters
   });
 
   const clearFilters = () => {
@@ -90,7 +94,7 @@ export default function SearchInterface() {
             {/* Lot Size Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Lot Size</label>
-              <Select value={filters.lotSize} onValueChange={(value) => updateFilter("lotSize", value)}>
+              <Select value={filters.lotSize} onValueChange={(value) => updateFilter("lotSize", value === "Any Size" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any Size" />
                 </SelectTrigger>
@@ -106,7 +110,7 @@ export default function SearchInterface() {
             {/* Orientation Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Orientation</label>
-              <Select value={filters.orientation} onValueChange={(value) => updateFilter("orientation", value)}>
+              <Select value={filters.orientation} onValueChange={(value) => updateFilter("orientation", value === "Any Orientation" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any Orientation" />
                 </SelectTrigger>
@@ -123,16 +127,15 @@ export default function SearchInterface() {
             {/* Site Type Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Site Type</label>
-              <Select value={filters.siteType} onValueChange={(value) => updateFilter("siteType", value)}>
+              <Select value={filters.siteType} onValueChange={(value) => updateFilter("siteType", value === "Any Type" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any Type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Any Type">Any Type</SelectItem>
-                  <SelectItem value="Flat Site">Flat Site</SelectItem>
-                  <SelectItem value="Sloping Site">Sloping Site</SelectItem>
-                  <SelectItem value="Corner Lot">Corner Lot</SelectItem>
-                  <SelectItem value="Narrow Lot">Narrow Lot</SelectItem>
+                  <SelectItem value="Levelled">Levelled</SelectItem>
+                  <SelectItem value="Step Up">Step Up</SelectItem>
+                  <SelectItem value="Step Down">Step Down</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -140,16 +143,16 @@ export default function SearchInterface() {
             {/* Foundation Type Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Foundation</label>
-              <Select value={filters.foundationType} onValueChange={(value) => updateFilter("foundationType", value)}>
+              <Select value={filters.foundationType} onValueChange={(value) => updateFilter("foundationType", value === "Any Foundation" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any Foundation" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Any Foundation">Any Foundation</SelectItem>
-                  <SelectItem value="Slab on Ground">Slab on Ground</SelectItem>
-                  <SelectItem value="Suspended Slab">Suspended Slab</SelectItem>
-                  <SelectItem value="Basement">Basement</SelectItem>
-                  <SelectItem value="Pier & Beam">Pier & Beam</SelectItem>
+                  <SelectItem value="Stumps">Stumps</SelectItem>
+                  <SelectItem value="Slab">Slab</SelectItem>
+                  <SelectItem value="Half Stump">Half Stump</SelectItem>
+                  <SelectItem value="Half Slab">Half Slab</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -157,7 +160,7 @@ export default function SearchInterface() {
             {/* Storeys Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Number of Storeys</label>
-              <Select value={filters.storeys} onValueChange={(value) => updateFilter("storeys", value)}>
+              <Select value={filters.storeys} onValueChange={(value) => updateFilter("storeys", value === "Any" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
@@ -173,7 +176,7 @@ export default function SearchInterface() {
             {/* Council Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Council Area</label>
-              <Select value={filters.councilArea} onValueChange={(value) => updateFilter("councilArea", value)}>
+              <Select value={filters.councilArea} onValueChange={(value) => updateFilter("councilArea", value === "Any Council" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any Council" />
                 </SelectTrigger>
@@ -199,42 +202,98 @@ export default function SearchInterface() {
       </Card>
 
       {/* Search Results */}
-      <div className="mb-6 flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-slate-900">
-          Search Results ({plans.length} plans found)
-        </h3>
-      </div>
+      {hasActiveFilters ? (
+        <>
+          <div className="mb-6 flex justify-between items-center">
+            <h3 className="text-xl font-semibold text-slate-900">
+              Search Results ({plans.length} plans found)
+            </h3>
+          </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <div className="w-full h-48 bg-slate-200"></div>
-              <CardContent className="p-6">
-                <div className="h-4 bg-slate-200 rounded mb-2"></div>
-                <div className="h-3 bg-slate-200 rounded mb-4"></div>
-                <div className="flex space-x-2">
-                  <div className="flex-1 h-8 bg-slate-200 rounded"></div>
-                  <div className="flex-1 h-8 bg-slate-200 rounded"></div>
-                </div>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <div className="w-full h-48 bg-slate-200"></div>
+                  <CardContent className="p-6">
+                    <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                    <div className="h-3 bg-slate-200 rounded mb-4"></div>
+                    <div className="flex space-x-2">
+                      <div className="flex-1 h-8 bg-slate-200 rounded"></div>
+                      <div className="flex-1 h-8 bg-slate-200 rounded"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : plans.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Search className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No plans found</h3>
+                <p className="text-slate-600 mb-4">Try adjusting your search filters to find more plans.</p>
+                <Button variant="outline" onClick={clearFilters}>
+                  <X className="w-4 h-4 mr-2" />
+                  Clear Filters
+                </Button>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      ) : plans.length === 0 ? (
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {plans.map((plan) => (
+                <PlanCard key={plan._id?.toString() || plan.id} plan={plan} />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
         <Card>
-          <CardContent className="p-12 text-center">
-            <Search className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">No plans found</h3>
-            <p className="text-slate-600">Try adjusting your search filters to find more plans.</p>
+          <CardContent className="p-12">
+            <div className="text-center mb-8">
+              <Search className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Ready to Find Your Perfect Plan?</h3>
+              <p className="text-slate-600 max-w-2xl mx-auto">
+                Use the search filters above to find architectural plans that match your specific requirements.
+                Search by keywords, lot size, orientation, site type, and more.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Advanced Filters */}
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <Sliders className="w-8 h-8 text-blue-600" />
+                </div>
+                <h4 className="text-lg font-semibold text-slate-900 mb-2">Advanced Filters</h4>
+                <p className="text-slate-600 text-sm">
+                  Filter by lot size, orientation, site type, foundation, storeys, and council area to find exactly what you need.
+                </p>
+              </div>
+
+              {/* Smart Search */}
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <Zap className="w-8 h-8 text-green-600" />
+                </div>
+                <h4 className="text-lg font-semibold text-slate-900 mb-2">Smart Search</h4>
+                <p className="text-slate-600 text-sm">
+                  Intelligent keyword search that finds plans based on features, room types, and architectural styles.
+                </p>
+              </div>
+
+              {/* Instant Download */}
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                  <Download className="w-8 h-8 text-purple-600" />
+                </div>
+                <h4 className="text-lg font-semibold text-slate-900 mb-2">Instant Download</h4>
+                <p className="text-slate-600 text-sm">
+                  Download plans immediately after purchase. Get high-quality PDF files ready for construction.
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} />
-          ))}
-        </div>
       )}
     </div>
   );

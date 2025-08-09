@@ -2,14 +2,36 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import path from 'path';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import connectDB from "./db";
+import authRoutes from './src/routes/authRoutes';
+import adminAuthRoutes from './src/routes/adminAuthRoutes';
+import config from './src/config';
+import { fileURLToPath } from "url";
 
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
+// CORS configuration
+app.use(cors({
+  origin: config.CORS_ORIGIN || true, // Allow all origins in development
+  credentials: true, // Required for cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Trust first proxy (needed for secure cookies in production if behind a proxy like nginx)
+app.set('trust proxy', 1);
+
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -28,57 +50,54 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
       log(logLine);
     }
   });
-
   next();
 });
 
-(async () => {
-  // Try to connect to MongoDB (will fall back to memory storage if not available)
-  const dbConnection = await connectDB();
-  
-  if (dbConnection) {
-    console.log("🚀 Using MongoDB database");
-  } else {
-    console.log("🚀 Using in-memory storage (data will not persist)");
+// API Routes (must come before Vite middleware)
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminAuthRoutes);
+
+// Error handler
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ message });
+  console.error('Error:', message);
+});
+
+// Start the server
+const startServer = async () => {
+  try {
+    // Connect to database
+    await connectDB();
+    console.log("🚀 Connected to database");
+    
+    // Register API routes
+    const server = await registerRoutes(app);
+    
+    // Setup Vite in development or serve static files in production
+    if (process.env.NODE_ENV === "development") {
+      console.log("🛠️ Setting up Vite development server...");
+      await setupVite(app, server);
+    } else {
+      console.log("📦 Serving static files...");
+      serveStatic(app);
+    }
+    
+    // Start the server
+    const PORT = process.env.PORT || 3001;
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+    
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
   }
-  
-  const server = await registerRoutes(app);
+};
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-})();
+// Start the application
+startServer();

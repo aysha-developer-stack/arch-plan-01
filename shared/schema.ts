@@ -8,6 +8,7 @@ export interface IUser extends Document {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
+  downloadCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,6 +19,7 @@ const userSchema = new Schema<IUser>({
   firstName: String,
   lastName: String,
   profileImageUrl: String,
+  downloadCount: { type: Number, default: 0 },
 }, {
   timestamps: true,
 });
@@ -32,11 +34,10 @@ export interface IPlan extends Document {
   fileName: string;
   filePath: string;
   fileSize: number;
+  content?: string; // Base64 encoded file content
   
   // Plan characteristics
   planType: string;
-  bedrooms?: number;
-  bathrooms?: string;
   storeys: number;
   lotSize?: string;
   orientation?: string;
@@ -58,11 +59,10 @@ const planSchema = new Schema<IPlan>({
   fileName: { type: String, required: true, maxlength: 255 },
   filePath: { type: String, required: true, maxlength: 500 },
   fileSize: { type: Number, required: true },
+  content: String, // Base64 encoded file content
   
   // Plan characteristics
   planType: { type: String, required: true, maxlength: 100 },
-  bedrooms: Number,
-  bathrooms: { type: String, maxlength: 10 },
   storeys: { type: Number, required: true },
   lotSize: { type: String, maxlength: 50 },
   orientation: { type: String, maxlength: 50 },
@@ -96,8 +96,6 @@ export const insertPlanSchema = z.object({
   filePath: z.string().max(500),
   fileSize: z.number(),
   planType: z.string().max(100),
-  bedrooms: z.number().optional(),
-  bathrooms: z.string().max(10).optional(),
   storeys: z.number(),
   lotSize: z.string().max(50).optional(),
   orientation: z.string().max(50).optional(),

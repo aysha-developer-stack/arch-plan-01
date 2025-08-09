@@ -7,7 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Eye, Download, Home, Compass, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import apiClient from "@/setupAxios";
 import type { PlanType } from "@shared/schema";
+import { AxiosError } from "axios";
 
 interface PlanCardProps {
   plan: PlanType;
@@ -20,21 +22,62 @@ export default function PlanCard({ plan }: PlanCardProps) {
 
   const downloadMutation = useMutation({
     mutationFn: async () => {
-      setIsDownloading(true);
-      const response = await fetch(`/api/plans/${plan._id}/download`);
-      if (!response.ok) {
-        throw new Error("Failed to download plan");
-      }
+      console.log('=== DOWNLOAD DEBUG START ===');
+      console.log('Starting download for plan:', plan);
+      console.log('Plan ID:', plan._id);
+      console.log('Plan fileName:', plan.fileName);
+      console.log('Plan filePath:', plan.filePath);
+      console.log('Request URL:', `/plans/${plan._id}/download`);
+      console.log('=== DOWNLOAD DEBUG END ===');
       
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = plan.fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      setIsDownloading(true);
+      
+      try {
+        const response = await apiClient.get(`/plans/${plan._id}/download`, {
+          responseType: 'blob',
+        });
+        
+        console.log('Download response status:', response.status);
+        console.log('Download response headers:', response.headers);
+        console.log('Response data:', response.data);
+        console.log('Response data type:', typeof response.data);
+        console.log('Response data size:', response.data.size);
+        console.log('Response data constructor:', response.data.constructor.name);
+        
+        // Verify response data exists and is not empty
+        if (!response.data) {
+          throw new Error("No data received from server");
+        }
+        
+        // Note: Skip empty file check as IDM and other download managers
+        // may intercept the download before we can check the blob size
+        
+        // IDM (Internet Download Manager) handles the download directly
+        // No need for browser-based download logic
+        console.log('Download request sent successfully - IDM will handle the download');
+        
+        return response.data;
+        
+      } catch (error) {
+        console.error('Download error:', error);
+        
+        // Type guard to check if error is an AxiosError
+        if (error instanceof AxiosError) {
+          if (error.response?.status === 404) {
+            throw new Error("Plan file not found on server");
+          } else if (error.response?.status === 500) {
+            throw new Error("Server error while downloading plan");
+          } else {
+            throw new Error("Failed to download plan: " + (error.message || "Unknown error"));
+          }
+        } else {
+          // Handle non-Axios errors
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          throw new Error("Failed to download plan: " + errorMessage);
+        }
+      } finally {
+        setIsDownloading(false);
+      }
     },
     onSuccess: () => {
       toast({
@@ -42,6 +85,9 @@ export default function PlanCard({ plan }: PlanCardProps) {
         description: "Your plan is being downloaded.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/plans/search"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/plans/total-downloads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/downloads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
     },
     onError: (error: Error) => {
       toast({
@@ -72,9 +118,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
           <div className="flex items-center text-sm text-slate-600">
             <Home className="w-4 h-4 mr-2" />
             <span>
-              {plan.storeys} Storey{plan.storeys !== 1 ? "s" : ""} •{" "}
-              {plan.bedrooms ? `${plan.bedrooms} Bedrooms` : "N/A"} •{" "}
-              {plan.bathrooms ? `${plan.bathrooms} Bathrooms` : "N/A"}
+              {plan.storeys} Storey{plan.storeys !== 1 ? "s" : ""}
             </span>
           </div>
           
@@ -116,12 +160,10 @@ export default function PlanCard({ plan }: PlanCardProps) {
                 <div className="p-4 bg-slate-50 rounded-lg">
                   <h4 className="font-semibold text-slate-900 mb-2">Plan Details</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><strong>Bedrooms:</strong> {plan.bedrooms || "N/A"}</div>
-                    <div><strong>Bathrooms:</strong> {plan.bathrooms || "N/A"}</div>
-                    <div><strong>Storeys:</strong> {plan.storeys}</div>
-                    <div><strong>Lot Size:</strong> {plan.lotSize || "N/A"}</div>
-                    <div><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
-                    <div><strong>Foundation:</strong> {plan.foundationType || "N/A"}</div>
+                    <div key="storeys"><strong>Storeys:</strong> {plan.storeys}</div>
+                    <div key="lotSize"><strong>Lot Size:</strong> {plan.lotSize || "N/A"}</div>
+                    <div key="orientation"><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
+                    <div key="foundation"><strong>Foundation:</strong> {plan.foundationType || "N/A"}</div>
                   </div>
                   {plan.description && (
                     <div className="mt-4">

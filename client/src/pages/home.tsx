@@ -1,27 +1,15 @@
-import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import Header from "@/components/Header";
 import SearchInterface from "@/components/SearchInterface";
-import AdminInterface from "@/components/AdminInterface";
 import type { UserType } from "@shared/schema";
 
 export default function Home() {
-  const { user } = useAuth() as { user: UserType | undefined };
-  const [activeTab, setActiveTab] = useState<"search" | "admin">("search");
+  const { user } = useAuth({ skipAuthCheck: true }) as { user: UserType | undefined };
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header 
-        user={user} 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
-      />
-      
-      {activeTab === "search" ? (
-        <SearchInterface />
-      ) : (
-        <AdminInterface />
-      )}
+      <Header user={user} />
+      <SearchInterface />
     </div>
   );
 }
