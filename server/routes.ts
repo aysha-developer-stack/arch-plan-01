@@ -644,6 +644,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // View plan PDF (for preview in iframe)
+  app.get("/api/plans/:id/view", async (req, res) => {
+    try {
+      const plan = await storage.getPlan(req.params.id);
+      if (!plan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+
+      // Handle file path resolution with normalization
+      let filePath;
+      const originalPath = plan.filePath;
+      const normalizedPath = originalPath.replace(/\\/g, '/');
+      
+      if (path.isAbsolute(normalizedPath)) {
+        filePath = normalizedPath;
+      } else {
+        filePath = path.join(process.cwd(), normalizedPath);
+      }
+
+      // Try to serve from file system first
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline');
+        return res.sendFile(path.resolve(filePath));
+      }
+
+      // Fallback to database content
+      if (plan.content) {
+        const contentBuffer = Buffer.from(plan.content, 'base64');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline');
+        res.setHeader('Content-Length', contentBuffer.length.toString());
+        return res.send(contentBuffer);
+      }
+
+      // No file found
+      return res.status(404).json({ 
+        message: "PDF not available - please re-upload this plan through the admin panel" 
+      });
+    } catch (error) {
+      console.error("View PDF error:", error);
+      res.status(500).json({ message: "Error viewing PDF" });
+    }
+  });
+
   // Download plan PDF
   app.get("/api/plans/:id/download", async (req, res) => {
     console.log("🚀 === DOWNLOAD REQUEST STARTED ===");
