@@ -33,6 +33,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
       setIsDownloading(true);
       
       try {
+        console.log('🚀 STARTING DOWNLOAD - Enhanced Error Detection Active');
         const response = await apiClient.get(`/api/plans/${plan._id}/download`, {
           responseType: 'blob',
         });
@@ -43,6 +44,11 @@ export default function PlanCard({ plan }: PlanCardProps) {
         console.log('Response data type:', typeof response.data);
         console.log('Response data size:', response.data.size);
         console.log('Response data constructor:', response.data.constructor.name);
+        
+        // IMMEDIATE CHECK - if response is suspiciously small, it's likely an error
+        if (response.data.size < 10000) { // PDF files are almost always > 10KB
+          console.log('⚠️ SUSPICIOUS: Response is very small for a PDF file');
+        }
         
         // Verify response data exists and is not empty
         if (!response.data) {
@@ -56,6 +62,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
         
         // More robust error detection - check for JSON content type OR small file size OR try to parse as JSON
         let isErrorResponse = false;
+        let errorText = '';
         
         if (contentType.includes('application/json')) {
           isErrorResponse = true;
@@ -63,20 +70,46 @@ export default function PlanCard({ plan }: PlanCardProps) {
         } else if (response.data.size < 5000) { // PDF files are typically much larger
           console.log('Small response size detected, checking if it\'s JSON error');
           try {
-            const text = await response.data.text();
-            const parsed = JSON.parse(text);
+            // Clone the blob before reading it
+            const clonedBlob = response.data.slice();
+            errorText = await clonedBlob.text();
+            const parsed = JSON.parse(errorText);
             if (parsed.message || parsed.error) {
               isErrorResponse = true;
-              console.log('Successfully parsed small response as JSON error');
+              console.log('Successfully parsed small response as JSON error:', parsed);
             }
           } catch (parseError) {
-            console.log('Small response is not JSON, treating as valid PDF');
+            console.log('Small response is not JSON, treating as valid PDF. Parse error:', parseError);
+            console.log('Response text was:', errorText);
+          }
+        } else {
+          // For larger responses, still try to detect if it's actually JSON
+          console.log('Large response, but let\'s check first few bytes...');
+          try {
+            const clonedBlob = response.data.slice(0, 500); // Check first 500 bytes
+            const preview = await clonedBlob.text();
+            console.log('Response preview (first 500 bytes):', preview);
+            if (preview.trim().startsWith('{') || preview.trim().startsWith('[')) {
+              console.log('Large response appears to be JSON, checking full content...');
+              const fullText = await response.data.text();
+              const parsed = JSON.parse(fullText);
+              if (parsed.message || parsed.error) {
+                isErrorResponse = true;
+                errorText = fullText;
+                console.log('Large JSON error response detected:', parsed);
+              }
+            }
+          } catch (parseError) {
+            console.log('Large response is not JSON, treating as valid PDF');
           }
         }
         
         if (isErrorResponse) {
           try {
-            const text = await response.data.text();
+            let text = errorText;
+            if (!text) {
+              text = await response.data.text();
+            }
             const errorData = JSON.parse(text);
             if (errorData.message) {
               // This is an error response from the backend
@@ -87,6 +120,22 @@ export default function PlanCard({ plan }: PlanCardProps) {
             console.log('Could not parse error response:', parseError);
             throw new Error('Server returned an error response that could not be parsed');
           }
+        }
+        
+        // Additional safety check - try to detect JSON errors even if not caught above
+        try {
+          const clonedBlob = response.data.slice();
+          const firstChunk = await clonedBlob.slice(0, 100).text();
+          console.log('First 100 characters of response:', firstChunk);
+          
+          if (firstChunk.trim().startsWith('{"message"') || firstChunk.includes('"File not available"')) {
+            console.log('🚨 DETECTED JSON ERROR RESPONSE - preventing download');
+            const fullText = await response.data.text();
+            const errorData = JSON.parse(fullText);
+            throw new Error(errorData.message + (errorData.details?.solution ? ` - ${errorData.details.solution}` : ''));
+          }
+        } catch (safetyError) {
+          console.log('Safety check failed, but continuing with download:', safetyError);
         }
         
         // Create blob URL and trigger download
