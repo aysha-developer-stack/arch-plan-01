@@ -708,12 +708,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("📋 Request details:", {
       method: req.method,
       url: req.url,
+      originalUrl: req.originalUrl,
       params: req.params,
       planId: req.params.id,
       timestamp: new Date().toISOString(),
       userAgent: req.headers['user-agent']
     });
     console.log("🔍 Plan ID being requested:", req.params.id);
+    console.log("✅ Download endpoint reached - not intercepted by frontend");
     
     // --- Duplicate request protection for download count ---
     const planId = req.params.id;
@@ -860,14 +862,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
           
+          // Set proper headers for PDF download
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
           res.setHeader('Content-Length', contentBuffer.length.toString());
-          res.setHeader('Cache-Control', 'no-cache');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
           res.setHeader('Accept-Ranges', 'bytes');
           
           console.log(`🚀 Serving plan from database: ${contentBuffer.length} bytes`);
-          return res.end(contentBuffer, 'binary');
+          return res.send(contentBuffer);
         }
         
         console.error("❌ No physical file and no content in database!");
@@ -983,19 +988,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`   File name: ${plan.fileName}`);
       console.log(`   File path: ${filePath}`);
       
-      // Use sendFile for more reliable PDF serving
+      // Use res.download for reliable PDF download with proper headers
       const absolutePath = path.resolve(filePath);
-      console.log("Sending file from absolute path:", absolutePath);
+      console.log("Downloading file from absolute path:", absolutePath);
       
-      // Use res.sendFile which handles binary data more reliably than streaming
-      res.sendFile(absolutePath, (err) => {
+      const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
+      
+      // Use res.download which automatically sets correct headers for file downloads
+      res.download(absolutePath, fileName, (err) => {
         if (err) {
-          console.error("❌ SendFile error:", err);
+          console.error("❌ Download error:", err);
           if (!res.headersSent) {
-            res.status(500).json({ message: "Failed to send file" });
+            res.status(500).json({ message: "Failed to download file" });
           }
         } else {
-          console.log("✅ File sent successfully!");
+          console.log("✅ File download completed successfully!");
           console.log("🎉 === DOWNLOAD REQUEST COMPLETED ===");
         }
       });

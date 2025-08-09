@@ -75,8 +75,9 @@ const startServer = async () => {
     await connectDB();
     console.log("🚀 Connected to database");
 
-    // Register API routes
+    // Register API routes BEFORE Vite middleware to ensure they take precedence
     const server = await registerRoutes(app);
+    console.log("✅ API routes registered");
 
     // Setup Vite in development or serve static files in production
     if (process.env.NODE_ENV === "development") {
