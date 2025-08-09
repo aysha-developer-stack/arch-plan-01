@@ -1,0 +1,15 @@
+RENDER ENVIRONMENT VARIABLES - COPY AND PASTE THESE:
+
+NODE_ENV=production
+PORT=10000
+MONGODB_URI=mongodb://archplan:Archplan1234%24@ac-wetjcv6-shard-00-00.jsicxbh.mongodb.net:27017,ac-wetjcv6-shard-00-01.jsicxbh.mongodb.net:27017,ac-wetjcv6-shard-00-02.jsicxbh.mongodb.net:27017/Archplan?replicaSet=atlas-eacbt0-shard-0&ssl=true&authSource=admin
+JWT_SECRET=archplan_super_secure_jwt_secret_2024_production_key
+JWT_EXPIRES_IN=7d
+SESSION_SECRET=archplan_session_secret_key_2024_production
+CORS_ORIGIN=*
+
+INSTRUCTIONS:
+1. Copy each line above
+2. In Render dashboard, click "Environment" tab
+3. Add each variable one by one
+4. After deployment, update CORS_ORIGIN to your actual Render URL
