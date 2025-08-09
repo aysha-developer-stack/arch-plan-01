@@ -743,17 +743,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Final file exists check:", fs.existsSync(filePath));
       
       if (!fs.existsSync(filePath)) {
-        console.error(" File not found after all strategies!");
-        console.error("   Original path:", originalPath);
-        console.error("   Final attempted path:", filePath);
-        console.error("   __dirname:", __dirname);
-        console.error("   process.cwd():", process.cwd());
+        console.log("⚠️ Physical file not found, checking if plan has content data in database...");
+        console.log("   Original path:", originalPath);
+        console.log("   Final attempted path:", filePath);
+        
+        // Check if plan has content stored in database
+        console.log("🔍 Checking plan content in database...");
+        console.log("   - Has content property:", !!plan.content);
+        console.log("   - Content type:", typeof plan.content);
+        console.log("   - Content length:", plan.content ? plan.content.length : 0);
+        console.log("   - Content preview:", plan.content ? plan.content.substring(0, 50) + '...' : 'null');
+        
+        // Increment download count once for successful download (regardless of source)
+        if (shouldIncrementCount) {
+          console.log("🔢 Attempting to increment download count for plan:", plan._id.toString());
+          console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
+          try {
+            await storage.incrementDownloadCount(plan._id.toString());
+            console.log("✅ Download count incremented successfully");
+            
+            // Verify the increment worked by fetching the plan again
+            const updatedPlan = await storage.getPlan(plan._id.toString());
+            console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
+          } catch (error) {
+            console.error("❌ Failed to increment download count:", error);
+            console.error("❌ Error details:", error instanceof Error ? error.stack : error);
+          }
+        }
+        
+        if (plan.content) {
+          console.log("✅ Found plan content in database, serving from memory");
+          
+          // Serve content from database
+          console.log("🔄 Converting base64 content to buffer...");
+          const contentBuffer = Buffer.from(plan.content, 'base64');
+          console.log("   - Buffer created successfully:", !!contentBuffer);
+          console.log("   - Buffer length:", contentBuffer.length);
+          console.log("   - Buffer first 10 bytes:", contentBuffer.slice(0, 10));
+          
+          const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
+          
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+          res.setHeader('Content-Length', contentBuffer.length.toString());
+          res.setHeader('Cache-Control', 'no-cache');
+          
+          console.log(`🚀 Serving plan from database: ${contentBuffer.length} bytes`);
+          return res.send(contentBuffer);
+        }
+        
+        console.error("❌ No physical file and no content in database!");
+        console.log("💡 This plan was likely uploaded before the database storage fix.");
+        console.log("💡 Solution: Re-upload this plan through the admin panel.");
+        
         return res.status(404).json({ 
-          message: "File not found",
+          message: "File not available - please re-upload this plan through the admin panel",
           details: {
             originalPath,
             attemptedPath: filePath,
-            workingDirectory: process.cwd()
+            hasContent: !!plan.content,
+            solution: "This plan was uploaded before database storage was implemented. Please re-upload it through the admin panel."
           }
         });
       }
