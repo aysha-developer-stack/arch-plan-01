@@ -680,24 +680,44 @@ export default function AdminInterface() {
                                    <Button
                                      variant="outline"
                                      size="sm"
-                                     onClick={() => {
+                                     onClick={async () => {
                                        const planId = plan._id.toString();
-                                       const downloadUrl = `/plans/${planId}/download`;
                                        
-                                       console.log('📥 Downloading PDF:', downloadUrl);
-                                       
-                                       // Create a temporary link and trigger download
-                                       const link = document.createElement('a');
-                                       link.href = downloadUrl;
-                                       link.download = `${plan.title}.pdf`;
-                                       document.body.appendChild(link);
-                                       link.click();
-                                       document.body.removeChild(link);
-                                       
-                                       showToast({
-                                         title: "Download Started",
-                                         description: `Downloading ${plan.title}...`,
-                                       });
+                                       try {
+                                         // Use the API client to download the file properly
+                                         const response = await apiClient.get(`/api/plans/${planId}/download`, {
+                                           responseType: 'blob'
+                                         });
+                                         
+                                         console.log('📥 Download response received:', response.status);
+                                         
+                                         // Create blob URL and trigger download
+                                         const blob = new Blob([response.data], { type: 'application/pdf' });
+                                         const url = window.URL.createObjectURL(blob);
+                                         
+                                         // Create temporary download link and trigger download
+                                         const link = document.createElement('a');
+                                         link.href = url;
+                                         link.download = `${plan.title}.pdf`;
+                                         document.body.appendChild(link);
+                                         link.click();
+                                         document.body.removeChild(link);
+                                         
+                                         // Clean up the blob URL
+                                         window.URL.revokeObjectURL(url);
+                                         
+                                         showToast({
+                                           title: "Download Completed",
+                                           description: `${plan.title} downloaded successfully!`,
+                                         });
+                                       } catch (error) {
+                                         console.error('Download error:', error);
+                                         showToast({
+                                           title: "Download Failed",
+                                           description: "Failed to download the file. Please try again.",
+                                           variant: "destructive",
+                                         });
+                                       }
                                      }}
                                    >
                                      <Download className="w-4 h-4 mr-1" /> Download

@@ -808,7 +808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Only clean up (delete) the file if both DB and file read succeeded
-      if (!fileReadError && fileContent) {
+      if (fileContent) {
         try {
           fs.unlinkSync(req.file.path);
           console.log(`🧹 Cleaned up temporary file: ${req.file.path}`);
