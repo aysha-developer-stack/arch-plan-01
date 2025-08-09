@@ -49,12 +49,22 @@ export default function PlanCard({ plan }: PlanCardProps) {
           throw new Error("No data received from server");
         }
         
-        // Note: Skip empty file check as IDM and other download managers
-        // may intercept the download before we can check the blob size
+        // Create blob URL and trigger download
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
         
-        // IDM (Internet Download Manager) handles the download directly
-        // No need for browser-based download logic
-        console.log('Download request sent successfully - IDM will handle the download');
+        // Create temporary download link and trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = plan.fileName || 'plan.pdf';
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        console.log('Download triggered successfully for:', plan.fileName);
         
         return response.data;
         
