@@ -1,7 +1,11 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_BASE_URL || (
+    import.meta.env.PROD 
+      ? 'https://arch-plan-production-ed8f.up.railway.app' 
+      : 'http://localhost:5000'
+  ),
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
