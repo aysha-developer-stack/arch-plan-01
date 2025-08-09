@@ -772,19 +772,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Read file content and convert to base64 for database storage
       // This ensures files work on cloud platforms like Railway
-      let fileContent: string | undefined;
-      let fileReadError = false;
+      let fileContent: string;
       try {
         const fileBuffer = fs.readFileSync(req.file.path);
         fileContent = fileBuffer.toString('base64');
         console.log(`📦 File content stored in database: ${fileContent.length} characters (base64)`);
       } catch (fileError) {
-        fileReadError = true;
         console.warn("⚠️ Could not read file for database storage:", fileError);
-        // Continue without content - will rely on file system
+        // Do not proceed if file cannot be read
+        return res.status(500).json({ message: "Failed to read uploaded file for storage", error: fileError instanceof Error ? fileError.message : fileError });
       }
 
-      // Always set both filePath and content (if available) on the plan record
+      // Always set both filePath and content on the plan record
       const planData = insertPlanSchema.parse({
         ...req.body,
         fileName: req.file.originalname,
@@ -792,7 +791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileSize: req.file.size,
         uploadedBy: userId,
         storeys: parseInt(req.body.storeys),
-        content: fileContent, // Store file content in database if available
+        content: fileContent, // Always store file content in database
       });
 
       let plan;
