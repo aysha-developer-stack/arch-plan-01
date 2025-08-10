@@ -277,7 +277,7 @@ export default function SearchInterface() {
                 </div>
                 <h4 className="text-lg font-semibold text-slate-900 mb-2">Smart Search</h4>
                 <p className="text-slate-600 text-sm">
-                  Intelligent keyword search that finds plans based on features, room types, and architectural styles.
+                  Intelligent keyword search that finds plans based on features and architectural styles.
                 </p>
               </div>
 
@@ -288,7 +288,7 @@ export default function SearchInterface() {
                 </div>
                 <h4 className="text-lg font-semibold text-slate-900 mb-2">Instant Download</h4>
                 <p className="text-slate-600 text-sm">
-                  Download plans immediately after purchase. Get high-quality PDF files ready for construction.
+                  Download plans immediately. Get high-quality PDF files ready for construction.
                 </p>
               </div>
             </div>
