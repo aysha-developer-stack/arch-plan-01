@@ -20,12 +20,28 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
+// Validate that all origins have proper protocol
+const validateOrigin = (origin: string): boolean => {
+  if (!origin) return false;
+  return origin.startsWith('http://') || origin.startsWith('https://');
+};
+
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'https://arch-plan-01-production.up.railway.app'
 ];
+
+// Add config CORS_ORIGIN if it exists and is valid
+if (config.CORS_ORIGIN && validateOrigin(config.CORS_ORIGIN)) {
+  if (!allowedOrigins.includes(config.CORS_ORIGIN)) {
+    allowedOrigins.push(config.CORS_ORIGIN);
+    console.log('Added CORS_ORIGIN from config:', config.CORS_ORIGIN);
+  }
+} else if (config.CORS_ORIGIN) {
+  console.warn('Invalid CORS_ORIGIN in config (missing protocol):', config.CORS_ORIGIN);
+}
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -35,6 +51,12 @@ app.use(cors({
     if (!origin) {
       console.log('No origin - allowing');
       return callback(null, true);
+    }
+    
+    // Validate origin format
+    if (!validateOrigin(origin)) {
+      console.log('Invalid origin format (missing protocol):', origin);
+      return callback(new Error(`Invalid origin format: ${origin}`));
     }
     
     if (allowedOrigins.includes(origin)) {
@@ -58,30 +80,8 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Manual CORS headers as backup
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  console.log('Manual CORS check - Origin:', origin);
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    console.log('Manual CORS - Set origin to:', origin);
-  } else if (config.NODE_ENV === 'development' && origin && origin.startsWith('http://localhost')) {
-    res.header('Access-Control-Allow-Origin', origin);
-    console.log('Manual CORS - Dev localhost allowed:', origin);
-  }
-  
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  if (req.method === 'OPTIONS') {
-    console.log('Manual CORS - Handling preflight');
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
+// Remove manual CORS headers to avoid conflicts
+// The cors middleware above should handle all CORS requirements
 
 // Trust first proxy (needed for secure cookies in production if behind a proxy like nginx)
 app.set('trust proxy', 1);
