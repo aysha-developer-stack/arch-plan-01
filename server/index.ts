@@ -28,25 +28,60 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: (origin, callback) => {
+  origin: function (origin, callback) {
+    console.log('CORS Origin check:', origin);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('No origin - allowing');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin);
       return callback(null, true);
     }
     
     // In development, allow any localhost origin
     if (config.NODE_ENV === 'development' && origin.startsWith('http://localhost')) {
+      console.log('Development localhost allowed:', origin);
       return callback(null, true);
     }
     
-    return callback(new Error('Not allowed by CORS'));
+    console.log('Origin blocked:', origin);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true, // Required for cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 }));
+
+// Manual CORS headers as backup
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log('Manual CORS check - Origin:', origin);
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    console.log('Manual CORS - Set origin to:', origin);
+  } else if (config.NODE_ENV === 'development' && origin && origin.startsWith('http://localhost')) {
+    res.header('Access-Control-Allow-Origin', origin);
+    console.log('Manual CORS - Dev localhost allowed:', origin);
+  }
+  
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    console.log('Manual CORS - Handling preflight');
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
 
 // Trust first proxy (needed for secure cookies in production if behind a proxy like nginx)
 app.set('trust proxy', 1);
