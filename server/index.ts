@@ -80,6 +80,9 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminAuthRoutes);
 
+// Direct login route for frontend compatibility
+app.use('/api', authRoutes);
+
 // Error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
