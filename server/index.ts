@@ -20,65 +20,30 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Validate that all origins have proper protocol
-const validateOrigin = (origin: string): boolean => {
-  if (!origin) return false;
-  return origin.startsWith('http://') || origin.startsWith('https://');
-};
-
-// CORS configuration
+// Railway-specific CORS configuration
 const allowedOrigins = [
-  'http://localhost:3000',
+  'https://arch-plan-01-production.up.railway.app',
   'http://localhost:5173',
-  'https://arch-plan-01-production.up.railway.app'
+  'http://localhost:3000'
 ];
-
-// Add config CORS_ORIGIN if it exists and is valid
-if (config.CORS_ORIGIN && validateOrigin(config.CORS_ORIGIN)) {
-  if (!allowedOrigins.includes(config.CORS_ORIGIN)) {
-    allowedOrigins.push(config.CORS_ORIGIN);
-    console.log('Added CORS_ORIGIN from config:', config.CORS_ORIGIN);
-  }
-} else if (config.CORS_ORIGIN) {
-  console.warn('Invalid CORS_ORIGIN in config (missing protocol):', config.CORS_ORIGIN);
-}
 
 app.use(cors({
   origin: function (origin, callback) {
     console.log('CORS Origin check:', origin);
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      console.log('No origin - allowing');
-      return callback(null, true);
+    // Allow requests with no origin (like mobile apps or curl requests) or if origin is in allowed list
+    if (!origin || allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin || 'no-origin');
+      callback(null, true);
+    } else {
+      console.log('Origin blocked:', origin);
+      callback(new Error('Not allowed by CORS'));
     }
-    
-    // Validate origin format
-    if (!validateOrigin(origin)) {
-      console.log('Invalid origin format (missing protocol):', origin);
-      return callback(new Error(`Invalid origin format: ${origin}`));
-    }
-    
-    if (allowedOrigins.includes(origin)) {
-      console.log('Origin allowed:', origin);
-      return callback(null, true);
-    }
-    
-    // In development, allow any localhost origin
-    if (config.NODE_ENV === 'development' && origin.startsWith('http://localhost')) {
-      console.log('Development localhost allowed:', origin);
-      return callback(null, true);
-    }
-    
-    console.log('Origin blocked:', origin);
-    return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
-  credentials: true, // Required for cookies
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  preflightContinue: false,
-  optionsSuccessStatus: 200
+  credentials: true // Required for cookies and auth headers
 }));
+
+// Allow preflight requests for all routes
+app.options('*', cors());
 
 // Remove manual CORS headers to avoid conflicts
 // The cors middleware above should handle all CORS requirements
