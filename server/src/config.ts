@@ -24,7 +24,9 @@ export default {
   MONGODB_URI: process.env.MONGODB_URI!,
   
   // CORS
-  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' 
+    ? 'https://arch-plan-01-production.up.railway.app' 
+    : 'http://localhost:3000'),
   
   // Cookies
   COOKIE_SECURE: process.env.NODE_ENV === 'production',
