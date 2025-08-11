@@ -3,7 +3,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || (
     import.meta.env.PROD 
-      ? 'https://arch-plan-production-ed8f.up.railway.app' 
+      ? '' // Use same domain for production (no CORS issues)
       : 'http://localhost:5000'
   ),
   withCredentials: true,

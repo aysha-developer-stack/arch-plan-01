@@ -20,34 +20,69 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Comprehensive CORS configuration for Railway
-app.use(cors({
-  origin: [
-    'https://arch-plan-01-production.up.railway.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  preflightContinue: false,
-  optionsSuccessStatus: 200
-}));
+// CORS configuration with proper origin validation
+const allowedOrigins = [
+  'https://arch-plan-01-production.up.railway.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:4173' // Vite preview mode
+];
 
-// Explicit preflight handling
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'https://arch-plan-01-production.up.railway.app');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
-});
+// Function to validate and normalize origins
+const validateOrigin = (origin: string): string => {
+  if (!origin) return origin;
+  
+  // If origin doesn't start with http:// or https://, add https://
+  if (!origin.startsWith('http://') && !origin.startsWith('https://')) {
+    return `https://${origin}`;
+  }
+  return origin;
+};
+
+// Enhanced CORS configuration
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const normalizedOrigin = validateOrigin(origin);
+    
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked origin: ${origin} (normalized: ${normalizedOrigin})`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'X-HTTP-Method-Override'
+  ],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
 
 // Remove manual CORS headers to avoid conflicts
 // The cors middleware above should handle all CORS requirements
 
 // Trust first proxy (needed for secure cookies in production if behind a proxy like nginx)
 app.set('trust proxy', 1);
+
+// Health check endpoint for Railway
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    cors_origin: process.env.CORS_ORIGIN || 'not set'
+  });
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
