@@ -5,7 +5,7 @@ import {
   type UpsertUser,
   type PlanType,
   type InsertPlan,
-} from "@shared/schema";
+} from "./src/schema.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 

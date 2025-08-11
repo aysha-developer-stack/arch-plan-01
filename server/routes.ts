@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import jwt from "jsonwebtoken";
 import { storage } from "./storage";
 // import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertPlanSchema } from "@shared/schema";
+import { insertPlanSchema } from "./src/schema.js";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";

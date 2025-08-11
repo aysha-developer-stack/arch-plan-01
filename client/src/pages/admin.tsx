@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import AdminInterface from "@/components/AdminInterface";
 import Header from "@/components/Header";
-import type { UserType } from "@shared/schema";
+import type { UserType } from "@/types/user";
 
 export default function Admin() {
   const { toast } = useToast();
@@ -11,6 +11,14 @@ export default function Admin() {
     isAuthenticated: boolean; 
     isLoading: boolean; 
     user: UserType | undefined 
+  };
+  
+  const handleTabChange = (tab: string) => {
+    if (tab === 'search') {
+      window.location.href = '/';
+    } else if (tab === 'admin') {
+      // Already on admin page
+    }
   };
 
   useEffect(() => {
@@ -44,7 +52,7 @@ export default function Admin() {
       <Header 
         user={user} 
         activeTab="admin" 
-        onTabChange={() => {}} 
+        onTabChange={handleTabChange} 
       />
       <AdminInterface />
     </div>

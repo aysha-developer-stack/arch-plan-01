@@ -5,9 +5,11 @@ import type { UserType } from "@shared/schema";
 
 interface HeaderProps {
   user?: UserType;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-export default function Header({ user }: HeaderProps) {
+export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
   const [, setLocation] = useLocation();
 
   const handleAdminClick = () => {
@@ -27,14 +29,17 @@ export default function Header({ user }: HeaderProps) {
           </div>
           
           <nav className="hidden md:flex items-center space-x-6">
-            <span className="px-3 py-2 text-sm font-medium text-primary border-b-2 border-primary">
-              Search Plans
-            </span>
-            <button
-              onClick={handleAdminClick}
-              className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            <button 
+              onClick={() => onTabChange?.('search')}
+              className={`px-3 py-2 text-sm font-medium ${activeTab === 'search' ? 'text-primary border-b-2 border-primary' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              Admin Portal
+              Search Plans
+            </button>
+            <button
+              onClick={() => onTabChange?.('admin')}
+              className={`px-3 py-2 text-sm font-medium ${activeTab === 'admin' ? 'text-primary border-b-2 border-primary' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {user ? 'Admin Dashboard' : 'Admin Login'}
             </button>
           </nav>
 
