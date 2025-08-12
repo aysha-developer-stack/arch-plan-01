@@ -270,7 +270,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center gap-2 text-gray-700 hover:bg-gray-100"
+              className="flex items-center gap-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors duration-200"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4" />
