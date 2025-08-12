@@ -24,16 +24,21 @@ app.use(cookieParser());
 // CORS configuration with proper origin validation
 const allowedOrigins = [
   config.CORS_ORIGIN, // Use config CORS_ORIGIN as primary
+  'https://arch-plan-01-production.up.railway.app', // Explicit Railway frontend URL
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:4173', // Vite preview mode
   'http://localhost:5000'  // Additional dev port
 ].filter(Boolean); // Remove any undefined values
 
+console.log('🔧 CORS Configuration:');
+console.log('   config.CORS_ORIGIN:', config.CORS_ORIGIN);
+console.log('   allowedOrigins:', allowedOrigins);
+
 // Function to validate and normalize origins
 const validateOrigin = (origin: string): string => {
   if (!origin) return origin;
-  
+
   // If origin doesn't start with http:// or https://, add https://
   if (!origin.startsWith('http://') && !origin.startsWith('https://')) {
     return `https://${origin}`;
@@ -46,9 +51,9 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const normalizedOrigin = validateOrigin(origin);
-    
+
     if (allowedOrigins.includes(normalizedOrigin)) {
       callback(null, normalizedOrigin); // Return the exact origin that was matched
     } else {
@@ -87,8 +92,8 @@ app.set('trust proxy', 1);
 
 // Health check endpoint for Railway
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     cors_origin: process.env.CORS_ORIGIN || 'not set'
   });
@@ -128,8 +133,8 @@ app.use('/api', authRoutes);
 
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
-  res.json({ 
-    message: 'CORS is working!', 
+  res.json({
+    message: 'CORS is working!',
     origin: req.headers.origin,
     timestamp: new Date().toISOString()
   });
@@ -149,7 +154,7 @@ const startServer = async () => {
     // Connect to database
     await connectDB();
     console.log("🚀 Connected to database");
-    
+
     // Initialize storage
     initializeStorage();
     console.log("💾 Storage initialized");
