@@ -46,6 +46,36 @@ const validateOrigin = (origin: string): string => {
   return origin;
 };
 
+// Security middleware for admin routes
+app.use('/admin', (req: Request, res: Response, next: NextFunction) => {
+  // Prevent caching of admin pages
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  // Additional security headers
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  
+  next();
+});
+
+// Security middleware for admin API routes
+app.use('/api/admin', (req: Request, res: Response, next: NextFunction) => {
+  // Prevent caching of admin API responses
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  // Additional security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  
+  next();
+});
+
 // Enhanced CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
