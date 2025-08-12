@@ -10,30 +10,30 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
-  DialogTrigger 
+  DialogTrigger
 } from "@/components/ui/dialog";
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
-  Upload, 
-  Home, 
-  User, 
-  FileText, 
-  LogOut, 
-  Plus, 
-  Trash2, 
-  Edit, 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft, 
+import {
+  Search,
+  Filter,
+  Download,
+  Eye,
+  Upload,
+  Home,
+  User,
+  FileText,
+  LogOut,
+  Plus,
+  Trash2,
+  Edit,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
   ChevronsRight,
   RefreshCw,
   BarChart3,
@@ -70,7 +70,7 @@ interface UploadFormData {
 export default function AdminInterface() {
   // Per-user download count state
   const [userDownloads, setUserDownloads] = useState<number | null>(null);
-  
+
   useEffect(() => {
     const fetchUserDownloads = async () => {
       try {
@@ -205,7 +205,7 @@ export default function AdminInterface() {
 
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!uploadForm.file) {
       showToast({
         title: "Error",
@@ -216,23 +216,23 @@ export default function AdminInterface() {
     }
 
     const formData = new FormData();
-    
+
     // Only append non-empty values and handle proper data types
     if (uploadForm.file) formData.append("file", uploadForm.file);
     if (uploadForm.title.trim()) formData.append("title", uploadForm.title.trim());
     if (uploadForm.description.trim()) formData.append("description", uploadForm.description.trim());
     if (uploadForm.planType.trim()) formData.append("planType", uploadForm.planType.trim());
-    
+
     // storeys is required as number in schema
     if (uploadForm.storeys.trim()) formData.append("storeys", uploadForm.storeys.trim());
-    
+
     // Optional fields - only append if they have values
     if (uploadForm.lotSize.trim()) formData.append("lotSize", uploadForm.lotSize.trim());
     if (uploadForm.orientation.trim()) formData.append("orientation", uploadForm.orientation.trim());
     if (uploadForm.siteType.trim()) formData.append("siteType", uploadForm.siteType.trim());
     if (uploadForm.foundationType.trim()) formData.append("foundationType", uploadForm.foundationType.trim());
     if (uploadForm.councilArea.trim()) formData.append("councilArea", uploadForm.councilArea.trim());
-    
+
     // Form data processing - bedrooms and bathrooms fields have been removed
 
     uploadMutation.mutate(formData);
@@ -269,7 +269,7 @@ export default function AdminInterface() {
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [lastRequestedPdfId, setLastRequestedPdfId] = useState<string | null>(null);
   const [pdfLoadTimeout, setPdfLoadTimeout] = useState<NodeJS.Timeout | null>(null);
-  
+
   // Get the toast function from useToast hook - using showToast to avoid name conflicts
 
   return (
@@ -303,8 +303,8 @@ export default function AdminInterface() {
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  {/* Per-user downloads */}
-  {/* <Card>
+                {/* Per-user downloads */}
+                {/* <Card>
     <CardContent className="p-6">
       <div className="flex items-center justify-between">
         <div>
@@ -367,7 +367,7 @@ export default function AdminInterface() {
                   </CardContent>
                 </Card>
 
-             
+
               </div>
             </TabsContent>
             {/* Upload Plans */}
@@ -629,9 +629,9 @@ export default function AdminInterface() {
                                       <DialogHeader>
                                         <DialogTitle>{plan.title}</DialogTitle>
                                         <DialogDescription>
-                                           View detailed information about this plan
-                                         </DialogDescription>
-                                       </DialogHeader>
+                                          View detailed information about this plan
+                                        </DialogDescription>
+                                      </DialogHeader>
                                       <div className="grid grid-cols-2 gap-4 py-4">
                                         <div>
                                           <strong>Plan Type:</strong> {plan.planType}
@@ -661,7 +661,7 @@ export default function AdminInterface() {
                                           <strong>File Size:</strong> {plan.fileSize ? `${(plan.fileSize / 1024 / 1024).toFixed(2)} MB` : 'N/A'}
                                         </div>
                                         <div>
-                                          <strong>Status:</strong> 
+                                          <strong>Status:</strong>
                                           <Badge variant={plan.status === 'active' ? 'default' : 'secondary'} className="ml-2">
                                             {plan.status}
                                           </Badge>
@@ -676,99 +676,33 @@ export default function AdminInterface() {
                                     </DialogContent>
                                   </Dialog>
 
-                                   {/* Download PDF Button */}
-                                   <Button
-                                     variant="outline"
-                                     size="sm"
-                                     onClick={async () => {
-                                       const planId = plan._id.toString();
-                                       
-                                       try {
-                                         // Use the API client to download the file properly
-                                         const response = await apiClient.get(`/api/plans/${planId}/download`, {
-                                           responseType: 'blob'
-                                         });
-                                         
-                                         console.log('📥 Download response received:', response.status);
-                                         
-                                         // Check if the response is actually an error JSON disguised as a blob
-                                         const contentType = response.headers['content-type'] || '';
-                                         console.log('Response content-type:', contentType);
-                                         console.log('Response data size:', response.data.size);
-                                         
-                                         // More robust error detection - check for JSON content type OR small file size OR try to parse as JSON
-                                         let isErrorResponse = false;
-                                         
-                                         if (contentType.includes('application/json')) {
-                                           isErrorResponse = true;
-                                           console.log('Detected JSON content-type, treating as error response');
-                                         } else if (response.data.size < 5000) { // PDF files are typically much larger
-                                           console.log('Small response size detected, checking if it\'s JSON error');
-                                           try {
-                                             const text = await response.data.text();
-                                             const parsed = JSON.parse(text);
-                                             if (parsed.message || parsed.error) {
-                                               isErrorResponse = true;
-                                               console.log('Successfully parsed small response as JSON error');
-                                             }
-                                           } catch (parseError) {
-                                             console.log('Small response is not JSON, treating as valid PDF');
-                                           }
-                                         }
-                                         
-                                         if (isErrorResponse) {
-                                           try {
-                                             const text = await response.data.text();
-                                             const errorData = JSON.parse(text);
-                                             if (errorData.message) {
-                                               // This is an error response from the backend
-                                               console.log('Backend error message:', errorData.message);
-                                               throw new Error(errorData.message + (errorData.details?.solution ? ` - ${errorData.details.solution}` : ''));
-                                             }
-                                           } catch (parseError) {
-                                             console.log('Could not parse error response:', parseError);
-                                             throw new Error('Server returned an error response that could not be parsed');
-                                           }
-                                         }
-                                         
-                                         // Create blob URL and trigger download
-                                         const blob = new Blob([response.data], { type: 'application/pdf' });
-                                         const url = window.URL.createObjectURL(blob);
-                                         
-                                         // Create temporary download link and trigger download
-                                         const link = document.createElement('a');
-                                         link.href = url;
-                                         link.download = `${plan.title}.pdf`;
-                                         document.body.appendChild(link);
-                                         link.click();
-                                         document.body.removeChild(link);
-                                         
-                                         // Clean up the blob URL
-                                         window.URL.revokeObjectURL(url);
-                                         
-                                         showToast({
-                                           title: "Download Completed",
-                                           description: `${plan.title} downloaded successfully!`,
-                                         });
-                                       } catch (error) {
-                                         console.error('Download error:', error);
-                                         
-                                         // Extract meaningful error message
-                                         let errorMessage = "Failed to download the file. Please try again.";
-                                         if (error instanceof Error) {
-                                           errorMessage = error.message;
-                                         }
-                                         
-                                         showToast({
-                                           title: "Download Failed",
-                                           description: errorMessage,
-                                           variant: "destructive",
-                                         });
-                                       }
-                                     }}
-                                   >
-                                     <Download className="w-4 h-4 mr-1" /> Download
-                                   </Button>
+                                  {/* Download PDF Button */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      const planId = plan._id.toString();
+                                      const fileName = `${plan.title || 'plan'}.pdf`;
+                                      
+                                      // Create direct download link
+                                      const link = document.createElement('a');
+                                      link.href = `/api/plans/${planId}/download`;
+                                      link.download = fileName;
+                                      link.target = '_blank'; // Open in new tab as fallback
+                                      
+                                      // Trigger download
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+
+                                      showToast({
+                                        title: "Download Started",
+                                        description: `${plan.title} is downloading to your Downloads folder.`,
+                                      });
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4 mr-1" /> Download
+                                  </Button>
 
                                   {/* Delete Button */}
                                   <Button
@@ -799,8 +733,8 @@ export default function AdminInterface() {
       </div>
 
       {/* PDF Viewer Modal */}
-      <Dialog 
-        open={isPdfViewerOpen} 
+      <Dialog
+        open={isPdfViewerOpen}
         onOpenChange={(open) => {
           console.log('🔄 PDF Modal onOpenChange:', open);
           setIsPdfViewerOpen(open);
@@ -834,7 +768,7 @@ export default function AdminInterface() {
                       setCurrentPdfUrl(refreshUrl);
                       setIsLoadingPdf(true);
                       setLastRequestedPdfId('refresh');
-                      
+
                       showToast({
                         title: "Refreshing",
                         description: "Reloading PDF...",
@@ -842,7 +776,7 @@ export default function AdminInterface() {
                     }
                   }}
                 >
-                  <RefreshCw className={`w-4 h-4 mr-1 ${isLoadingPdf ? 'animate-spin' : ''}`} /> 
+                  <RefreshCw className={`w-4 h-4 mr-1 ${isLoadingPdf ? 'animate-spin' : ''}`} />
                   {isLoadingPdf ? 'Loading...' : 'Refresh'}
                 </Button>
                 <Button
@@ -861,7 +795,7 @@ export default function AdminInterface() {
                 </Button>
               </div>
             </div>
-          
+
             <div className="h-[calc(100%-60px)] w-full bg-white relative">
               {currentPdfUrl ? (
                 <>
@@ -893,11 +827,11 @@ export default function AdminInterface() {
                       console.error('❌ PDF iframe load error for URL:', currentPdfUrl, e);
                       setIsLoadingPdf(false);
                       setLastRequestedPdfId(null);
-                      
+
                       // Clear the PDF URL to prevent retry loop
                       setCurrentPdfUrl('');
                       setIsPdfViewerOpen(false);
-                      
+
                       showToast({
                         title: "PDF Not Available",
                         description: "This plan file is not available and may need to be re-uploaded.",

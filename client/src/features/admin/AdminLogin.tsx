@@ -30,13 +30,13 @@ const AdminLogin: React.FC = () => {
 
     try {
       // Using our configured apiClient which already has withCredentials set
-      const response = await apiClient.post('/api/login', formData);
+      const response = await apiClient.post('/api/admin/login', formData);
       
       // Store the auth token and admin email for session management
-      if (response.data.success) {
-        localStorage.setItem('authToken', response.data.user.token || 'mock-jwt-token');
+      if (response.data.message === 'Login successful') {
+        // Admin login uses HTTP-only cookies, so no token in response
         localStorage.setItem('adminEmail', formData.email);
-        navigate('/admin/dashboard');
+        navigate('/admin');
       } else {
         setError('Login failed. Please check your credentials.');
       }

@@ -12,6 +12,7 @@ import authRoutes from './src/routes/authRoutes';
 import adminAuthRoutes from './src/routes/adminAuthRoutes';
 import config from './src/config';
 import { fileURLToPath } from "url";
+import { initializeStorage } from "./storage";
 
 const app = express();
 
@@ -22,11 +23,12 @@ app.use(cookieParser());
 
 // CORS configuration with proper origin validation
 const allowedOrigins = [
-  'https://arch-plan-01-production.up.railway.app',
+  config.CORS_ORIGIN, // Use config CORS_ORIGIN as primary
   'http://localhost:5173',
   'http://localhost:3000',
-  'http://localhost:4173' // Vite preview mode
-];
+  'http://localhost:4173', // Vite preview mode
+  'http://localhost:5000'  // Additional dev port
+].filter(Boolean); // Remove any undefined values
 
 // Function to validate and normalize origins
 const validateOrigin = (origin: string): string => {
@@ -48,7 +50,7 @@ app.use(cors({
     const normalizedOrigin = validateOrigin(origin);
     
     if (allowedOrigins.includes(normalizedOrigin)) {
-      callback(null, true);
+      callback(null, normalizedOrigin); // Return the exact origin that was matched
     } else {
       console.log(`CORS blocked origin: ${origin} (normalized: ${normalizedOrigin})`);
       callback(new Error('Not allowed by CORS'));
@@ -57,13 +59,21 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
     'Content-Type',
-    'Accept',
     'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials',
+    'Set-Cookie',
     'Cache-Control',
     'X-HTTP-Method-Override'
+  ],
+  exposedHeaders: [
+    'Set-Cookie',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
   ],
   preflightContinue: false,
   optionsSuccessStatus: 204
@@ -139,6 +149,10 @@ const startServer = async () => {
     // Connect to database
     await connectDB();
     console.log("🚀 Connected to database");
+    
+    // Initialize storage
+    initializeStorage();
+    console.log("💾 Storage initialized");
 
     // Register API routes BEFORE Vite middleware to ensure they take precedence
     const server = await registerRoutes(app);
@@ -154,7 +168,7 @@ const startServer = async () => {
     }
 
     // Start the server
-    const PORT = process.env.PORT || 3001;
+    const PORT = config.PORT;
     server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });

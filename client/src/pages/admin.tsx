@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import AdminInterface from "@/components/AdminInterface";
 import Header from "@/components/Header";
+import { toUserType } from "@/lib/type-utils";
 import type { UserType } from "@/types/user";
 
 export default function Admin() {
@@ -50,7 +51,7 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-slate-50">
       <Header 
-        user={user} 
+        user={user as any}
         activeTab="admin" 
         onTabChange={handleTabChange} 
       />

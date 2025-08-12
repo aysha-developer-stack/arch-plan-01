@@ -1,18 +1,35 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { LogOut } from 'lucide-react';
 import { apiClient } from '../../lib/axios';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toaster';
+import { Loader2 } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
-  const [location] = useLocation();
-  const navigate = useLocation()[1];
+  const [location, navigate] = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
   
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        await apiClient.get('/api/admin/check-auth');
+        setIsLoading(false);
+      } catch (error) {
+        // If not authenticated, redirect to login
+        localStorage.removeItem('adminEmail');
+        navigate('/admin/login', { replace: true });
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
   // Auto-logout when navigating away from admin routes
   useEffect(() => {
     // Get current admin email for session clearing
@@ -101,6 +118,17 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       navigate('/admin/login', { replace: true });
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

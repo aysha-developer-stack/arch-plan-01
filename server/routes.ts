@@ -2,7 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import jwt from "jsonwebtoken";
-import { storage } from "./storage";
+import { getStorage } from "./storage";
 // import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertPlanSchema } from "./src/schema.js";
 import { z } from "zod";
@@ -76,10 +76,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/login", async (req, res) => {
     // Mock login endpoint for development
     const { email, password } = req.body;
-    
+
     // Clean up any expired sessions first
     cleanupExpiredSession();
-    
+
     // Simple mock authentication
     if (email && password) {
       // If the same admin is trying to log in again, allow it by clearing the existing session
@@ -89,14 +89,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           activeAdminSession = null;
         } else {
           // A different admin is already logged in
-          return res.status(423).json({ 
-            success: false, 
+          return res.status(423).json({
+            success: false,
             message: `Admin portal is currently in use by ${activeAdminSession.email}. Please try again later.`,
             code: "ADMIN_SESSION_ACTIVE"
           });
         }
       }
-      
+
       // Create new admin session
       const now = Date.now();
       activeAdminSession = {
@@ -105,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         loginTime: now,
         lastActivity: now
       };
-      
+
       const mockUser = {
         id: "admin-user",
         email: email,
@@ -114,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profileImageUrl: null,
         token: "admin-jwt-token",
       };
-      
+
       console.log(`🔐 New admin session started for ${email}`);
       res.json({ success: true, user: mockUser });
     } else {
@@ -145,12 +145,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/user", async (req: any, res) => {
     // Clean up expired sessions
     cleanupExpiredSession();
-    
+
     // Check if there's an active admin session
     if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
       // Update last activity
       activeAdminSession.lastActivity = Date.now();
-      
+
       // Return the active admin user
       const adminUser = {
         id: activeAdminSession.userId,
@@ -163,15 +163,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       return res.json(adminUser);
     }
-    
+
     // No active session
     res.status(401).json({ message: "No active admin session" });
   });
-  
+
   // Check admin session status
   app.get("/api/admin/session-status", async (req, res) => {
     cleanupExpiredSession();
-    
+
     if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
       res.json({
         active: true,
@@ -199,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
       };
 
-      const plans = await storage.searchPlans(filters);
+      const plans = await getStorage().searchPlans(filters);
       res.json(plans);
     } catch (error) {
       console.error("Error searching plans:", error);
@@ -210,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get total downloads across all plans
   app.get("/api/plans/total-downloads", async (req, res) => {
     try {
-      const stats = await storage.getPlanStats();
+      const stats = await getStorage().getPlanStats();
       res.json({ totalDownloads: stats.totalDownloads });
     } catch (error) {
       console.error("Error fetching total downloads:", error);
@@ -221,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get plan by ID
   app.get("/api/plans/:id", async (req, res) => {
     try {
-      const plan = await storage.getPlan(req.params.id);
+      const plan = await getStorage().getPlan(req.params.id);
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
@@ -254,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found in token" });
       }
-      const user = await storage.getUser(userId);
+      const user = await getStorage().upsertUser({ id: userId });
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -273,8 +273,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/plans/:id/view", async (req, res) => {
     try {
       console.log("👁️ PDF View request for plan ID:", req.params.id);
-      
-      const plan = await storage.getPlan(req.params.id);
+
+      const plan = await getStorage().getPlan(req.params.id);
       if (!plan) {
         console.log("❌ Plan not found:", req.params.id);
         return res.status(404).send('Plan not found');
@@ -284,23 +284,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (plan.content) {
         console.log("✅ Serving PDF from database content");
         const contentBuffer = Buffer.from(plan.content, 'base64');
-        
+
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'inline; filename="' + (plan.fileName || 'plan.pdf') + '"');
         res.setHeader('Content-Length', contentBuffer.length.toString());
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-        
+
         return res.send(contentBuffer);
       }
 
       // Fallback to file system with improved path resolution
       if (plan.filePath) {
         console.log("📁 Original file path from database:", plan.filePath);
-        
+
         let filePath;
         let fileName = plan.fileName;
-        
+
         // Extract filename from path if it contains Docker/container paths
         if (plan.filePath.includes('/app/uploads/') || plan.filePath.includes('\\app\\uploads\\')) {
           // Extract just the filename from Docker container path
@@ -310,44 +310,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Handle normal paths
           const normalizedPath = plan.filePath.replace(/\\/g, '/');
-          filePath = path.isAbsolute(normalizedPath) 
-            ? normalizedPath 
+          filePath = path.isAbsolute(normalizedPath)
+            ? normalizedPath
             : path.join(process.cwd(), normalizedPath);
         }
-        
+
         console.log("🔍 Checking file path:", filePath);
-        
+
         if (fs.existsSync(filePath)) {
           console.log("✅ Serving PDF from file system");
-          
+
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', 'inline; filename="' + (fileName || 'plan.pdf') + '"');
           res.setHeader('Cache-Control', 'no-cache');
           res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-          
+
           return res.sendFile(path.resolve(filePath));
         } else {
           console.log("❌ File not found at:", filePath);
-          
+
           // Try to find the file by searching the uploads directory
           const uploadsDir = path.join(process.cwd(), 'uploads');
           if (fs.existsSync(uploadsDir)) {
             const files = fs.readdirSync(uploadsDir);
             console.log("📂 Available files in uploads:", files);
-            
+
             // Look for files with similar names or timestamps
             const targetFileName = path.basename(plan.filePath);
             const foundFile = files.find(file => file === targetFileName);
-            
+
             if (foundFile) {
               const foundFilePath = path.join(uploadsDir, foundFile);
               console.log("🔍 Found matching file:", foundFilePath);
-              
+
               res.setHeader('Content-Type', 'application/pdf');
               res.setHeader('Content-Disposition', 'inline; filename="' + (fileName || 'plan.pdf') + '"');
               res.setHeader('Cache-Control', 'no-cache');
               res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-              
+
               return res.sendFile(path.resolve(foundFilePath));
             }
           }
@@ -356,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("❌ No file or content available for plan:", req.params.id);
       return res.status(404).send('File not found');
-      
+
     } catch (error) {
       console.error("❌ Error in PDF view endpoint:", error);
       return res.status(500).send('Server error');
@@ -366,18 +366,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Quick reset for specific plan (GET request for easy browser access)
   app.get("/api/plans/689209274ea8755c4fc556af/fix-count", async (req, res) => {
     try {
-      await storage.resetDownloadCount("689209274ea8755c4fc556af", 1);
+      await getStorage().resetDownloadCount("689209274ea8755c4fc556af", 1);
       console.log("✅ Reset download count for plan 689209274ea8755c4fc556af to 1");
-      res.json({ 
-        message: "Download count reset successfully", 
-        planId: "689209274ea8755c4fc556af", 
-        newCount: 1 
+      res.json({
+        message: "Download count reset successfully",
+        planId: "689209274ea8755c4fc556af",
+        newCount: 1
       });
     } catch (error) {
       console.error("Reset download count error:", error);
-      res.status(500).json({ 
-        message: "Failed to reset download count", 
-        error: error instanceof Error ? error.message : String(error) 
+      res.status(500).json({
+        message: "Failed to reset download count",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -387,20 +387,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const planId = req.params.id;
       const newCount = parseInt(req.body.count) || 0;
-      
+
       // Update the download count directly in the database
-      await storage.resetDownloadCount(planId, newCount);
-      
-      res.json({ 
-        message: "Download count reset successfully", 
-        planId, 
-        newCount 
+      await getStorage().resetDownloadCount(planId, newCount);
+
+      res.json({
+        message: "Download count reset successfully",
+        planId,
+        newCount
       });
     } catch (error) {
       console.error("Reset download count error:", error);
-      res.status(500).json({ 
-        message: "Failed to reset download count", 
-        error: error instanceof Error ? error.message : String(error) 
+      res.status(500).json({
+        message: "Failed to reset download count",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -408,7 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug endpoint to inspect plan data
   app.get("/api/plans/:id/debug", async (req, res) => {
     try {
-      const plan = await storage.getPlan(req.params.id);
+      const plan = await getStorage().getPlan(req.params.id);
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
@@ -441,11 +441,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/plans/migration-scan", async (req, res) => {
     try {
       console.log("🔍 Starting legacy plan migration scan...");
-      
+
       // Get all plans
-      const allPlans = await storage.searchPlans({ limit: 1000 });
+      const allPlans = await getStorage().getRecentPlans(1000000);
       console.log(`📊 Found ${allPlans.length} total plans to scan`);
-      
+
       const results = {
         totalPlans: allPlans.length,
         healthyPlans: 0,
@@ -453,7 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         problematicPlans: 0,
         details: [] as any[]
       };
-      
+
       for (const plan of allPlans) {
         const planResult = {
           id: plan._id.toString(),
@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hasContent: !!plan.content,
           contentSize: plan.content ? plan.content.length : 0
         };
-        
+
         // Check if plan has content in database
         if (plan.content) {
           planResult.status = 'healthy';
@@ -476,7 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Try to find the file using the same logic as download endpoint
           let fileFound = false;
           const originalPath = plan.filePath;
-          
+
           // Strategy 1: Try the path as stored in DB
           let filePath;
           if (path.isAbsolute(originalPath)) {
@@ -484,13 +484,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             filePath = path.join(process.cwd(), originalPath);
           }
-          
+
           if (fs.existsSync(filePath)) {
             fileFound = true;
             planResult.status = 'healthy';
             planResult.solutions.push(`File found at: ${filePath}`);
           }
-          
+
           // Strategy 2: Try relative to server directory
           if (!fileFound) {
             const serverRelativePath = path.join(__dirname, '..', originalPath);
@@ -501,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               planResult.solutions.push('Can be migrated to correct location');
             }
           }
-          
+
           // Strategy 3: Try uploads directory
           if (!fileFound) {
             const fileName = path.basename(originalPath);
@@ -513,7 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               planResult.solutions.push('Can update database path reference');
             }
           }
-          
+
           // Strategy 4: Try server/uploads directory
           if (!fileFound) {
             const fileName = path.basename(originalPath);
@@ -525,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               planResult.solutions.push('Can update database path reference');
             }
           }
-          
+
           if (fileFound) {
             if (planResult.status === 'healthy') {
               results.healthyPlans++;
@@ -547,21 +547,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           planResult.solutions.push('Requires manual re-upload through admin panel');
           results.problematicPlans++;
         }
-        
+
         results.details.push(planResult);
       }
-      
+
       console.log(`✅ Migration scan complete:`);
       console.log(`   - Healthy plans: ${results.healthyPlans}`);
       console.log(`   - Recoverable plans: ${results.recoverablePlans}`);
       console.log(`   - Problematic plans: ${results.problematicPlans}`);
-      
+
       res.json(results);
     } catch (error) {
       console.error("Migration scan error:", error);
-      res.status(500).json({ 
-        message: "Migration scan failed", 
-        error: error instanceof Error ? error.message : String(error) 
+      res.status(500).json({
+        message: "Migration scan failed",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -570,26 +570,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/plans/migration-fix", async (req, res) => {
     try {
       const { planIds, action } = req.body;
-      
+
       if (!planIds || !Array.isArray(planIds)) {
         return res.status(400).json({ message: "planIds array is required" });
       }
-      
+
       if (!action || !['migrate-files', 'store-in-db', 'update-paths'].includes(action)) {
-        return res.status(400).json({ 
-          message: "action is required (migrate-files, store-in-db, or update-paths)" 
+        return res.status(400).json({
+          message: "action is required (migrate-files, store-in-db, or update-paths)"
         });
       }
-      
+
       console.log(`🔧 Starting migration fix for ${planIds.length} plans with action: ${action}`);
-      
+
       const results = {
         totalProcessed: 0,
         successful: 0,
         failed: 0,
         details: [] as any[]
       };
-      
+
       for (const planId of planIds) {
         results.totalProcessed++;
         const planResult = {
@@ -599,25 +599,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: '',
           error: null as string | null
         };
-        
+
         try {
-          const plan = await storage.getPlan(planId);
+          const plan = await getStorage().getPlan(planId);
           if (!plan) {
             planResult.error = 'Plan not found';
             results.details.push(planResult);
             results.failed++;
             continue;
           }
-          
+
           if (action === 'store-in-db' && plan.filePath) {
             // Find the file and store its content in database
             let fileFound = false;
             let filePath = '';
             let fileContent = '';
-            
+
             // Use same search logic as scan
             const originalPath = plan.filePath;
-            
+
             // Try different locations
             const searchPaths = [
               path.isAbsolute(originalPath) ? originalPath : path.join(process.cwd(), originalPath),
@@ -625,7 +625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               path.join(process.cwd(), 'uploads', path.basename(originalPath)),
               path.join(__dirname, 'uploads', path.basename(originalPath))
             ];
-            
+
             for (const searchPath of searchPaths) {
               if (fs.existsSync(searchPath)) {
                 filePath = searchPath;
@@ -633,15 +633,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 break;
               }
             }
-            
+
             if (fileFound) {
               // Read file and convert to base64
               const fileBuffer = fs.readFileSync(filePath);
               fileContent = fileBuffer.toString('base64');
-              
+
               // Update plan with content
-              await storage.updatePlan(planId, { content: fileContent });
-              
+              await getStorage().updatePlan(planId, { content: fileContent });
+
               planResult.success = true;
               planResult.message = `File content stored in database (${fileBuffer.length} bytes)`;
               results.successful++;
@@ -653,21 +653,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Update database with correct file path
             let correctPath = '';
             const originalPath = plan.filePath;
-            
+
             const searchPaths = [
               { path: path.join(process.cwd(), 'uploads', path.basename(originalPath)), dbPath: `uploads/${path.basename(originalPath)}` },
               { path: path.join(__dirname, 'uploads', path.basename(originalPath)), dbPath: `server/uploads/${path.basename(originalPath)}` }
             ];
-            
+
             for (const { path: searchPath, dbPath } of searchPaths) {
               if (fs.existsSync(searchPath)) {
                 correctPath = dbPath;
                 break;
               }
             }
-            
+
             if (correctPath) {
-              await storage.updatePlan(planId, { filePath: correctPath });
+              await getStorage().updatePlan(planId, { filePath: correctPath });
               planResult.success = true;
               planResult.message = `Updated file path to: ${correctPath}`;
               results.successful++;
@@ -679,25 +679,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             planResult.error = `Action ${action} not implemented or invalid for this plan`;
             results.failed++;
           }
-          
+
         } catch (error) {
           planResult.error = error instanceof Error ? error.message : String(error);
           results.failed++;
         }
-        
+
         results.details.push(planResult);
       }
-      
+
       console.log(`✅ Migration fix complete:`);
       console.log(`   - Successful: ${results.successful}`);
       console.log(`   - Failed: ${results.failed}`);
-      
+
       res.json(results);
     } catch (error) {
       console.error("Migration fix error:", error);
-      res.status(500).json({ 
-        message: "Migration fix failed", 
-        error: error instanceof Error ? error.message : String(error) 
+      res.status(500).json({
+        message: "Migration fix failed",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -716,45 +716,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     console.log("🔍 Plan ID being requested:", req.params.id);
     console.log("✅ Download endpoint reached - not intercepted by frontend");
-    
+
     // --- Duplicate request protection for download count ---
     const planId = req.params.id;
     const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
     const sessionKey = `download-${planId}-${clientIP}`;
     const now = Date.now();
-    
+
     // Check if this is a duplicate request within the session timeout
     const lastRequestTime = downloadSessions.get(sessionKey);
     const isDuplicateRequest = lastRequestTime && (now - lastRequestTime) < SESSION_TIMEOUT;
-    
+
     let shouldIncrementCount = false;
     if (!isDuplicateRequest) {
       // This is a new download session, track it
       downloadSessions.set(sessionKey, now);
       shouldIncrementCount = true;
-      
+
       // Clean up old sessions (older than 5 minutes)
       Array.from(downloadSessions.entries()).forEach(([key, timestamp]) => {
         if (now - timestamp > 300000) { // 5 minutes
           downloadSessions.delete(key);
         }
       });
-      
+
       console.log(`🆕 New download session started for plan ${planId} from ${clientIP}`);
     } else {
       console.log(`🔄 Duplicate download request detected for plan ${planId} from ${clientIP} (within ${SESSION_TIMEOUT}ms)`);
     }
-    
+
     try {
       console.log("🔍 Looking up plan with ID:", req.params.id);
-      const plan = await storage.getPlan(req.params.id);
+      const plan = await getStorage().getPlan(req.params.id);
       console.log("📄 Plan lookup result:", plan ? {
         id: plan._id,
         fileName: plan.fileName,
         filePath: plan.filePath,
         title: plan.title
       } : "❌ Plan not found");
-      
+
       if (!plan) {
         console.error("Plan not found for ID:", req.params.id);
         return res.status(404).json({ message: "Plan not found" });
@@ -765,17 +765,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const originalPath = plan.filePath;
       console.log("Original file path from DB:", originalPath);
       console.log("Current working directory:", process.cwd());
-      
+
       // Strategy 1: Try the path as stored in DB (could be absolute or relative)
       if (path.isAbsolute(originalPath)) {
         filePath = originalPath;
       } else {
         filePath = path.join(process.cwd(), originalPath);
       }
-      
+
       console.log("Strategy 1 - Trying path:", filePath);
       console.log("Strategy 1 - File exists:", fs.existsSync(filePath));
-      
+
       // Strategy 2: If not found, try relative to server directory
       if (!fs.existsSync(filePath)) {
         const serverRelativePath = path.join(__dirname, '..', originalPath);
@@ -785,7 +785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filePath = serverRelativePath;
         }
       }
-      
+
       // Strategy 3: If still not found, try looking in uploads directory
       if (!fs.existsSync(filePath)) {
         const fileName = path.basename(originalPath);
@@ -796,7 +796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filePath = uploadsPath;
         }
       }
-      
+
       // Strategy 4: Try server/uploads directory
       if (!fs.existsSync(filePath)) {
         const fileName = path.basename(originalPath);
@@ -807,79 +807,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filePath = serverUploadsPath;
         }
       }
-      
+
       console.log("Final file path to use:", filePath);
       console.log("Final file exists check:", fs.existsSync(filePath));
-      
+
       if (!fs.existsSync(filePath)) {
         console.log("⚠️ Physical file not found, checking if plan has content data in database...");
         console.log("   Original path:", originalPath);
         console.log("   Final attempted path:", filePath);
-        
+
         // Check if plan has content stored in database
         console.log("🔍 Checking plan content in database...");
         console.log("   - Has content property:", !!plan.content);
         console.log("   - Content type:", typeof plan.content);
         console.log("   - Content length:", plan.content ? plan.content.length : 0);
         console.log("   - Content preview:", plan.content ? plan.content.substring(0, 50) + '...' : 'null');
-        
+
         // Increment download count once for successful download (regardless of source)
         if (shouldIncrementCount) {
           console.log("🔢 Attempting to increment download count for plan:", plan._id.toString());
           console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
           try {
-            await storage.incrementDownloadCount(plan._id.toString());
+            await getStorage().incrementDownloadCount(plan._id.toString());
             console.log("✅ Download count incremented successfully");
-            
+
             // Verify the increment worked by fetching the plan again
-            const updatedPlan = await storage.getPlan(plan._id.toString());
+            const updatedPlan = await getStorage().getPlan(plan._id.toString());
             console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
           } catch (error) {
             console.error("❌ Failed to increment download count:", error);
             console.error("❌ Error details:", error instanceof Error ? error.stack : error);
           }
         }
-        
+
         if (plan.content) {
           console.log("✅ Found plan content in database, serving from memory");
-          
+
           // Serve content from database
           console.log("🔄 Converting base64 content to buffer...");
           const contentBuffer = Buffer.from(plan.content, 'base64');
           console.log("   - Buffer created successfully:", !!contentBuffer);
           console.log("   - Buffer length:", contentBuffer.length);
           console.log("   - Buffer first 10 bytes:", contentBuffer.slice(0, 10));
-          
+
           // Validate PDF header
           const pdfHeader = contentBuffer.slice(0, 4);
           if (pdfHeader.toString() !== '%PDF') {
             console.error("❌ Invalid PDF header in database content:", pdfHeader.toString());
-            return res.status(500).json({ 
+            return res.status(500).json({
               message: "Stored file is not a valid PDF",
               details: { header: pdfHeader.toString() }
             });
           }
-          
+
           const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
-          
-          // Set proper headers for PDF download
+
+          // Set proper headers for inline PDF viewing (bypasses IDM)
           res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+          res.setHeader('Content-Disposition', `attachment; filename="${plan.title || 'plan'}.pdf"`);
           res.setHeader('Content-Length', contentBuffer.length.toString());
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-          res.setHeader('Pragma', 'no-cache');
-          res.setHeader('Expires', '0');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
           res.setHeader('Accept-Ranges', 'bytes');
-          
+
           console.log(`🚀 Serving plan from database: ${contentBuffer.length} bytes`);
           return res.send(contentBuffer);
         }
-        
+
         console.error("❌ No physical file and no content in database!");
         console.log("💡 This plan was likely uploaded before the database storage fix.");
         console.log("💡 Solution: Re-upload this plan through the admin panel.");
-        
-        return res.status(404).json({ 
+
+        return res.status(404).json({
           message: "File not available - please re-upload this plan through the admin panel",
           details: {
             originalPath,
@@ -891,17 +889,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("✅ File found! Setting headers and serving file...");
-      
+
       // --- Increment download count for total downloads tracking (only for new sessions) ---
       if (shouldIncrementCount) {
         console.log("🔢 Incrementing download count for plan:", plan._id.toString());
         console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
         try {
-          await storage.incrementDownloadCount(plan._id.toString());
+          await getStorage().incrementDownloadCount(plan._id.toString());
           console.log("✅ Download count incremented successfully");
-          
+
           // Verify the increment worked by fetching the plan again
-          const updatedPlan = await storage.getPlan(plan._id.toString());
+          const updatedPlan = await getStorage().getPlan(plan._id.toString());
           console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
         } catch (error) {
           console.error("❌ Failed to increment download count:", error);
@@ -911,24 +909,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         console.log("🔄 Skipping download count increment (duplicate request)");
       }
-      
+
       // Get file stats for proper headers
       const stats = fs.statSync(filePath);
       const fileSize = stats.size;
-      
+
       console.log(`📊 File stats:`);
       console.log(`   - Size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
       console.log(`   - Modified: ${stats.mtime}`);
       console.log(`   - Is file: ${stats.isFile()}`);
       console.log(`   - Is readable: ${fs.constants.R_OK}`);
-      
+
       // Check if file is empty
       if (fileSize === 0) {
         console.error("❌ ERROR: File is empty (0 bytes)!");
         console.error(`   Plan ID: ${plan._id}`);
         console.error(`   Plan fileName: ${plan.fileName}`);
         console.error(`   File path: ${filePath}`);
-        return res.status(500).json({ 
+        return res.status(500).json({
           message: "File is empty",
           details: {
             planId: plan._id,
@@ -938,25 +936,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       }
-      
+
       // Read first few bytes to validate it's a PDF
       try {
         const buffer = Buffer.alloc(8);
         const fd = fs.openSync(filePath, 'r');
         const bytesRead = fs.readSync(fd, buffer, 0, 8, 0);
         fs.closeSync(fd);
-        
+
         const header = buffer.toString('hex', 0, bytesRead);
         const headerText = buffer.toString('ascii', 0, Math.min(4, bytesRead));
         console.log(`📄 File header (first ${bytesRead} bytes): ${header}`);
         console.log(`📄 File header as text: ${headerText}`);
-        
+
         // PDF files should start with %PDF
         if (headerText !== '%PDF') {
           console.error(`❌ Invalid PDF file! Expected: %PDF, Got: ${headerText}`);
-          return res.status(500).json({ 
+          return res.status(500).json({
             message: "File is not a valid PDF",
-            details: { 
+            details: {
               expectedHeader: "%PDF",
               actualHeader: headerText,
               filePath: filePath
@@ -967,33 +965,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (headerError) {
         console.error(`❌ Error reading file header:`, headerError);
-        return res.status(500).json({ 
+        return res.status(500).json({
           message: "Failed to validate PDF file",
           error: headerError instanceof Error ? headerError.message : String(headerError)
         });
       }
-      
-      // Set comprehensive headers for PDF download
+
+      // Set comprehensive headers for inline PDF viewing (bypasses IDM)
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${plan.fileName || 'plan.pdf'}"`);  
+      res.setHeader("Content-Disposition", "inline");
       res.setHeader("Content-Length", fileSize.toString());
       res.setHeader("Accept-Ranges", "bytes");
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
       res.setHeader("X-Content-Type-Options", "nosniff");
-      
+
       console.log(`🚀 Starting file download for ${fileSize} bytes...`);
       console.log(`   Plan ID: ${plan._id}`);
       console.log(`   File name: ${plan.fileName}`);
       console.log(`   File path: ${filePath}`);
-      
+
       // Use res.download for reliable PDF download with proper headers
       const absolutePath = path.resolve(filePath);
       console.log("Downloading file from absolute path:", absolutePath);
-      
+
       const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
-      
+
       // Use res.download which automatically sets correct headers for file downloads
       res.download(absolutePath, fileName, (err) => {
         if (err) {
@@ -1014,14 +1012,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: "Failed to download plan" });
       }
     }
-    
+
     console.log("📝 Download handler function completed (but file may still be sending)");
   });
 
   // Admin routes (simplified for demo)
   app.get("/api/admin/stats", async (req, res) => {
     try {
-      const stats = await storage.getPlanStats();
+      const stats = await getStorage().getPlanStats();
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -1036,7 +1034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
         offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
       };
-      const plans = await storage.searchPlans(filters);
+      const plans = await getStorage().searchPlans(filters);
       res.json(plans);
     } catch (error) {
       console.error("Error fetching admin plans:", error);
@@ -1053,7 +1051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = "dev-user"; // Mock user for demo
       // Convert absolute path to relative path for consistency
       const relativePath = path.relative(process.cwd(), req.file.path);
-      
+
       // Read file content and convert to base64 for database storage
       // This ensures files work on cloud platforms like Railway
       let fileContent: string;
@@ -1080,7 +1078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let plan;
       try {
-        plan = await storage.createPlan(planData);
+        plan = await getStorage().createPlan(planData);
       } catch (dbError) {
         console.error('❌ Failed to save plan to database:', dbError);
         // Do NOT delete the file if DB save fails
@@ -1116,7 +1114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/plans/:id", async (req, res) => {
     try {
       const updates = insertPlanSchema.partial().parse(req.body);
-      const plan = await storage.updatePlan(req.params.id, updates);
+      const plan = await getStorage().updatePlan(req.params.id, updates);
       res.json(plan);
     } catch (error) {
       console.error("Error updating plan:", error);
@@ -1129,7 +1127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/plans/:id", async (req, res) => {
     try {
-      const plan = await storage.getPlan(req.params.id);
+      const plan = await getStorage().getPlan(req.params.id);
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
@@ -1141,12 +1139,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         filePath = path.join(process.cwd(), plan.filePath);
       }
-      
+
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
 
-      await storage.deletePlan(req.params.id);
+      await getStorage().deletePlan(req.params.id);
       res.json({ message: "Plan deleted successfully" });
     } catch (error) {
       console.error("Error deleting plan:", error);
@@ -1159,7 +1157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`🔽 Download endpoint hit for plan ID: ${req.params.id}`);
     console.log(`🔽 Full request URL: ${req.originalUrl}`);
     try {
-      const plan = await storage.getPlan(req.params.id);
+      const plan = await getStorage().getPlan(req.params.id);
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
@@ -1187,14 +1185,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Increment download count
-      await storage.incrementDownloadCount(req.params.id);
+      await getStorage().incrementDownloadCount(req.params.id);
       console.log(`📊 Download count incremented for plan: ${plan.title} (ID: ${req.params.id})`);
 
       // Set proper headers for PDF download
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.setHeader('Content-Length', fileBuffer.length.toString());
-      
+
       // Send the file
       res.send(fileBuffer);
     } catch (error) {
@@ -1207,7 +1205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/plans/:id/view", async (req, res) => {
     try {
       console.log(`🔍 Attempting to view plan with ID: ${req.params.id}`);
-      const plan = await storage.getPlan(req.params.id);
+      const plan = await getStorage().getPlan(req.params.id);
       if (!plan) {
         console.log(`❌ Plan not found in database: ${req.params.id}`);
         return res.status(404).json({ message: "Plan not found" });
@@ -1215,7 +1213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Plan found: ${plan.title} (${plan.fileName})`);
       console.log(`📁 File path: ${plan.filePath || 'stored in database'}`);
       console.log(`💾 Has content: ${plan.content ? 'yes' : 'no'}`);
-    
+
 
       let filePath: string;
       let fileBuffer: Buffer;
@@ -1243,7 +1241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
       res.setHeader('Content-Length', fileBuffer.length.toString());
-      
+
       // Send the file
       res.send(fileBuffer);
     } catch (error) {

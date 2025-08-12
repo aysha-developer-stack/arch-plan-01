@@ -358,19 +358,29 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Export storage instance based on MongoDB availability
-console.log('🔍 Storage Configuration:');
-console.log(`   MONGODB_URI exists: ${!!process.env.MONGODB_URI}`);
-console.log(`   MONGODB_URI length: ${process.env.MONGODB_URI?.length || 0}`);
-
+// Initialize storage instance based on MongoDB availability
 let storage: IStorage;
 
-if (process.env.MONGODB_URI) {
-  console.log('✅ Using MongoDB Database Storage');
-  storage = new DatabaseStorage();
-} else {
-  console.log('⚠️  Using In-Memory Storage (data will not persist)');
-  storage = new MemoryStorage();
+export function initializeStorage(): IStorage {
+  console.log('🔍 Storage Configuration:');
+  console.log(`   MONGODB_URI exists: ${!!process.env.MONGODB_URI}`);
+  console.log(`   MONGODB_URI length: ${process.env.MONGODB_URI?.length || 0}`);
+
+  if (process.env.MONGODB_URI) {
+    console.log('✅ Using MongoDB Database Storage');
+    storage = new DatabaseStorage();
+  } else {
+    console.log('⚠️  Falling back to in-memory storage.');
+    storage = new MemoryStorage();
+  }
+  
+  return storage;
 }
 
-export { storage };
+// Export getter function for storage
+export function getStorage(): IStorage {
+  if (!storage) {
+    throw new Error('Storage not initialized. Call initializeStorage() first.');
+  }
+  return storage;
+}

@@ -36,7 +36,7 @@ export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
               Search Plans
             </button>
             <button
-              onClick={() => onTabChange?.('admin')}
+              onClick={handleAdminClick}
               className={`px-3 py-2 text-sm font-medium ${activeTab === 'admin' ? 'text-primary border-b-2 border-primary' : 'text-slate-500 hover:text-slate-700'}`}
             >
               {user ? 'Admin Dashboard' : 'Admin Login'}

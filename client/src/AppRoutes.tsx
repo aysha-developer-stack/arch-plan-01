@@ -1,5 +1,5 @@
 import { Route, Switch } from 'wouter';
-import { useAuth } from '@/hooks/use-auth';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 
@@ -19,10 +19,10 @@ import NotFound from '@/pages/not-found';
 const AdminRoutes = () => {
   const [location] = useLocation();
   const [, navigate] = useLocation();
-  
+
   // Only check auth if not on login page to prevent loops
   const shouldCheckAuth = location !== '/admin/login';
-  const { isAuthenticated, isLoading } = useAuth({ skipAuthCheck: !shouldCheckAuth });
+  const { isAuthenticated, isLoading } = useAdminAuth({ skipAuthCheck: !shouldCheckAuth });
 
   useEffect(() => {
     // Only redirect if we're checking auth and not loading
@@ -77,15 +77,15 @@ const PublicRoutes = () => {
 
 const AppRoutes = () => {
   const [location] = useLocation();
-  
+
   // Completely separate admin routes from public routes
   const isAdminRoute = location.startsWith('/admin');
-  
+
   // Only render admin routes with auth logic
   if (isAdminRoute) {
     return <AdminRoutes />;
   }
-  
+
   // Render public routes without any auth logic
   return <PublicRoutes />;
 };

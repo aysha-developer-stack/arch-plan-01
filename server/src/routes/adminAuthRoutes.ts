@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Request, Response } from 'express';
 import Admin from '../models/Admin';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { authenticateAdmin } from '../middleware/authMiddleware';
 import config from '../config';
 
@@ -36,19 +36,26 @@ router.post('/login', async (req: Request, res: Response) => {
     const payload = {
       adminId: (admin as any)._id.toString(),
       email: admin.email
-    };
-    const token = (jwt as any).sign(payload, config.JWT_SECRET, {
-      expiresIn: config.JWT_EXPIRES_IN
-    });
+    } as const;
+    
+    const token = jwt.sign(
+      payload, 
+      config.JWT_SECRET as jwt.Secret,
+      {
+        expiresIn: config.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn']
+      }
+    );
 
     // 4. Send token in HTTP-only cookie
-    res.cookie('adminToken', token, {
+    const cookieOptions = {
       httpOnly: config.COOKIE_HTTP_ONLY,
       secure: config.COOKIE_SECURE,
-      sameSite: config.COOKIE_SAME_SITE,
-      maxAge: config.COOKIE_MAX_AGE,
+      sameSite: config.COOKIE_SAME_SITE as any,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
-    });
+    };
+    
+    res.cookie('adminToken', token, cookieOptions);
 
     res.status(200).json({ message: 'Login successful' });
   } catch (error) {
@@ -70,6 +77,28 @@ router.post('/logout', authenticateAdmin, (req: Request, res: Response) => {
 
 router.get('/check-auth', authenticateAdmin, (req: Request, res: Response) => {
   res.status(200).json({ isAuthenticated: true });
+});
+
+// Get current admin user info
+router.get('/me', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const admin = await Admin.findById(req.adminId).select('-password');
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    res.status(200).json({
+      success: true,
+      user: {
+        id: admin._id,
+        email: admin.email,
+        role: 'admin'
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching admin info:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 export default router;
