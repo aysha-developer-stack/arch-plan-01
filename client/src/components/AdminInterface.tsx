@@ -64,6 +64,16 @@ interface UploadFormData {
   siteType: string;
   foundationType: string;
   councilArea: string;
+  plotLength: string;
+  plotWidth: string;
+  coveredArea: string;
+  roadPosition: string;
+  builderName: string;
+  houseType: string;
+  bedrooms: string;
+  toilets: string;
+  livingAreas: string;
+  constructionType: string[];
   file: File | null;
 }
 
@@ -108,6 +118,16 @@ export default function AdminInterface() {
     siteType: "",
     foundationType: "",
     councilArea: "",
+    plotLength: "",
+    plotWidth: "",
+    coveredArea: "",
+    roadPosition: "",
+    builderName: "",
+    houseType: "",
+    bedrooms: "3",
+    toilets: "2",
+    livingAreas: "1",
+    constructionType: [],
     file: null,
   });
 
@@ -146,6 +166,16 @@ export default function AdminInterface() {
         siteType: "",
         foundationType: "",
         councilArea: "",
+        plotLength: "",
+        plotWidth: "",
+        coveredArea: "",
+        roadPosition: "",
+        builderName: "",
+        houseType: "",
+        bedrooms: "3",
+        toilets: "2",
+        livingAreas: "1",
+        constructionType: [],
         file: null,
       });
       resetFileInput();
@@ -232,8 +262,22 @@ export default function AdminInterface() {
     if (uploadForm.siteType.trim()) formData.append("siteType", uploadForm.siteType.trim());
     if (uploadForm.foundationType.trim()) formData.append("foundationType", uploadForm.foundationType.trim());
     if (uploadForm.councilArea.trim()) formData.append("councilArea", uploadForm.councilArea.trim());
-
-    // Form data processing - bedrooms and bathrooms fields have been removed
+    
+    // New fields
+    if (uploadForm.plotLength.trim()) formData.append("plotLength", uploadForm.plotLength.trim());
+    if (uploadForm.plotWidth.trim()) formData.append("plotWidth", uploadForm.plotWidth.trim());
+    if (uploadForm.coveredArea.trim()) formData.append("coveredArea", uploadForm.coveredArea.trim());
+    if (uploadForm.roadPosition.trim()) formData.append("roadPosition", uploadForm.roadPosition.trim());
+    if (uploadForm.builderName.trim()) formData.append("builderName", uploadForm.builderName.trim());
+    if (uploadForm.houseType.trim()) formData.append("houseType", uploadForm.houseType.trim());
+    if (uploadForm.bedrooms.trim()) formData.append("bedrooms", uploadForm.bedrooms.trim());
+    if (uploadForm.toilets.trim()) formData.append("toilets", uploadForm.toilets.trim());
+    if (uploadForm.livingAreas.trim()) formData.append("livingAreas", uploadForm.livingAreas.trim());
+    
+    // Handle construction type
+    if (uploadForm.constructionType.length > 0) {
+      formData.append("constructionType", uploadForm.constructionType[0]);
+    }
 
     uploadMutation.mutate(formData);
   };
@@ -542,6 +586,146 @@ export default function AdminInterface() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div>
+                        <Label htmlFor="plotLength">Plot Length (m)</Label>
+                        <Input
+                          id="plotLength"
+                          type="number"
+                          step="0.01"
+                          value={uploadForm.plotLength}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, plotLength: e.target.value }))}
+                          placeholder="e.g., 20.5"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="plotWidth">Plot Width (m)</Label>
+                        <Input
+                          id="plotWidth"
+                          type="number"
+                          step="0.01"
+                          value={uploadForm.plotWidth}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, plotWidth: e.target.value }))}
+                          placeholder="e.g., 15.2"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="coveredArea">Covered Area (sq.m)</Label>
+                        <Input
+                          id="coveredArea"
+                          type="number"
+                          step="0.01"
+                          value={uploadForm.coveredArea}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, coveredArea: e.target.value }))}
+                          placeholder="e.g., 150.75"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="roadPosition">Road Position</Label>
+                        <Select
+                          value={uploadForm.roadPosition}
+                          onValueChange={(value) => setUploadForm(prev => ({ ...prev, roadPosition: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Road Position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Length Side">Length Side</SelectItem>
+                            <SelectItem value="Width Side">Width Side</SelectItem>
+                            <SelectItem value="Corner Plot">Corner Plot</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="builderName">Builder / Designer Name</Label>
+                        <Input
+                          id="builderName"
+                          value={uploadForm.builderName}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, builderName: e.target.value }))}
+                          placeholder="e.g., John Smith Architects"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="houseType">House Type</Label>
+                        <Select
+                          value={uploadForm.houseType}
+                          onValueChange={(value) => setUploadForm(prev => ({ ...prev, houseType: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select House Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Single Dwelling">Single Dwelling</SelectItem>
+                            <SelectItem value="Duplex">Duplex</SelectItem>
+                            <SelectItem value="Townhouse">Townhouse</SelectItem>
+                            <SelectItem value="Unit">Unit</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                      <div>
+                        <Label htmlFor="bedrooms">Bedrooms</Label>
+                        <Input
+                          id="bedrooms"
+                          type="number"
+                          min="0"
+                          max="70"
+                          value={uploadForm.bedrooms}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, bedrooms: e.target.value }))}
+                          placeholder="3"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="toilets">Toilets/Bathrooms</Label>
+                        <Input
+                          id="toilets"
+                          type="number"
+                          min="0"
+                          max="70"
+                          value={uploadForm.toilets}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, toilets: e.target.value }))}
+                          placeholder="2"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="livingAreas">Living Areas</Label>
+                        <Input
+                          id="livingAreas"
+                          type="number"
+                          min="0"
+                          max="70"
+                          value={uploadForm.livingAreas}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, livingAreas: e.target.value }))}
+                          placeholder="1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <Label htmlFor="constructionType">Type of Construction</Label>
+                      <Select
+                        value={uploadForm.constructionType.length > 0 ? uploadForm.constructionType[0] : ""}
+                        onValueChange={(value) => setUploadForm(prev => ({ ...prev, constructionType: [value] }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Construction Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Hebel">Hebel</SelectItem>
+                          <SelectItem value="Cladding">Cladding</SelectItem>
+                          <SelectItem value="Brick">Brick</SelectItem>
+                          <SelectItem value="NRG">NRG</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div>
@@ -634,10 +818,22 @@ export default function AdminInterface() {
                                       </DialogHeader>
                                       <div className="grid grid-cols-2 gap-4 py-4">
                                         <div>
-                                          <strong>Plan Type:</strong> {plan.planType}
+                                          <strong>Plan Type:</strong> {plan.planType || 'N/A'}
                                         </div>
                                         <div>
                                           <strong>Storeys:</strong> {plan.storeys}
+                                        </div>
+                                        <div>
+                                          <strong>Bedrooms:</strong> {plan.bedrooms || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Toilets:</strong> {plan.toilets || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Living Areas:</strong> {plan.livingAreas || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>House Type:</strong> {plan.houseType || 'N/A'}
                                         </div>
                                         <div>
                                           <strong>Lot Size:</strong> {plan.lotSize || 'N/A'}
@@ -646,10 +842,28 @@ export default function AdminInterface() {
                                           <strong>Orientation:</strong> {plan.orientation || 'N/A'}
                                         </div>
                                         <div>
+                                          <strong>Plot Length (m):</strong> {plan.plotLength || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Plot Width (m):</strong> {plan.plotWidth || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Covered Area (sq.m):</strong> {plan.coveredArea || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Road Position:</strong> {plan.roadPosition || 'N/A'}
+                                        </div>
+                                        <div>
                                           <strong>Site Type:</strong> {plan.siteType || 'N/A'}
                                         </div>
                                         <div>
                                           <strong>Foundation:</strong> {plan.foundationType || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Construction Type:</strong> {Array.isArray(plan.constructionType) ? plan.constructionType.join(', ') : plan.constructionType || 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Builder/Designer:</strong> {plan.builderName || 'N/A'}
                                         </div>
                                         <div>
                                           <strong>Council Area:</strong> {plan.councilArea || 'N/A'}

@@ -38,8 +38,13 @@ export interface PlanFilters {
   storeys?: string;
   councilArea?: string;
   search?: string;
+  bedrooms?: string;
+  houseType?: string;
+  constructionType?: string;
   limit?: number;
   offset?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface PlanStats {
@@ -50,6 +55,10 @@ export interface PlanStats {
 
 // In-memory storage fallback
 export class MemoryStorage implements IStorage {
+  private users: Map<string, UserType> = new Map();
+  private plans: Map<string, PlanType> = new Map();
+  private nextId = 1;
+
   async incrementUserDownloadCount(userId: string): Promise<void> {
     const user = this.users.get(userId);
     if (user) {
@@ -57,9 +66,6 @@ export class MemoryStorage implements IStorage {
       this.users.set(userId, user);
     }
   }
-  private users: Map<string, UserType> = new Map();
-  private plans: Map<string, PlanType> = new Map();
-  private nextId = 1;
 
   async getUser(id: string): Promise<UserType | null> {
     return this.users.get(id) || null;
@@ -120,11 +126,56 @@ export class MemoryStorage implements IStorage {
       const searchLower = filters.search.toLowerCase();
       results = results.filter(plan => 
         plan.title.toLowerCase().includes(searchLower) ||
-        (plan.description && plan.description.toLowerCase().includes(searchLower))
+        (plan.description && plan.description.toLowerCase().includes(searchLower)) ||
+        (plan.builderName && plan.builderName.toLowerCase().includes(searchLower))
       );
     }
 
-    results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (filters.bedrooms && filters.bedrooms !== "Any") {
+      if (filters.bedrooms === "5+") {
+        results = results.filter(plan => (plan.bedrooms || 0) >= 5);
+      } else {
+        const bedroomCount = parseInt(filters.bedrooms || "0");
+        results = results.filter(plan => plan.bedrooms === bedroomCount);
+      }
+    }
+
+    if (filters.houseType && filters.houseType !== "Any Type") {
+      results = results.filter(plan => plan.houseType === filters.houseType);
+    }
+
+    if (filters.constructionType && filters.constructionType !== "Any Construction") {
+      results = results.filter(plan => 
+        plan.constructionType && plan.constructionType.includes(filters.constructionType!)
+      );
+    }
+
+    // Determine sort field and order
+    const sortField = filters.sortBy || 'createdAt';
+    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+    
+    results.sort((a, b) => {
+      let valueA: any, valueB: any;
+      
+      // Handle different field types
+      if (sortField === 'createdAt' || sortField === 'updatedAt') {
+        valueA = new Date(a[sortField as keyof PlanType] as string).getTime();
+        valueB = new Date(b[sortField as keyof PlanType] as string).getTime();
+      } else if (sortField === 'downloadCount' || sortField === 'storeys') {
+        valueA = (a[sortField as keyof PlanType] as number) || 0;
+        valueB = (b[sortField as keyof PlanType] as number) || 0;
+      } else {
+        valueA = String((a[sortField as keyof PlanType] as string) || '').toLowerCase();
+        valueB = String((b[sortField as keyof PlanType] as string) || '').toLowerCase();
+      }
+      
+      // Compare based on sort order
+      if (typeof valueA === 'string' && typeof valueB === 'string') {
+        return sortOrder * valueA.localeCompare(valueB);
+      } else {
+        return sortOrder * (valueA > valueB ? 1 : valueA < valueB ? -1 : 0);
+      }
+    });
 
     if (filters.offset) {
       results = results.slice(filters.offset);
@@ -214,27 +265,46 @@ export class MemoryStorage implements IStorage {
 
 export class DatabaseStorage implements IStorage {
   async incrementUserDownloadCount(userId: string): Promise<void> {
-    await User.findOneAndUpdate(
-      { id: userId },
-      { $inc: { downloadCount: 1 } }
-    );
+    try {
+      await User.findOneAndUpdate(
+        { id: userId },
+        { $inc: { downloadCount: 1 } }
+      );
+    } catch (error) {
+      console.error('Error incrementing user download count:', error);
+      throw error;
+    }
   }
   async getUser(id: string): Promise<UserType | null> {
-    const user = await User.findOne({ id });
-    return user;
+    try {
+      const user = await User.findOne({ id });
+      return user;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      throw error;
+    }
   }
 
   async upsertUser(userData: UpsertUser): Promise<UserType> {
-    const user = await User.findOneAndUpdate(
-      { id: userData.id },
-      { ...userData, updatedAt: new Date() },
-      { upsert: true, new: true }
-    );
-    return user!;
+    try {
+      const user = await User.findOneAndUpdate(
+        { id: userData.id },
+        { ...userData, updatedAt: new Date() },
+        { upsert: true, new: true }
+      );
+      if (!user) {
+        throw new Error('Failed to upsert user');
+      }
+      return user;
+    } catch (error) {
+      console.error('Error upserting user:', error);
+      throw error;
+    }
   }
 
   async searchPlans(filters: PlanFilters): Promise<PlanType[]> {
-    const query: any = { status: "active" };
+    try {
+      const query: any = { status: "active" };
 
     if (filters.lotSize && filters.lotSize !== "Any Size") {
       query.lotSize = filters.lotSize;
@@ -273,13 +343,36 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (filters.search) {
-      query.$or = [
-        { title: { $regex: filters.search, $options: 'i' } },
-        { description: { $regex: filters.search, $options: 'i' } }
-      ];
-    }
+    query.$or = [
+      { title: { $regex: filters.search, $options: 'i' } },
+      { description: { $regex: filters.search, $options: 'i' } },
+      { builderName: { $regex: filters.search, $options: 'i' } }
+    ];
+  }
 
-    let mongoQuery = Plan.find(query).sort({ createdAt: -1 });
+  if (filters.bedrooms && filters.bedrooms !== "Any") {
+    if (filters.bedrooms === "5+") {
+      query.bedrooms = { $gte: 5 };
+    } else {
+      query.bedrooms = parseInt(filters.bedrooms || "0");
+    }
+  }
+
+  if (filters.houseType && filters.houseType !== "Any Type") {
+    query.houseType = filters.houseType;
+  }
+
+  if (filters.constructionType && filters.constructionType !== "Any Construction") {
+    query.constructionType = { $in: [filters.constructionType] };
+  }
+
+    // Determine sort field and order
+    const sortField = filters.sortBy || 'createdAt';
+    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+    const sortOptions: { [key: string]: 1 | -1 } = {};
+    sortOptions[sortField] = sortOrder;
+
+    let mongoQuery = Plan.find(query).sort(sortOptions);
 
     if (filters.limit) {
       mongoQuery = mongoQuery.limit(filters.limit);
@@ -289,72 +382,122 @@ export class DatabaseStorage implements IStorage {
       mongoQuery = mongoQuery.skip(filters.offset);
     }
 
-    return await mongoQuery.exec();
+      return await mongoQuery.exec();
+    } catch (error) {
+      console.error('Error searching plans:', error);
+      throw error;
+    }
   }
 
   async getPlan(id: string): Promise<PlanType | null> {
-    const plan = await Plan.findById(id);
-    return plan;
+    try {
+      const plan = await Plan.findById(id);
+      return plan;
+    } catch (error) {
+      console.error('Error getting plan:', error);
+      throw error;
+    }
   }
 
   async createPlan(planData: InsertPlan): Promise<PlanType> {
-    const plan = new Plan(planData);
-    return await plan.save();
+    try {
+      const plan = new Plan({
+        ...planData,
+        status: planData.status || "active",
+        downloadCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      return await plan.save();
+    } catch (error) {
+      console.error('Error creating plan:', error);
+      throw error;
+    }
   }
 
   async updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null> {
-    const plan = await Plan.findByIdAndUpdate(
-      id,
-      { ...updates, updatedAt: new Date() },
-      { new: true }
-    );
-    return plan;
+    try {
+      const plan = await Plan.findByIdAndUpdate(
+        id,
+        { ...updates, updatedAt: new Date() },
+        { new: true }
+      );
+      return plan;
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      throw error;
+    }
   }
 
   async deletePlan(id: string): Promise<void> {
-    await Plan.findByIdAndDelete(id);
+    try {
+      await Plan.findByIdAndDelete(id);
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+      throw error;
+    }
   }
 
   async incrementDownloadCount(id: string): Promise<void> {
-    await Plan.findByIdAndUpdate(
-      id,
-      { $inc: { downloadCount: 1 } }
-    );
+    try {
+      await Plan.findByIdAndUpdate(
+        id,
+        { $inc: { downloadCount: 1 } }
+      );
+    } catch (error) {
+      console.error('Error incrementing download count:', error);
+      throw error;
+    }
   }
 
   async resetDownloadCount(id: string, count: number): Promise<void> {
-    await Plan.findByIdAndUpdate(
-      id,
-      { $set: { downloadCount: count } }
-    );
+    try {
+      await Plan.findByIdAndUpdate(
+        id,
+        { $set: { downloadCount: count } }
+      );
+    } catch (error) {
+      console.error('Error resetting download count:', error);
+      throw error;
+    }
   }
 
   async getRecentPlans(limit = 10): Promise<PlanType[]> {
-    return await Plan.find({ status: "active" })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .exec();
+    try {
+      return await Plan.find({ status: "active" })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .exec();
+    } catch (error) {
+      console.error('Error getting recent plans:', error);
+      throw error;
+    }
   }
 
   async getPlanStats(): Promise<PlanStats> {
-    const totalPlans = await Plan.countDocuments({ status: "active" });
-    
-    const downloadStats = await Plan.aggregate([
-      { $match: { status: "active" } },
-      { $group: { _id: null, totalDownloads: { $sum: "$downloadCount" } } }
-    ]);
-    
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentUploads = await Plan.countDocuments({
-      status: "active",
-      createdAt: { $gte: oneDayAgo }
-    });
+    try {
+      const totalPlans = await Plan.countDocuments({ status: "active" });
+      
+      const downloadStats = await Plan.aggregate([
+        { $match: { status: "active" } },
+        { $group: { _id: null, totalDownloads: { $sum: "$downloadCount" } } }
+      ]);
+      
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentUploads = await Plan.countDocuments({
+        status: "active",
+        createdAt: { $gte: oneDayAgo }
+      });
 
-    return {
-      totalPlans,
-      totalDownloads: downloadStats[0]?.totalDownloads || 0,
-      recentUploads,
-    };
+      return {
+        totalPlans,
+        totalDownloads: downloadStats[0]?.totalDownloads || 0,
+        recentUploads,
+      };
+    } catch (error) {
+      console.error('Error getting plan stats:', error);
+      throw error;
+    }
   }
 }
 

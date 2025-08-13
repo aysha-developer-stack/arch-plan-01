@@ -1,5 +1,6 @@
-const { MongoClient } = require('mongodb');
-require('dotenv').config();
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
+dotenv.config();
 
 async function checkMongoDBData() {
   const uri = process.env.MONGODB_URI;

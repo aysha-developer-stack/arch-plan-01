@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, X, Download, Sliders, Zap } from "lucide-react";
+import { Search, Filter, X, Download, Sliders, Zap, Upload, FileText } from "lucide-react";
 import PlanCard from "./PlanCard";
 import type { PlanType } from "@shared/schema";
 
@@ -16,6 +16,17 @@ interface SearchFilters {
   storeys: string;
   councilArea: string;
   search: string;
+  bedrooms: string;
+  houseType: string;
+  constructionType: string;
+  planType: string;
+  plotLength: string;
+  plotWidth: string;
+  coveredArea: string;
+  roadPosition: string;
+  builderName: string;
+  toilets: string;
+  livingAreas: string;
 }
 
 export default function SearchInterface() {
@@ -27,7 +38,21 @@ export default function SearchInterface() {
     storeys: "",
     councilArea: "",
     search: "",
+    bedrooms: "",
+    houseType: "",
+    constructionType: "",
+    planType: "",
+    plotLength: "",
+    plotWidth: "",
+    coveredArea: "",
+    roadPosition: "",
+    builderName: "",
+    toilets: "",
+    livingAreas: "",
   });
+
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Check if any filter has a value
   const hasActiveFilters = Object.values(filters).some(value => value !== "");
@@ -60,11 +85,38 @@ export default function SearchInterface() {
       storeys: "",
       councilArea: "",
       search: "",
+      bedrooms: "",
+      houseType: "",
+      constructionType: "",
+      planType: "",
+      plotLength: "",
+      plotWidth: "",
+      coveredArea: "",
+      roadPosition: "",
+      builderName: "",
+      toilets: "",
+      livingAreas: "",
     });
   };
 
   const updateFilter = (key: keyof SearchFilters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setUploadedFiles([]);
   };
 
   return (
@@ -80,12 +132,12 @@ export default function SearchInterface() {
       {/* Advanced Search Filters */}
       <Card className="mb-8">
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {/* Search Input */}
             <div className="xl:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-2">Search</label>
               <Input
-                placeholder="Search plans..."
+                placeholder="Search by title, description, builder name..."
                 value={filters.search}
                 onChange={(e) => updateFilter("search", e.target.value)}
               />
@@ -190,20 +242,178 @@ export default function SearchInterface() {
               </Select>
             </div>
 
-            {/* Clear Filters */}
-            <div className="flex items-end">
-              <Button variant="outline" onClick={clearFilters} className="w-full">
-                <X className="w-4 h-4 mr-2" />
-                Clear Filters
-              </Button>
+            {/* Bedrooms Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Bedrooms</label>
+              <Input
+                type="number"
+                min="0"
+                max="50"
+                placeholder="e.g., 3"
+                value={filters.bedrooms}
+                onChange={(e) => updateFilter("bedrooms", e.target.value)}
+              />
+            </div>
+
+            {/* House Type Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">House Type</label>
+              <Select value={filters.houseType} onValueChange={(value) => updateFilter("houseType", value === "Any Type" ? "" : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Any Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Any Type">Any Type</SelectItem>
+                  <SelectItem value="Single Dwelling">Single Dwelling</SelectItem>
+                  <SelectItem value="Duplex">Duplex</SelectItem>
+                  <SelectItem value="Townhouse">Townhouse</SelectItem>
+                  <SelectItem value="Unit">Unit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Plan Type Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Plan Type</label>
+              <Select value={filters.planType} onValueChange={(value) => updateFilter("planType", value === "Any Plan Type" ? "" : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Any Plan Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Any Plan Type">Any Plan Type</SelectItem>
+                  <SelectItem value="Residential - Single Family">Residential - Single Family</SelectItem>
+                  <SelectItem value="Residential - Multi Family">Residential - Multi Family</SelectItem>
+                  <SelectItem value="Commercial">Commercial</SelectItem>
+                  <SelectItem value="Industrial">Industrial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Construction Type Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Construction</label>
+              <Select value={filters.constructionType} onValueChange={(value) => updateFilter("constructionType", value === "Any Construction" ? "" : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Any Construction" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Any Construction">Any Construction</SelectItem>
+                  <SelectItem value="Hebel">Hebel</SelectItem>
+                  <SelectItem value="Cladding">Cladding</SelectItem>
+                  <SelectItem value="Brick">Brick</SelectItem>
+                  <SelectItem value="NRG">NRG</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Road Position Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Road Position</label>
+              <Select value={filters.roadPosition} onValueChange={(value) => updateFilter("roadPosition", value === "Any Position" ? "" : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Any Position" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Any Position">Any Position</SelectItem>
+                  <SelectItem value="Length Side">Length Side</SelectItem>
+                  <SelectItem value="Width Side">Width Side</SelectItem>
+                  <SelectItem value="Corner Plot">Corner Plot</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Toilets Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Toilets</label>
+              <Input
+                type="number"
+                min="0"
+                max="50"
+                placeholder="e.g., 2"
+                value={filters.toilets}
+                onChange={(e) => updateFilter("toilets", e.target.value)}
+              />
+            </div>
+
+            {/* Living Areas Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Living Areas</label>
+              <Input
+                type="number"
+                min="0"
+                max="50"
+                placeholder="e.g., 1"
+                value={filters.livingAreas}
+                onChange={(e) => updateFilter("livingAreas", e.target.value)}
+              />
+            </div>
+
+          </div>
+
+          {/* Additional Numeric Inputs Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+            {/* Plot Length Input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Plot Length (m)</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g., 20.5"
+                value={filters.plotLength}
+                onChange={(e) => updateFilter("plotLength", e.target.value)}
+              />
+            </div>
+
+            {/* Plot Width Input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Plot Width (m)</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g., 15.2"
+                value={filters.plotWidth}
+                onChange={(e) => updateFilter("plotWidth", e.target.value)}
+              />
+            </div>
+
+            {/* Covered Area Input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Covered Area (sq.m)</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g., 150.75"
+                value={filters.coveredArea}
+                onChange={(e) => updateFilter("coveredArea", e.target.value)}
+              />
+            </div>
+
+            {/* Builder Name Input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Builder/Designer</label>
+              <Input
+                placeholder="e.g., John Smith Architects"
+                value={filters.builderName}
+                onChange={(e) => updateFilter("builderName", e.target.value)}
+              />
             </div>
           </div>
+
+          {/* Clear Filters Button */}
+          {hasActiveFilters && (
+            <div className="flex justify-end mt-6">
+              <Button variant="outline" onClick={clearFilters}>
+                <X className="w-4 h-4 mr-2" />
+                Clear All Filters
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Search Results */}
       {hasActiveFilters ? (
-        <>
+        <div>
           <div className="mb-6 flex justify-between items-center">
             <h3 className="text-xl font-semibold text-slate-900">
               Search Results ({plans.length} plans found)
@@ -245,7 +455,7 @@ export default function SearchInterface() {
               ))}
             </div>
           )}
-        </>
+        </div>
       ) : (
         <Card>
           <CardContent className="p-12">

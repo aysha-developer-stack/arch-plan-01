@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import jwt from "jsonwebtoken";
 import { getStorage } from "./storage";
 // import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertPlanSchema } from "./src/schema.js";
+import { insertPlanSchema, searchPlanSchema } from "./src/schema.js";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -187,7 +187,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public plan search endpoint
   app.get("/api/plans/search", async (req, res) => {
     try {
-      const filters = {
+      // Parse and validate search parameters using the schema
+      const queryParams = {
         lotSize: req.query.lotSize as string,
         orientation: req.query.orientation as string,
         siteType: req.query.siteType as string,
@@ -195,9 +196,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storeys: req.query.storeys as string,
         councilArea: req.query.councilArea as string,
         search: req.query.search as string,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
-        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
+        sortBy: req.query.sortBy as string,
+        sortOrder: req.query.sortOrder as 'asc' | 'desc',
       };
+      
+      // Validate the search parameters
+      const filters = searchPlanSchema.parse(queryParams);
 
       const plans = await getStorage().searchPlans(filters);
       res.json(plans);
@@ -1029,11 +1035,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/plans", async (req, res) => {
     try {
-      const filters = {
+      // Parse and validate search parameters using the schema
+      const queryParams = {
+        lotSize: req.query.lotSize as string,
+        orientation: req.query.orientation as string,
+        siteType: req.query.siteType as string,
+        foundationType: req.query.foundationType as string,
+        storeys: req.query.storeys as string,
+        councilArea: req.query.councilArea as string,
         search: req.query.search as string,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
         offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+        sortBy: req.query.sortBy as string,
+        sortOrder: req.query.sortOrder as 'asc' | 'desc',
       };
+      
+      // Validate the search parameters
+      const filters = searchPlanSchema.parse(queryParams);
       const plans = await getStorage().searchPlans(filters);
       res.json(plans);
     } catch (error) {
@@ -1073,6 +1091,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileSize: req.file.size,
         uploadedBy: userId,
         storeys: parseInt(req.body.storeys),
+        // Parse numeric fields
+        plotLength: req.body.plotLength ? parseFloat(req.body.plotLength) : undefined,
+        plotWidth: req.body.plotWidth ? parseFloat(req.body.plotWidth) : undefined,
+        coveredArea: req.body.coveredArea ? parseFloat(req.body.coveredArea) : undefined,
+        bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : undefined,
+        toilets: req.body.toilets ? parseInt(req.body.toilets) : undefined,
+        livingAreas: req.body.livingAreas ? parseInt(req.body.livingAreas) : undefined,
+        // Handle construction type as a single value
+        constructionType: req.body.constructionType ? [req.body.constructionType] : undefined,
         content: fileContent, // Always store file content in database
       });
 
@@ -1113,7 +1140,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/plans/:id", async (req, res) => {
     try {
-      const updates = insertPlanSchema.partial().parse(req.body);
+      // Process numeric fields and arrays before validation
+      const processedData = {
+        ...req.body,
+        // Parse numeric fields if they exist
+        plotLength: req.body.plotLength ? parseFloat(req.body.plotLength) : undefined,
+        plotWidth: req.body.plotWidth ? parseFloat(req.body.plotWidth) : undefined,
+        coveredArea: req.body.coveredArea ? parseFloat(req.body.coveredArea) : undefined,
+        bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : undefined,
+        toilets: req.body.toilets ? parseInt(req.body.toilets) : undefined,
+        livingAreas: req.body.livingAreas ? parseInt(req.body.livingAreas) : undefined,
+        storeys: req.body.storeys ? parseInt(req.body.storeys) : undefined,
+        // Handle construction type as a single value
+        constructionType: req.body.constructionType ? [req.body.constructionType] : undefined,
+      };
+      
+      const updates = insertPlanSchema.partial().parse(processedData);
       const plan = await getStorage().updatePlan(req.params.id, updates);
       res.json(plan);
     } catch (error) {
