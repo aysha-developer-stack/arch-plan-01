@@ -57,6 +57,14 @@ export interface IPlan extends Document {
   livingAreas?: number; // Number of living spaces
   constructionType?: string[]; // Array of construction types: Hebel, Cladding, Brick, NRG
   
+  // Additional features and specifications
+  lotSizeMin?: number; // Minimum lot size in square meters
+  lotSizeMax?: number; // Maximum lot size in square meters
+  totalBuildingHeight?: number; // Total building height in meters
+  roofPitch?: number; // Roof pitch in degrees
+  outdoorFeatures?: string[]; // Array of outdoor features
+  indoorFeatures?: string[]; // Array of indoor features
+  
   // Metadata
   status: string;
   downloadCount: number;
@@ -93,6 +101,14 @@ const planSchema = new Schema<IPlan>({
   toilets: { type: Number, default: 2 }, // Number of toilets/bathrooms
   livingAreas: { type: Number, default: 1 }, // Number of living spaces
   constructionType: [{ type: String }], // Array of construction types: Hebel, Cladding, Brick, NRG
+  
+  // Additional features and specifications
+  lotSizeMin: { type: Number }, // Minimum lot size in square meters
+  lotSizeMax: { type: Number }, // Maximum lot size in square meters
+  totalBuildingHeight: { type: Number }, // Total building height in meters
+  roofPitch: { type: Number }, // Roof pitch in degrees
+  outdoorFeatures: [{ type: String }], // Array of outdoor features
+  indoorFeatures: [{ type: String }], // Array of indoor features
   
   // Metadata
   status: { type: String, default: "active", maxlength: 20 },
@@ -135,10 +151,17 @@ export const insertPlanSchema = z.object({
   roadPosition: z.string().max(50).optional(), // Length Side, Width Side, Corner Plot
   builderName: z.string().max(255).optional(), // Builder or designer name
   houseType: z.string().max(50).optional(), // Single Dwelling, Duplex, Townhouse, Unit
-  bedrooms: z.number().min(0).max(70).optional().default(3), // Number of bedrooms
-  toilets: z.number().min(0).max(70).optional().default(2), // Number of toilets/bathrooms
-  livingAreas: z.number().min(0).max(70).optional().default(1), // Number of living spaces
+  bedrooms: z.number().min(0).optional().default(3), // Number of bedrooms
+  toilets: z.number().min(0).optional().default(2), // Number of toilets/bathrooms
+  livingAreas: z.number().min(0).optional().default(1), // Number of living spaces
   constructionType: z.array(z.string()).optional(), // Array of construction types
+  lotSizeMin: z.number().optional(), // Minimum lot size in square meters
+  lotSizeMax: z.number().optional(), // Maximum lot size in square meters
+  totalBuildingHeight: z.number().optional(), // Total building height in meters
+  roofPitch: z.number().optional(), // Roof pitch in degrees
+  outdoorFeatures: z.array(z.string()).optional(), // Array of outdoor features
+  indoorFeatures: z.array(z.string()).optional(), // Array of indoor features
+  extractedKeywords: z.array(z.string()).optional(), // Auto-extracted keywords from description
   
   status: z.string().max(20).optional(),
   uploadedBy: z.string().optional(),

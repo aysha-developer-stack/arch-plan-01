@@ -1,12 +1,11 @@
 import * as client from "openid-client";
-import { Strategy, type VerifyFunction } from "openid-client/passport";
-
+import { Strategy } from "openid-client";
 import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import MongoStore from "connect-mongo";
-import { storage } from "./storage";
+import { getStorage } from "./storage";
 
 // Set default domains for development if not provided
 const domains = process.env.REPLIT_DOMAINS || "localhost:5000,127.0.0.1:5000";
@@ -62,7 +61,7 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
+  await getStorage().upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
@@ -79,7 +78,7 @@ export async function setupAuth(app: Express) {
 
   const config = await getOidcConfig();
 
-  const verify: VerifyFunction = async (
+  const verify = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {

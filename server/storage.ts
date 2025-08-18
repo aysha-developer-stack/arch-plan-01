@@ -6,6 +6,7 @@ import {
   type PlanType,
   type InsertPlan,
 } from "./src/schema.js";
+import { extractKeywordsFromDescription } from "./src/utils/keywordExtractor.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
@@ -31,7 +32,10 @@ export interface IStorage {
 }
 
 export interface PlanFilters {
+  keyword?: string;
   lotSize?: string;
+  lotSizeMin?: string;
+  lotSizeMax?: string;
   orientation?: string;
   siteType?: string;
   foundationType?: string;
@@ -41,6 +45,18 @@ export interface PlanFilters {
   bedrooms?: string;
   houseType?: string;
   constructionType?: string;
+  planType?: string;
+  plotLength?: string;
+  plotWidth?: string;
+  coveredArea?: string;
+  roadPosition?: string;
+  builderName?: string;
+  toilets?: string;
+  livingAreas?: string;
+  totalBuildingHeight?: string;
+  roofPitch?: string;
+  outdoorFeatures?: string;
+  indoorFeatures?: string;
   limit?: number;
   offset?: number;
   sortBy?: string;
@@ -122,12 +138,29 @@ export class MemoryStorage implements IStorage {
       results = results.filter(plan => plan.councilArea === filters.councilArea);
     }
 
+    // Handle keyword search (searches across multiple fields including extracted keywords)
+    if (filters.keyword) {
+      const keywordLower = filters.keyword.toLowerCase();
+      results = results.filter(plan => 
+        plan.title.toLowerCase().includes(keywordLower) ||
+        (plan.description && plan.description.toLowerCase().includes(keywordLower)) ||
+        (plan.builderName && plan.builderName.toLowerCase().includes(keywordLower)) ||
+        (plan.extractedKeywords && plan.extractedKeywords.some(keyword => 
+          keyword.toLowerCase().includes(keywordLower)
+        ))
+      );
+    }
+
+    // Handle general search (legacy support)
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       results = results.filter(plan => 
         plan.title.toLowerCase().includes(searchLower) ||
         (plan.description && plan.description.toLowerCase().includes(searchLower)) ||
-        (plan.builderName && plan.builderName.toLowerCase().includes(searchLower))
+        (plan.builderName && plan.builderName.toLowerCase().includes(searchLower)) ||
+        (plan.extractedKeywords && plan.extractedKeywords.some(keyword => 
+          keyword.toLowerCase().includes(searchLower)
+        ))
       );
     }
 
@@ -194,9 +227,19 @@ export class MemoryStorage implements IStorage {
 
   async createPlan(planData: InsertPlan): Promise<PlanType> {
     const id = (this.nextId++).toString();
+    
+    // Extract keywords from description if provided
+    let extractedKeywords: string[] = [];
+    if (planData.description) {
+      const keywordResult = extractKeywordsFromDescription(planData.description);
+      extractedKeywords = keywordResult.keywords;
+      console.log(`🔍 Extracted ${extractedKeywords.length} keywords from description: ${extractedKeywords.join(', ')}`);
+    }
+    
     const plan = {
       _id: id as any,
       ...planData,
+      extractedKeywords,
       status: planData.status || "active",
       downloadCount: 0,
       createdAt: new Date(),
@@ -210,9 +253,17 @@ export class MemoryStorage implements IStorage {
     const existing = this.plans.get(id);
     if (!existing) return null;
     
+    // Extract keywords from description if it's being updated
+    let updateData = { ...updates };
+    if (updates.description) {
+      const keywordResult = extractKeywordsFromDescription(updates.description);
+      updateData.extractedKeywords = keywordResult.keywords;
+      console.log(`🔍 Updated extracted keywords: ${keywordResult.keywords.join(', ')}`);
+    }
+    
     const updated = {
       ...existing,
-      ...updates,
+      ...updateData,
       updatedAt: new Date(),
     } as PlanType;
     this.plans.set(id, updated);
@@ -342,29 +393,133 @@ export class DatabaseStorage implements IStorage {
       query.councilArea = filters.councilArea;
     }
 
-    if (filters.search) {
-    query.$or = [
-      { title: { $regex: filters.search, $options: 'i' } },
-      { description: { $regex: filters.search, $options: 'i' } },
-      { builderName: { $regex: filters.search, $options: 'i' } }
-    ];
-  }
-
-  if (filters.bedrooms && filters.bedrooms !== "Any") {
-    if (filters.bedrooms === "5+") {
-      query.bedrooms = { $gte: 5 };
-    } else {
-      query.bedrooms = parseInt(filters.bedrooms || "0");
+    // Handle keyword search (searches across multiple fields including extracted keywords)
+    if (filters.keyword) {
+      query.$or = [
+        { title: { $regex: filters.keyword, $options: 'i' } },
+        { description: { $regex: filters.keyword, $options: 'i' } },
+        { builderName: { $regex: filters.keyword, $options: 'i' } },
+        { extractedKeywords: { $in: [new RegExp(filters.keyword, 'i')] } }
+      ];
     }
-  }
 
-  if (filters.houseType && filters.houseType !== "Any Type") {
-    query.houseType = filters.houseType;
-  }
+    // Handle general search (legacy support)
+    if (filters.search) {
+      query.$or = [
+        { title: { $regex: filters.search, $options: 'i' } },
+        { description: { $regex: filters.search, $options: 'i' } },
+        { builderName: { $regex: filters.search, $options: 'i' } },
+        { extractedKeywords: { $in: [new RegExp(filters.search, 'i')] } }
+      ];
+    }
 
-  if (filters.constructionType && filters.constructionType !== "Any Construction") {
-    query.constructionType = { $in: [filters.constructionType] };
-  }
+    // Lot size range filters
+    if (filters.lotSizeMin) {
+      const minSize = parseFloat(filters.lotSizeMin);
+      if (!isNaN(minSize)) {
+        query.lotSizeMin = { $gte: minSize };
+      }
+    }
+
+    if (filters.lotSizeMax) {
+      const maxSize = parseFloat(filters.lotSizeMax);
+      if (!isNaN(maxSize)) {
+        query.lotSizeMax = { $lte: maxSize };
+      }
+    }
+
+    // Plan type filter
+    if (filters.planType && filters.planType !== "Any Type") {
+      query.planType = filters.planType;
+    }
+
+    // Numeric filters
+    if (filters.plotLength) {
+      const length = parseFloat(filters.plotLength);
+      if (!isNaN(length)) {
+        query.plotLength = length;
+      }
+    }
+
+    if (filters.plotWidth) {
+      const width = parseFloat(filters.plotWidth);
+      if (!isNaN(width)) {
+        query.plotWidth = width;
+      }
+    }
+
+    if (filters.coveredArea) {
+      const area = parseFloat(filters.coveredArea);
+      if (!isNaN(area)) {
+        query.coveredArea = area;
+      }
+    }
+
+    if (filters.totalBuildingHeight) {
+      const height = parseFloat(filters.totalBuildingHeight);
+      if (!isNaN(height)) {
+        query.totalBuildingHeight = height;
+      }
+    }
+
+    if (filters.roofPitch) {
+      const pitch = parseFloat(filters.roofPitch);
+      if (!isNaN(pitch)) {
+        query.roofPitch = pitch;
+      }
+    }
+
+    // Road position filter
+    if (filters.roadPosition && filters.roadPosition !== "Any Position") {
+      query.roadPosition = filters.roadPosition;
+    }
+
+    // Builder name filter
+    if (filters.builderName) {
+      query.builderName = { $regex: filters.builderName, $options: 'i' };
+    }
+
+    // Room configuration filters
+    if (filters.bedrooms && filters.bedrooms !== "Any") {
+      if (filters.bedrooms === "5+") {
+        query.bedrooms = { $gte: 5 };
+      } else {
+        query.bedrooms = parseInt(filters.bedrooms || "0");
+      }
+    }
+
+    if (filters.toilets && filters.toilets !== "Any") {
+      if (filters.toilets === "5+") {
+        query.toilets = { $gte: 5 };
+      } else {
+        query.toilets = parseInt(filters.toilets || "0");
+      }
+    }
+
+    if (filters.livingAreas && filters.livingAreas !== "Any") {
+      if (filters.livingAreas === "5+") {
+        query.livingAreas = { $gte: 5 };
+      } else {
+        query.livingAreas = parseInt(filters.livingAreas || "0");
+      }
+    }
+
+    if (filters.houseType && filters.houseType !== "Any Type") {
+      query.houseType = filters.houseType;
+    }
+
+    if (filters.constructionType && filters.constructionType !== "Any Construction") {
+      query.constructionType = { $in: [filters.constructionType] };
+    }
+
+    // Feature filters (text search in arrays)
+    if (filters.outdoorFeatures) {
+      query.outdoorFeatures = { $regex: filters.outdoorFeatures, $options: 'i' };
+    }
+
+    if (filters.indoorFeatures) {
+      query.indoorFeatures = { $regex: filters.indoorFeatures, $options: 'i' };
+    }
 
     // Determine sort field and order
     const sortField = filters.sortBy || 'createdAt';
@@ -401,8 +556,17 @@ export class DatabaseStorage implements IStorage {
 
   async createPlan(planData: InsertPlan): Promise<PlanType> {
     try {
+      // Extract keywords from description if provided
+      let extractedKeywords: string[] = [];
+      if (planData.description) {
+        const keywordResult = extractKeywordsFromDescription(planData.description);
+        extractedKeywords = keywordResult.keywords;
+        console.log(`🔍 Extracted ${extractedKeywords.length} keywords from description: ${extractedKeywords.join(', ')}`);
+      }
+
       const plan = new Plan({
         ...planData,
+        extractedKeywords,
         status: planData.status || "active",
         downloadCount: 0,
         createdAt: new Date(),
@@ -417,9 +581,17 @@ export class DatabaseStorage implements IStorage {
 
   async updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null> {
     try {
+      // Extract keywords from description if it's being updated
+      let updateData = { ...updates, updatedAt: new Date() };
+      if (updates.description) {
+        const keywordResult = extractKeywordsFromDescription(updates.description);
+        updateData.extractedKeywords = keywordResult.keywords;
+        console.log(`🔍 Updated extracted keywords: ${keywordResult.keywords.join(', ')}`);
+      }
+
       const plan = await Plan.findByIdAndUpdate(
         id,
-        { ...updates, updatedAt: new Date() },
+        updateData,
         { new: true }
       );
       return plan;

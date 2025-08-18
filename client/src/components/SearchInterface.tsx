@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useDebounce } from "../hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,7 +10,10 @@ import PlanCard from "./PlanCard";
 import type { PlanType } from "@shared/schema";
 
 interface SearchFilters {
+  keyword: string;
   lotSize: string;
+  lotSizeMin: string;
+  lotSizeMax: string;
   orientation: string;
   siteType: string;
   foundationType: string;
@@ -27,11 +31,18 @@ interface SearchFilters {
   builderName: string;
   toilets: string;
   livingAreas: string;
+  totalBuildingHeight: string;
+  roofPitch: string;
+  outdoorFeatures: string[];
+  indoorFeatures: string[];
 }
 
 export default function SearchInterface() {
   const [filters, setFilters] = useState<SearchFilters>({
+    keyword: "",
     lotSize: "",
+    lotSizeMin: "",
+    lotSizeMax: "",
     orientation: "",
     siteType: "",
     foundationType: "",
@@ -49,20 +60,40 @@ export default function SearchInterface() {
     builderName: "",
     toilets: "",
     livingAreas: "",
+    totalBuildingHeight: "",
+    roofPitch: "",
+    outdoorFeatures: [],
+    indoorFeatures: [],
   });
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Debounce filters to reduce API calls while user is typing
+  const debouncedFilters = useDebounce(filters, 300);
+
   // Check if any filter has a value
-  const hasActiveFilters = Object.values(filters).some(value => value !== "");
+  const hasActiveFilters = useMemo(() => {
+    return Object.entries(debouncedFilters).some(([key, value]) => {
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      return value !== "";
+    });
+  }, [debouncedFilters]);
 
   const { data: plans = [], isLoading } = useQuery<PlanType[]>({
-    queryKey: ["/api/plans/search", filters],
+    queryKey: ["/api/plans/search", debouncedFilters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) {
+      Object.entries(debouncedFilters).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          // Handle array values
+          if (value.length > 0) {
+            value.forEach(item => params.append(key, item));
+          }
+        } else if (value && typeof value === 'string' && value.trim() !== "") {
+          // Handle string values
           params.append(key, value);
         }
       });
@@ -74,11 +105,16 @@ export default function SearchInterface() {
       return response.json();
     },
     enabled: hasActiveFilters, // Only run query when user has applied filters
+    staleTime: 5 * 60 * 1000, // Cache results for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFilters({
+      keyword: "",
       lotSize: "",
+      lotSizeMin: "",
+      lotSizeMax: "",
       orientation: "",
       siteType: "",
       foundationType: "",
@@ -96,12 +132,16 @@ export default function SearchInterface() {
       builderName: "",
       toilets: "",
       livingAreas: "",
+      totalBuildingHeight: "",
+      roofPitch: "",
+      outdoorFeatures: [],
+      indoorFeatures: [],
     });
-  };
+  }, []);
 
-  const updateFilter = (key: keyof SearchFilters, value: string) => {
+  const updateFilter = useCallback((key: keyof SearchFilters, value: string | string[]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -132,31 +172,209 @@ export default function SearchInterface() {
       {/* Advanced Search Filters */}
       <Card className="mb-8">
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            {/* Search Input */}
-            <div className="xl:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">Search</label>
+          <div className="space-y-6">
+            {/* Keyword Search - First Input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Search Keywords</label>
               <Input
-                placeholder="Search by title, description, builder name..."
-                value={filters.search}
-                onChange={(e) => updateFilter("search", e.target.value)}
+                placeholder="Enter keywords to search plans..."
+                value={filters.keyword}
+                onChange={(e) => updateFilter("keyword", e.target.value)}
+                className="text-lg"
               />
             </div>
+            
+            {/* Basic Search Filters */}
+            <div className="border-b border-slate-200 pb-4">
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">Basic Information</h4>
+              <p className="text-sm text-slate-600">Essential plan details and identification</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {/* General Search Input */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">General Search</label>
+                <Input
+                  placeholder="Search by title, description, builder name..."
+                  value={filters.search}
+                  onChange={(e) => updateFilter("search", e.target.value)}
+                />
+              </div>
+              
+              {/* Plan Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Plan Type</label>
+                <Select value={filters.planType} onValueChange={(value) => updateFilter("planType", value === "Any Plan Type" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any Plan Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Any Plan Type">Any Plan Type</SelectItem>
+                    <SelectItem value="Residential - Single Family">Residential - Single Family</SelectItem>
+                    <SelectItem value="Residential - Multi Family">Residential - Multi Family</SelectItem>
+                    <SelectItem value="Commercial">Commercial</SelectItem>
+                    <SelectItem value="Industrial">Industrial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Builder Name Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Builder / Designer</label>
+                <Input
+                  placeholder="Builder or designer name"
+                  value={filters.builderName}
+                  onChange={(e) => updateFilter("builderName", e.target.value)}
+                />
+              </div>
+              
+              {/* Storeys Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Number of Storeys</label>
+                <Select value={filters.storeys} onValueChange={(value) => updateFilter("storeys", value === "Any" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Any">Any</SelectItem>
+                    <SelectItem value="Single Storey">Single Storey</SelectItem>
+                    <SelectItem value="Two Storey">Two Storey</SelectItem>
+                    <SelectItem value="Three+ Storey">Three+ Storey</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* House Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">House Type</label>
+                <Select value={filters.houseType} onValueChange={(value) => updateFilter("houseType", value === "Any Type" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Any Type">Any Type</SelectItem>
+                    <SelectItem value="Single Dwelling">Single Dwelling</SelectItem>
+                    <SelectItem value="Duplex">Duplex</SelectItem>
+                    <SelectItem value="Townhouse">Townhouse</SelectItem>
+                    <SelectItem value="Unit">Unit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Total Building Height */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Total Building Height (m)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  step="0.01"
+                  placeholder="e.g., 8.5"
+                  value={filters.totalBuildingHeight}
+                  onChange={(e) => updateFilter("totalBuildingHeight", e.target.value)}
+                />
+              </div>
+              
+              {/* Roof Pitch */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Roof Pitch (degrees)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="35"
+                  placeholder="e.g., 22"
+                  value={filters.roofPitch}
+                  onChange={(e) => updateFilter("roofPitch", e.target.value)}
+                />
+              </div>
+              
+              {/* Foundation Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Foundation</label>
+                <Select value={filters.foundationType} onValueChange={(value) => updateFilter("foundationType", value === "Any Foundation" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any Foundation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Any Foundation">Any Foundation</SelectItem>
+                    <SelectItem value="Stumps">Stumps</SelectItem>
+                    <SelectItem value="Slab">Slab</SelectItem>
+                    <SelectItem value="Half Stump">Half Stump</SelectItem>
+                    <SelectItem value="Half Slab">Half Slab</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Site & Plot Details Section */}
+            <div className="border-b border-slate-200 pb-4">
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">Site & Plot Details</h4>
+              <p className="text-sm text-slate-600">Land specifications and site characteristics</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 
-            {/* Lot Size Filter */}
+            {/* Lot Size Min Filter */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Lot Size</label>
-              <Select value={filters.lotSize} onValueChange={(value) => updateFilter("lotSize", value === "Any Size" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any Size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Any Size">Any Size</SelectItem>
-                  <SelectItem value="Small (< 400m²)">Small (&lt; 400m²)</SelectItem>
-                  <SelectItem value="Medium (400-800m²)">Medium (400-800m²)</SelectItem>
-                  <SelectItem value="Large (> 800m²)">Large (&gt; 800m²)</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Lot Size Min (m²)</label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="e.g., 300"
+                value={filters.lotSizeMin}
+                onChange={(e) => updateFilter("lotSizeMin", e.target.value)}
+              />
+            </div>
+            
+            {/* Lot Size Max Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Lot Size Max (m²)</label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="e.g., 800"
+                value={filters.lotSizeMax}
+                onChange={(e) => updateFilter("lotSizeMax", e.target.value)}
+              />
+            </div>
+            
+            {/* Plot Length */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Plot Length (m)</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g., 20.5"
+                value={filters.plotLength}
+                onChange={(e) => updateFilter("plotLength", e.target.value)}
+              />
+            </div>
+            
+            {/* Plot Width */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Plot Width (m)</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g., 15.5"
+                value={filters.plotWidth}
+                onChange={(e) => updateFilter("plotWidth", e.target.value)}
+              />
+            </div>
+            
+            {/* Covered Area */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Covered Area (m²)</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g., 150.5"
+                value={filters.coveredArea}
+                onChange={(e) => updateFilter("coveredArea", e.target.value)}
+              />
             </div>
 
             {/* Orientation Filter */}
@@ -192,35 +410,18 @@ export default function SearchInterface() {
               </Select>
             </div>
 
-            {/* Foundation Type Filter */}
+            {/* Road Position Filter */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Foundation</label>
-              <Select value={filters.foundationType} onValueChange={(value) => updateFilter("foundationType", value === "Any Foundation" ? "" : value)}>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Road Position</label>
+              <Select value={filters.roadPosition} onValueChange={(value) => updateFilter("roadPosition", value === "Any Position" ? "" : value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Any Foundation" />
+                  <SelectValue placeholder="Any Position" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Any Foundation">Any Foundation</SelectItem>
-                  <SelectItem value="Stumps">Stumps</SelectItem>
-                  <SelectItem value="Slab">Slab</SelectItem>
-                  <SelectItem value="Half Stump">Half Stump</SelectItem>
-                  <SelectItem value="Half Slab">Half Slab</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Storeys Filter */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Number of Storeys</label>
-              <Select value={filters.storeys} onValueChange={(value) => updateFilter("storeys", value === "Any" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Any">Any</SelectItem>
-                  <SelectItem value="Single Storey">Single Storey</SelectItem>
-                  <SelectItem value="Two Storey">Two Storey</SelectItem>
-                  <SelectItem value="Three+ Storey">Three+ Storey</SelectItem>
+                  <SelectItem value="Any Position">Any Position</SelectItem>
+                  <SelectItem value="Length Side">Length Side</SelectItem>
+                  <SelectItem value="Width Side">Width Side</SelectItem>
+                  <SelectItem value="Corner Plot">Corner Plot</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -241,54 +442,51 @@ export default function SearchInterface() {
                 </SelectContent>
               </Select>
             </div>
-
+          </div>
+          
+          {/* Room Configuration Section */}
+          <div className="border-b border-slate-200 pb-4">
+            <h4 className="text-lg font-semibold text-slate-900 mb-2">Room Configuration</h4>
+            <p className="text-sm text-slate-600">Interior layout and room specifications</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {/* Bedrooms Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Bedrooms</label>
               <Input
                 type="number"
                 min="0"
-                max="50"
                 placeholder="e.g., 3"
                 value={filters.bedrooms}
                 onChange={(e) => updateFilter("bedrooms", e.target.value)}
               />
             </div>
 
-            {/* House Type Filter */}
+            {/* Toilets Filter */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">House Type</label>
-              <Select value={filters.houseType} onValueChange={(value) => updateFilter("houseType", value === "Any Type" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Any Type">Any Type</SelectItem>
-                  <SelectItem value="Single Dwelling">Single Dwelling</SelectItem>
-                  <SelectItem value="Duplex">Duplex</SelectItem>
-                  <SelectItem value="Townhouse">Townhouse</SelectItem>
-                  <SelectItem value="Unit">Unit</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Toilets</label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="e.g., 2"
+                value={filters.toilets}
+                onChange={(e) => updateFilter("toilets", e.target.value)}
+              />
             </div>
 
-            {/* Plan Type Filter */}
+            {/* Living Areas Filter */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Plan Type</label>
-              <Select value={filters.planType} onValueChange={(value) => updateFilter("planType", value === "Any Plan Type" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any Plan Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Any Plan Type">Any Plan Type</SelectItem>
-                  <SelectItem value="Residential - Single Family">Residential - Single Family</SelectItem>
-                  <SelectItem value="Residential - Multi Family">Residential - Multi Family</SelectItem>
-                  <SelectItem value="Commercial">Commercial</SelectItem>
-                  <SelectItem value="Industrial">Industrial</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Living Areas</label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="e.g., 1"
+                value={filters.livingAreas}
+                onChange={(e) => updateFilter("livingAreas", e.target.value)}
+              />
             </div>
-
+            
             {/* Construction Type Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Construction</label>
@@ -305,96 +503,32 @@ export default function SearchInterface() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Road Position Filter */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Road Position</label>
-              <Select value={filters.roadPosition} onValueChange={(value) => updateFilter("roadPosition", value === "Any Position" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any Position" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Any Position">Any Position</SelectItem>
-                  <SelectItem value="Length Side">Length Side</SelectItem>
-                  <SelectItem value="Width Side">Width Side</SelectItem>
-                  <SelectItem value="Corner Plot">Corner Plot</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Toilets Filter */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Toilets</label>
-              <Input
-                type="number"
-                min="0"
-                max="50"
-                placeholder="e.g., 2"
-                value={filters.toilets}
-                onChange={(e) => updateFilter("toilets", e.target.value)}
-              />
-            </div>
-
-            {/* Living Areas Filter */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Living Areas</label>
-              <Input
-                type="number"
-                min="0"
-                max="50"
-                placeholder="e.g., 1"
-                value={filters.livingAreas}
-                onChange={(e) => updateFilter("livingAreas", e.target.value)}
-              />
-            </div>
-
           </div>
-
-          {/* Additional Numeric Inputs Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-            {/* Plot Length Input */}
+          
+          {/* Features Section */}
+          <div className="border-b border-slate-200 pb-4">
+            <h4 className="text-lg font-semibold text-slate-900 mb-2">Features</h4>
+            <p className="text-sm text-slate-600">Indoor and outdoor amenities</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Outdoor Features */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Plot Length (m)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Outdoor Features</label>
               <Input
-                type="number"
-                step="0.01"
-                placeholder="e.g., 20.5"
-                value={filters.plotLength}
-                onChange={(e) => updateFilter("plotLength", e.target.value)}
+                placeholder="e.g., Pool, Garden, Patio (comma-separated)"
+                value={filters.outdoorFeatures.join(", ")}
+                onChange={(e) => updateFilter("outdoorFeatures", e.target.value.split(",").map(f => f.trim()).filter(f => f))}
               />
             </div>
-
-            {/* Plot Width Input */}
+            
+            {/* Indoor Features */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Plot Width (m)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Indoor Features</label>
               <Input
-                type="number"
-                step="0.01"
-                placeholder="e.g., 15.2"
-                value={filters.plotWidth}
-                onChange={(e) => updateFilter("plotWidth", e.target.value)}
-              />
-            </div>
-
-            {/* Covered Area Input */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Covered Area (sq.m)</label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="e.g., 150.75"
-                value={filters.coveredArea}
-                onChange={(e) => updateFilter("coveredArea", e.target.value)}
-              />
-            </div>
-
-            {/* Builder Name Input */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Builder/Designer</label>
-              <Input
-                placeholder="e.g., John Smith Architects"
-                value={filters.builderName}
-                onChange={(e) => updateFilter("builderName", e.target.value)}
+                placeholder="e.g., Fireplace, Walk-in Closet, Study (comma-separated)"
+                value={filters.indoorFeatures.join(", ")}
+                onChange={(e) => updateFilter("indoorFeatures", e.target.value.split(",").map(f => f.trim()).filter(f => f))}
               />
             </div>
           </div>
@@ -408,6 +542,7 @@ export default function SearchInterface() {
               </Button>
             </div>
           )}
+          </div>
         </CardContent>
       </Card>
 

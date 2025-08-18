@@ -189,13 +189,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Parse and validate search parameters using the schema
       const queryParams = {
+        keyword: req.query.keyword as string,
         lotSize: req.query.lotSize as string,
+        lotSizeMin: req.query.lotSizeMin as string,
+        lotSizeMax: req.query.lotSizeMax as string,
         orientation: req.query.orientation as string,
         siteType: req.query.siteType as string,
         foundationType: req.query.foundationType as string,
         storeys: req.query.storeys as string,
         councilArea: req.query.councilArea as string,
         search: req.query.search as string,
+        bedrooms: req.query.bedrooms as string,
+        houseType: req.query.houseType as string,
+        constructionType: req.query.constructionType as string,
+        planType: req.query.planType as string,
+        plotLength: req.query.plotLength as string,
+        plotWidth: req.query.plotWidth as string,
+        coveredArea: req.query.coveredArea as string,
+        roadPosition: req.query.roadPosition as string,
+        builderName: req.query.builderName as string,
+        toilets: req.query.toilets as string,
+        livingAreas: req.query.livingAreas as string,
+        totalBuildingHeight: req.query.totalBuildingHeight as string,
+        roofPitch: req.query.roofPitch as string,
+        outdoorFeatures: req.query.outdoorFeatures as string,
+        indoorFeatures: req.query.indoorFeatures as string,
         limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
         offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
         sortBy: req.query.sortBy as string,
@@ -982,9 +1000,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Content-Disposition", "inline");
       res.setHeader("Content-Length", fileSize.toString());
       res.setHeader("Accept-Ranges", "bytes");
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
+      res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+      res.setHeader("ETag", `"${stats.mtime.getTime()}-${fileSize}"`); // ETag for conditional requests
+      res.setHeader("Last-Modified", stats.mtime.toUTCString());
       res.setHeader("X-Content-Type-Options", "nosniff");
 
       console.log(`🚀 Starting file download for ${fileSize} bytes...`);
@@ -992,24 +1010,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`   File name: ${plan.fileName}`);
       console.log(`   File path: ${filePath}`);
 
-      // Use res.download for reliable PDF download with proper headers
+      // Use streaming for better performance and memory efficiency
       const absolutePath = path.resolve(filePath);
-      console.log("Downloading file from absolute path:", absolutePath);
+      console.log("Streaming file from absolute path:", absolutePath);
 
       const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
 
-      // Use res.download which automatically sets correct headers for file downloads
-      res.download(absolutePath, fileName, (err) => {
-        if (err) {
-          console.error("❌ Download error:", err);
+      // Set download headers
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      
+      // Handle range requests for partial content and resume capability
+      const range = req.headers.range;
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        
+        console.log(`📦 Range request: bytes ${start}-${end}/${fileSize}`);
+        
+        res.status(206); // Partial Content
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader("Content-Length", chunksize.toString());
+        
+        const fileStream = fs.createReadStream(absolutePath, { start, end });
+        
+        fileStream.on('error', (err) => {
+          console.error("❌ Range stream error:", err);
           if (!res.headersSent) {
-            res.status(500).json({ message: "Failed to download file" });
+            res.status(500).json({ message: "Failed to stream file range" });
           }
-        } else {
-          console.log("✅ File download completed successfully!");
+        });
+        
+        fileStream.on('end', () => {
+          console.log(`✅ Range streaming completed: ${chunksize} bytes`);
+        });
+        
+        fileStream.pipe(res);
+      } else {
+        // Full file download
+        const fileStream = fs.createReadStream(absolutePath);
+        
+        fileStream.on('error', (err) => {
+          console.error("❌ Stream error:", err);
+          if (!res.headersSent) {
+            res.status(500).json({ message: "Failed to stream file" });
+          }
+        });
+        
+        fileStream.on('end', () => {
+          console.log("✅ File streaming completed successfully!");
           console.log("🎉 === DOWNLOAD REQUEST COMPLETED ===");
-        }
-      });
+        });
+        
+        // Pipe the file stream to response
+        fileStream.pipe(res);
+      }
     } catch (error) {
       console.error("💥 Unexpected error in download handler:", error);
       console.error("   Error stack:", (error as Error).stack);
@@ -1095,11 +1151,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         plotLength: req.body.plotLength ? parseFloat(req.body.plotLength) : undefined,
         plotWidth: req.body.plotWidth ? parseFloat(req.body.plotWidth) : undefined,
         coveredArea: req.body.coveredArea ? parseFloat(req.body.coveredArea) : undefined,
+        totalBuildingHeight: req.body.totalBuildingHeight !== undefined && req.body.totalBuildingHeight !== '' ? parseFloat(req.body.totalBuildingHeight) : undefined,
+        roofPitch: req.body.roofPitch !== undefined && req.body.roofPitch !== '' ? parseFloat(req.body.roofPitch) : undefined,
+        lotSizeMin: req.body.lotSizeMin !== undefined && req.body.lotSizeMin !== '' ? parseFloat(req.body.lotSizeMin) : undefined,
+        lotSizeMax: req.body.lotSizeMax !== undefined && req.body.lotSizeMax !== '' ? parseFloat(req.body.lotSizeMax) : undefined,
         bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : undefined,
         toilets: req.body.toilets ? parseInt(req.body.toilets) : undefined,
         livingAreas: req.body.livingAreas ? parseInt(req.body.livingAreas) : undefined,
+        // Handle string fields
+        foundationType: req.body.foundationType !== undefined ? req.body.foundationType : undefined,
+        builderName: req.body.builderName !== undefined ? req.body.builderName : undefined,
         // Handle construction type as a single value
         constructionType: req.body.constructionType ? [req.body.constructionType] : undefined,
+        // Parse array fields from JSON strings
+        outdoorFeatures: req.body.outdoorFeatures ? JSON.parse(req.body.outdoorFeatures) : undefined,
+        indoorFeatures: req.body.indoorFeatures ? JSON.parse(req.body.indoorFeatures) : undefined,
         content: fileContent, // Always store file content in database
       });
 
@@ -1147,12 +1213,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         plotLength: req.body.plotLength ? parseFloat(req.body.plotLength) : undefined,
         plotWidth: req.body.plotWidth ? parseFloat(req.body.plotWidth) : undefined,
         coveredArea: req.body.coveredArea ? parseFloat(req.body.coveredArea) : undefined,
+        totalBuildingHeight: req.body.totalBuildingHeight !== undefined && req.body.totalBuildingHeight !== '' ? parseFloat(req.body.totalBuildingHeight) : undefined,
+        roofPitch: req.body.roofPitch !== undefined && req.body.roofPitch !== '' ? parseFloat(req.body.roofPitch) : undefined,
+        lotSizeMin: req.body.lotSizeMin !== undefined && req.body.lotSizeMin !== '' ? parseFloat(req.body.lotSizeMin) : undefined,
+        lotSizeMax: req.body.lotSizeMax !== undefined && req.body.lotSizeMax !== '' ? parseFloat(req.body.lotSizeMax) : undefined,
         bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : undefined,
         toilets: req.body.toilets ? parseInt(req.body.toilets) : undefined,
         livingAreas: req.body.livingAreas ? parseInt(req.body.livingAreas) : undefined,
         storeys: req.body.storeys ? parseInt(req.body.storeys) : undefined,
+        // Handle string fields
+        foundationType: req.body.foundationType !== undefined ? req.body.foundationType : undefined,
+        builderName: req.body.builderName !== undefined ? req.body.builderName : undefined,
         // Handle construction type as a single value
         constructionType: req.body.constructionType ? [req.body.constructionType] : undefined,
+        // Parse array fields from JSON strings if they exist
+        outdoorFeatures: req.body.outdoorFeatures ? (typeof req.body.outdoorFeatures === 'string' ? JSON.parse(req.body.outdoorFeatures) : req.body.outdoorFeatures) : undefined,
+        indoorFeatures: req.body.indoorFeatures ? (typeof req.body.indoorFeatures === 'string' ? JSON.parse(req.body.indoorFeatures) : req.body.indoorFeatures) : undefined,
       };
       
       const updates = insertPlanSchema.partial().parse(processedData);

@@ -77,14 +77,10 @@ export default function PlanCard({ plan }: PlanCardProps) {
             </span>
           </div>
 
-          {(plan.orientation || plan.lotSize) && (
+          {plan.orientation && (
             <div className="flex items-center text-sm text-slate-600">
               <Compass className="w-4 h-4 mr-2" />
-              <span>
-                {plan.orientation && `${plan.orientation}`}
-                {plan.orientation && plan.lotSize && " • "}
-                {plan.lotSize && `${plan.lotSize} Lot`}
-              </span>
+              <span>{plan.orientation}</span>
             </div>
           )}
 
@@ -104,11 +100,11 @@ export default function PlanCard({ plan }: PlanCardProps) {
                 Preview
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>Plan Preview - {plan.title}</DialogTitle>
               </DialogHeader>
-              <div className="overflow-y-auto max-h-[calc(80vh-120px)]">
+              <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
                 {/* Plan Image Placeholder */}
                 <div className="w-full h-48 bg-slate-200 rounded-lg flex items-center justify-center mb-4">
                   <Home className="w-16 h-16 text-slate-400" />
@@ -124,18 +120,57 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Toilets:</strong> {plan.toilets || "N/A"}</div>
                     <div><strong>Living Areas:</strong> {plan.livingAreas || "N/A"}</div>
                     <div><strong>House Type:</strong> {plan.houseType || "N/A"}</div>
-                    <div><strong>Lot Size:</strong> {plan.lotSize || "N/A"}</div>
+                    <div><strong>Lot Size Min (m²):</strong> {plan.lotSizeMin || "N/A"}</div>
+                    <div><strong>Lot Size Max (m²):</strong> {plan.lotSizeMax || "N/A"}</div>
                     <div><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
                     <div><strong>Plot Length (m):</strong> {plan.plotLength || "N/A"}</div>
                     <div><strong>Plot Width (m):</strong> {plan.plotWidth || "N/A"}</div>
                     <div><strong>Covered Area (sq.m):</strong> {plan.coveredArea || "N/A"}</div>
+                    <div><strong>Total Building Height (m):</strong> {plan.totalBuildingHeight || "N/A"}</div>
+                    <div><strong>Roof Pitch (°):</strong> {plan.roofPitch || "N/A"}</div>
                     <div><strong>Road Position:</strong> {plan.roadPosition || "N/A"}</div>
                     <div><strong>Site Type:</strong> {plan.siteType || "N/A"}</div>
                     <div><strong>Foundation:</strong> {plan.foundationType || "N/A"}</div>
                     <div><strong>Construction Type:</strong> {Array.isArray(plan.constructionType) ? plan.constructionType.join(", ") : plan.constructionType || "N/A"}</div>
                     <div><strong>Builder/Designer:</strong> {plan.builderName || "N/A"}</div>
                     <div><strong>Council Area:</strong> {plan.councilArea || "N/A"}</div>
+                    <div><strong>File Name:</strong> {plan.fileName || "N/A"}</div>
+                    <div><strong>File Size:</strong> {plan.fileSize ? `${(plan.fileSize / 1024 / 1024).toFixed(2)} MB` : "N/A"}</div>
+                    <div><strong>Downloads:</strong> {plan.downloadCount || 0}</div>
+                    <div><strong>Status:</strong> {plan.status || "N/A"}</div>
+                    <div><strong>Uploaded By:</strong> {plan.uploadedBy || "N/A"}</div>
+                    <div><strong>Created:</strong> {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : "N/A"}</div>
+                    <div><strong>Updated:</strong> {plan.updatedAt ? new Date(plan.updatedAt).toLocaleDateString() : "N/A"}</div>
                   </div>
+                  
+                  {/* Outdoor Features */}
+                  {plan.outdoorFeatures && plan.outdoorFeatures.length > 0 && (
+                    <div className="mt-4">
+                      <strong>Outdoor Features:</strong>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {plan.outdoorFeatures.map((feature, index) => (
+                          <span key={index} className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                            {feature}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Indoor Features */}
+                  {plan.indoorFeatures && plan.indoorFeatures.length > 0 && (
+                    <div className="mt-4">
+                      <strong>Indoor Features:</strong>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {plan.indoorFeatures.map((feature, index) => (
+                          <span key={index} className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                            {feature}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   {plan.description && (
                     <div className="mt-4">
                       <strong>Description:</strong>
