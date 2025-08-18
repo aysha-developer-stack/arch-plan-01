@@ -36,11 +36,6 @@ export function SearchableSelect({
     }
 
     const filtered = Children.toArray(children).filter((child) => {
-<<<<<<< HEAD
-      if (!isValidElement(child) || child.props.disabled) return false;
-      const childText = child.props.children?.toString().toLowerCase() || "";
-      return childText.includes(searchTerm.toLowerCase());
-=======
       // Only filter SelectItem components, keep other elements like dividers
       if (!isValidElement(child)) return true;
       
@@ -55,7 +50,6 @@ export function SearchableSelect({
       const searchLower = searchTerm.toLowerCase();
       
       return childText.includes(searchLower);
->>>>>>> b26e507 (update)
     });
 
     setFilteredChildren(filtered);
@@ -67,11 +61,6 @@ export function SearchableSelect({
       onValueChange={(val) => {
         onValueChange(val);
         setSearchTerm(""); // Reset search term when a value is selected
-<<<<<<< HEAD
-      }}
-      open={isOpen}
-      onOpenChange={setIsOpen}
-=======
         setIsOpen(false); // Close dropdown after selection
       }}
       open={isOpen}
@@ -81,41 +70,18 @@ export function SearchableSelect({
           setSearchTerm(""); // Clear search when closing
         }
       }}
->>>>>>> b26e507 (update)
     >
       <SelectTrigger className="w-full">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-<<<<<<< HEAD
-      <SelectContent>
-        <div className="px-3 py-2 sticky top-0 bg-white z-10">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-=======
       <SelectContent className="max-h-[400px] w-full min-w-[var(--radix-select-trigger-width)]">
         <div className="px-3 py-2 sticky top-0 bg-white z-20 border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
->>>>>>> b26e507 (update)
             <input
               ref={searchInputRef}
               type="text"
               placeholder={searchPlaceholder}
-<<<<<<< HEAD
-              className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing when clicking the input
-              onKeyDown={(e) => e.stopPropagation()} // Prevent keyboard events from closing the dropdown
-            />
-          </div>
-        </div>
-        <div className="max-h-[300px] overflow-y-auto">
-          {filteredChildren.length > 0 ? (
-            filteredChildren
-          ) : (
-            <div className="px-3 py-2 text-sm text-muted-foreground">
-=======
               className="w-full pl-10 pr-4 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -139,7 +105,6 @@ export function SearchableSelect({
             filteredChildren
           ) : (
             <div className="px-3 py-2 text-sm text-muted-foreground text-center">
->>>>>>> b26e507 (update)
               No matching options found
             </div>
           )}
