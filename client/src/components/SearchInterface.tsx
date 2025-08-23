@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, Filter, X, Download, Sliders, Zap, Upload, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import PlanCard from "./PlanCard";
 import type { PlanType } from "@shared/schema";
 
@@ -69,6 +71,8 @@ export default function SearchInterface() {
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [showAllOutdoorFeatures, setShowAllOutdoorFeatures] = useState(false);
+  const [showAllIndoorFeatures, setShowAllIndoorFeatures] = useState(false);
 
   // Debounce filters to reduce API calls while user is typing
   const debouncedFilters = useDebounce(filters, 300);
@@ -1090,26 +1094,136 @@ export default function SearchInterface() {
             <p className="text-sm text-slate-600">Indoor and outdoor amenities</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Outdoor Features */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Outdoor Features</label>
-              <Input
-                placeholder="e.g., Pool, Garden, Patio (comma-separated)"
-                value={filters.outdoorFeatures.join(", ")}
-                onChange={(e) => updateFilter("outdoorFeatures", e.target.value.split(",").map(f => f.trim()).filter(f => f))}
-              />
+          {/* Outdoor Features Section */}
+          <div className="space-y-6">
+            <div className="border-b border-slate-200 pb-4">
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">Outdoor Features</h4>
+              <p className="text-sm text-slate-600">Select applicable outdoor amenities and features</p>
             </div>
             
-            {/* Indoor Features */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Indoor Features</label>
-              <Input
-                placeholder="e.g., Fireplace, Walk-in Closet, Study (comma-separated)"
-                value={filters.indoorFeatures.join(", ")}
-                onChange={(e) => updateFilter("indoorFeatures", e.target.value.split(",").map(f => f.trim()).filter(f => f))}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                'Swimming pool',
+                'Balcony',
+                'Garage',
+                'Outdoor area / Alfresco',
+                'Carport',
+                'Deck',
+                'Pergola',
+                'Patio',
+                'Verandah',
+                'Courtyard',
+                'Shed / Workshop',
+                'Garden / Landscaped yard',
+                'Rainwater tank',
+                'Solar panels',
+                'Driveway',
+                'Fence / Gated entry',
+                'BBQ area',
+                'Fire pit',
+                'Spa / Hot tub',
+                'Play area / Playground',
+                'Rumpus area (outdoor)',
+                'Greenhouse / Veggie patch',
+                'Clothesline (Hills Hoist)'
+              ].slice(0, showAllOutdoorFeatures ? undefined : 6).map((feature) => (
+                <div key={feature} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`outdoor-${feature.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
+                    checked={filters.outdoorFeatures.includes(feature)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        updateFilter("outdoorFeatures", [...filters.outdoorFeatures, feature]);
+                      } else {
+                        updateFilter("outdoorFeatures", filters.outdoorFeatures.filter(f => f !== feature));
+                      }
+                    }}
+                  />
+                  <Label
+                    htmlFor={`outdoor-${feature.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {feature}
+                  </Label>
+                </div>
+              ))}
             </div>
+            
+            <button
+              type="button"
+              onClick={() => setShowAllOutdoorFeatures(!showAllOutdoorFeatures)}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 mt-4"
+            >
+              {showAllOutdoorFeatures ? 'Show less outdoor features' : 'Show more outdoor features'}
+              <svg className={`w-4 h-4 transition-transform ${showAllOutdoorFeatures ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Indoor Features Section */}
+          <div className="space-y-6">
+            <div className="border-b border-slate-200 pb-4">
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">Indoor Features</h4>
+              <p className="text-sm text-slate-600">Select applicable indoor amenities and features</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                'Ensuite',
+                'Study / Home office',
+                'Alarm system',
+                'Floorboards',
+                'Rumpus room (indoor)',
+                'Dishwasher',
+                'Built-in robes',
+                'Broadband / NBN',
+                'Gym / Fitness room',
+                'Workshop (indoor)',
+                'Air conditioning',
+                'Heating system (ducted / split)',
+                'Fireplace',
+                'Ceiling fans',
+                'Open-plan living',
+                'Pantry / Butler\'s pantry',
+                'Walk-in wardrobe',
+                'Media room / Theatre room',
+                'Laundry (internal)',
+                'Smart home system',
+                'Storage room'
+              ].slice(0, showAllIndoorFeatures ? undefined : 6).map((feature) => (
+                <div key={feature} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`indoor-${feature.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
+                    checked={filters.indoorFeatures.includes(feature)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        updateFilter("indoorFeatures", [...filters.indoorFeatures, feature]);
+                      } else {
+                        updateFilter("indoorFeatures", filters.indoorFeatures.filter(f => f !== feature));
+                      }
+                    }}
+                  />
+                  <Label
+                    htmlFor={`indoor-${feature.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {feature}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => setShowAllIndoorFeatures(!showAllIndoorFeatures)}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 mt-4"
+            >
+              {showAllIndoorFeatures ? 'Show less indoor features' : 'Show more indoor features'}
+              <svg className={`w-4 h-4 transition-transform ${showAllIndoorFeatures ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
           </div>
 
           {/* Clear Filters Button */}
