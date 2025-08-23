@@ -4,6 +4,8 @@ dotenv.config();
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import type { RequestHandler } from 'express';
+import compression from 'compression';
 import path from 'path';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -17,6 +19,7 @@ import { initializeStorage } from "./storage";
 const app = express();
 
 // Middleware
+app.use(compression()); // Enable gzip compression
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
