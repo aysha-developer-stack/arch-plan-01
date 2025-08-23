@@ -248,16 +248,16 @@ export default function SearchInterface() {
               {/* House Type Filter */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">House Type</label>
-                <Select value={filters.houseType} onValueChange={(value) => updateFilter("houseType", value === "Any Type" ? "" : value)}>
+                <Select value={filters.houseType} onValueChange={(value) => updateFilter("houseType", value === "All Types" ? "" : value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Any Type" />
+                    <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Any Type">Any Type</SelectItem>
-                    <SelectItem value="Single Dwelling">Single Dwelling</SelectItem>
-                    <SelectItem value="Duplex">Duplex</SelectItem>
+                    <SelectItem value="All Types">All Types</SelectItem>
+                    <SelectItem value="House">House</SelectItem>
                     <SelectItem value="Townhouse">Townhouse</SelectItem>
-                    <SelectItem value="Unit">Unit</SelectItem>
+                    <SelectItem value="Apartment & Unit">Apartment & Unit</SelectItem>
+                    <SelectItem value="Villa">Villa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
