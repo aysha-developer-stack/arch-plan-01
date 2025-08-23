@@ -78,7 +78,7 @@ interface UploadFormData {
   toilets: string;
   livingAreas: string;
   constructionType: string[];
-  roofPitch: string;
+  roofPitch: number;
   outdoorFeatures: string[];
   indoorFeatures: string[];
   file: File | null;
@@ -141,7 +141,7 @@ export default function AdminInterface() {
     toilets: "",
     livingAreas: "",
     constructionType: [],
-    roofPitch: "",   // Roof pitch in degrees
+    roofPitch: 0,   // Roof pitch in degrees
     outdoorFeatures: [],
     indoorFeatures: [],
     file: null,
@@ -291,8 +291,8 @@ const handleUpload = (e: React.MouseEvent) => {
   }
 
   // Handle roofPitch
-  if (uploadForm.roofPitch.trim()) {
-    formData.append("roofPitch", uploadForm.roofPitch.trim());
+  if (uploadForm.roofPitch > 0) {
+    formData.append("roofPitch", uploadForm.roofPitch.toString());
   }
 
   uploadMutation.mutate(formData);
@@ -1156,7 +1156,7 @@ return (
                           min="0"
                           max="35"
                           step="0.1"
-                          value={uploadForm.roofPitch}
+                          value={uploadForm.roofPitch === 0 ? '' : uploadForm.roofPitch}
                           onChange={(e) => {
                             const value = e.target.value;
                             const numValue = parseFloat(value);
@@ -1166,7 +1166,7 @@ return (
                             if (value === '' || (numValue >= 0 && numValue <= 35 && /^\d*\.?\d{0,1}$/.test(value))) {
                               setUploadForm(prev => ({
                                 ...prev,
-                                roofPitch: value
+                                roofPitch: value === '' ? 0 : numValue
                               }));
                             }
                           }}
