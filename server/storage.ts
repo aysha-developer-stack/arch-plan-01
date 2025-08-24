@@ -621,7 +621,10 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date(),
         updatedAt: new Date()
       });
-      return await plan.save();
+      const savedPlan = await plan.save();
+      // Clear search cache after creation to ensure fresh results
+      this.searchCache.clear();
+      return savedPlan;
     } catch (error) {
       console.error('Error creating plan:', error);
       throw error;
@@ -643,6 +646,8 @@ export class DatabaseStorage implements IStorage {
         updateData,
         { new: true }
       );
+      // Clear search cache after update to ensure fresh results
+      this.searchCache.clear();
       return plan;
     } catch (error) {
       console.error('Error updating plan:', error);
@@ -653,6 +658,8 @@ export class DatabaseStorage implements IStorage {
   async deletePlan(id: string): Promise<void> {
     try {
       await Plan.findByIdAndDelete(id);
+      // Clear search cache after deletion to ensure fresh results
+      this.searchCache.clear();
     } catch (error) {
       console.error('Error deleting plan:', error);
       throw error;
