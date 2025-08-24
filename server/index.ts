@@ -19,7 +19,20 @@ import { initializeStorage } from "./storage";
 const app = express();
 
 // Middleware
-app.use(compression()); // Enable gzip compression
+// Configure compression with optimized settings for PDF downloads
+app.use(compression({
+  filter: (req, res) => {
+    // Don't compress responses with this request header
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    // Compress all responses including PDFs for better transfer speed
+    return true;
+  },
+  level: 6, // Balanced compression level (1-9, 6 is default)
+  threshold: 1024, // Only compress responses larger than 1KB
+  chunkSize: 16 * 1024, // 16KB chunks for better streaming
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

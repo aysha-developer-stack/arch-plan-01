@@ -21,12 +21,13 @@ export interface IStorage {
 
   // Plan operations
   searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}>;
-  getPlan(id: string): Promise<PlanType | null>;
+  getPlan(id: string, excludeContent?: boolean): Promise<PlanType | null>;
+  getPlanAndIncrementDownload(id: string, excludeContent?: boolean): Promise<PlanType | null>;
   createPlan(plan: InsertPlan): Promise<PlanType>;
   updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null>;
   deletePlan(id: string): Promise<void>;
   incrementDownloadCount(id: string): Promise<void>;
-  resetDownloadCount(id: string, count: number): Promise<void>;
+  resetDownloadCount(id: string): Promise<void>;
   getRecentPlans(limit?: number): Promise<PlanType[]>;
   getPlanStats(): Promise<PlanStats>;
 }
@@ -225,8 +226,26 @@ export class MemoryStorage implements IStorage {
     return { plans: results, total };
   }
 
-  async getPlan(id: string): Promise<PlanType | null> {
-    return this.plans.get(id) || null;
+  async getPlan(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
+    const plan = this.plans.get(id) || null;
+    if (plan && excludeContent) {
+      const { content, ...planWithoutContent } = plan;
+      return planWithoutContent as PlanType;
+    }
+    return plan;
+  }
+
+  async getPlanAndIncrementDownload(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
+    const plan = this.plans.get(id);
+    if (plan) {
+      plan.downloadCount = (plan.downloadCount || 0) + 1;
+      if (excludeContent) {
+        const { content, ...planWithoutContent } = plan;
+        return planWithoutContent as PlanType;
+      }
+      return plan;
+    }
+    return null;
   }
 
   async createPlan(planData: InsertPlan): Promise<PlanType> {
@@ -286,10 +305,10 @@ export class MemoryStorage implements IStorage {
     }
   }
 
-  async resetDownloadCount(id: string, count: number): Promise<void> {
+  async resetDownloadCount(id: string): Promise<void> {
     const plan = this.plans.get(id);
     if (plan) {
-      plan.downloadCount = count;
+      plan.downloadCount = 0;
       this.plans.set(id, plan);
     }
   }
@@ -593,12 +612,34 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getPlan(id: string): Promise<PlanType | null> {
+  async getPlan(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
     try {
-      const plan = await Plan.findById(id);
+      let query = Plan.findById(id);
+      if (excludeContent) {
+        query = query.select('-content');
+      }
+      const plan = await query;
       return plan;
     } catch (error) {
       console.error('Error getting plan:', error);
+      throw error;
+    }
+  }
+
+  async getPlanAndIncrementDownload(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
+    try {
+      let selectFields = excludeContent ? '-content' : '';
+      const plan = await Plan.findByIdAndUpdate(
+        id,
+        { $inc: { downloadCount: 1 } },
+        { 
+          new: true,
+          select: selectFields || undefined
+        }
+      );
+      return plan;
+    } catch (error) {
+      console.error('Error getting plan and incrementing download:', error);
       throw error;
     }
   }
@@ -678,11 +719,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async resetDownloadCount(id: string, count: number): Promise<void> {
+  async resetDownloadCount(id: string): Promise<void> {
     try {
       await Plan.findByIdAndUpdate(
         id,
-        { $set: { downloadCount: count } }
+        { $set: { downloadCount: 0 } }
       );
     } catch (error) {
       console.error('Error resetting download count:', error);

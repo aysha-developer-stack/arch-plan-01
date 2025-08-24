@@ -391,12 +391,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Quick reset for specific plan (GET request for easy browser access)
   app.get("/api/plans/689209274ea8755c4fc556af/fix-count", async (req, res) => {
     try {
-      await getStorage().resetDownloadCount("689209274ea8755c4fc556af", 1);
-      console.log("✅ Reset download count for plan 689209274ea8755c4fc556af to 1");
+      await getStorage().resetDownloadCount("689209274ea8755c4fc556af");
+      console.log("✅ Reset download count for plan 689209274ea8755c4fc556af to 0");
       res.json({
         message: "Download count reset successfully",
         planId: "689209274ea8755c4fc556af",
-        newCount: 1
+        newCount: 0
       });
     } catch (error) {
       console.error("Reset download count error:", error);
@@ -411,15 +411,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/plans/:id/reset-downloads", async (req, res) => {
     try {
       const planId = req.params.id;
-      const newCount = parseInt(req.body.count) || 0;
 
-      // Update the download count directly in the database
-      await getStorage().resetDownloadCount(planId, newCount);
+      // Reset the download count to 0
+      await getStorage().resetDownloadCount(planId);
 
       res.json({
         message: "Download count reset successfully",
         planId,
-        newCount
+        newCount: 0
       });
     } catch (error) {
       console.error("Reset download count error:", error);
@@ -771,25 +770,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      console.log("🔍 Looking up plan with ID:", req.params.id);
-      const plan = await getStorage().getPlan(req.params.id);
-      console.log("📄 Plan lookup result:", plan ? {
-        id: plan._id,
-        fileName: plan.fileName,
-        filePath: plan.filePath,
-        title: plan.title
-      } : "❌ Plan not found");
+      // Get plan metadata and increment download count in single operation
+      const plan = shouldIncrementCount 
+        ? await getStorage().getPlanAndIncrementDownload(req.params.id, true)
+        : await getStorage().getPlan(req.params.id, true);
 
       if (!plan) {
-        console.error("Plan not found for ID:", req.params.id);
         return res.status(404).json({ message: "Plan not found" });
       }
 
       // Handle file path resolution with multiple fallback strategies
       let filePath;
       const originalPath = plan.filePath;
-      console.log("Original file path from DB:", originalPath);
-      console.log("Current working directory:", process.cwd());
 
       // Streamlined file path resolution - try absolute path first, then relative to project root
       if (path.isAbsolute(originalPath)) {
@@ -804,57 +796,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filePath = path.join(process.cwd(), 'uploads', fileName);
       }
 
-      console.log("📁 Resolved file path:", filePath);
-      console.log("📄 File exists:", fs.existsSync(filePath));
-
       if (!fs.existsSync(filePath)) {
-        console.log("⚠️ Physical file not found, checking if plan has content data in database...");
-        console.log("   Original path:", originalPath);
-        console.log("   Final attempted path:", filePath);
 
-        // Check if plan has content stored in database
-        console.log("🔍 Checking plan content in database...");
-        console.log("   - Has content property:", !!plan.content);
-        console.log("   - Content type:", typeof plan.content);
-        console.log("   - Content length:", plan.content ? plan.content.length : 0);
-        console.log("   - Content preview:", plan.content ? plan.content.substring(0, 50) + '...' : 'null');
-
-        // Increment download count once for successful download (regardless of source)
-        if (shouldIncrementCount) {
-          console.log("🔢 Attempting to increment download count for plan:", plan._id.toString());
-          console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
-          try {
-            await getStorage().incrementDownloadCount(plan._id.toString());
-            console.log("✅ Download count incremented successfully");
-
-            // Verify the increment worked by fetching the plan again
-            const updatedPlan = await getStorage().getPlan(plan._id.toString());
-            console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
-          } catch (error) {
-            console.error("❌ Failed to increment download count:", error);
-            console.error("❌ Error details:", error instanceof Error ? error.stack : error);
-          }
-        }
-
-        if (plan.content) {
-          console.log("✅ Found plan content in database, serving from memory");
-
+        // Get full plan with content for database storage
+        const fullPlan = await getStorage().getPlan(req.params.id, false);
+        if (fullPlan && fullPlan.content) {
           // Serve content from database
-          console.log("🔄 Converting base64 content to buffer...");
-          const contentBuffer = Buffer.from(plan.content, 'base64');
-          console.log("   - Buffer created successfully:", !!contentBuffer);
-          console.log("   - Buffer length:", contentBuffer.length);
-          console.log("   - Buffer first 10 bytes:", contentBuffer.slice(0, 10));
-
-          // Validate PDF header
-          const pdfHeader = contentBuffer.slice(0, 4);
-          if (pdfHeader.toString() !== '%PDF') {
-            console.error("❌ Invalid PDF header in database content:", pdfHeader.toString());
-            return res.status(500).json({
-              message: "Stored file is not a valid PDF",
-              details: { header: pdfHeader.toString() }
-            });
-          }
+          const contentBuffer = Buffer.from(fullPlan.content, 'base64');
 
           const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
 
@@ -865,107 +813,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.setHeader('Cache-Control', 'public, max-age=3600');
           res.setHeader('Accept-Ranges', 'bytes');
 
-          console.log(`🚀 Serving plan from database: ${contentBuffer.length} bytes`);
           return res.send(contentBuffer);
         }
 
-        console.error("❌ No physical file and no content in database!");
-        console.log("💡 This plan was likely uploaded before the database storage fix.");
-        console.log("💡 Solution: Re-upload this plan through the admin panel.");
+        // No physical file and no content in database
 
         return res.status(404).json({
           message: "File not available - please re-upload this plan through the admin panel",
           details: {
             originalPath,
             attemptedPath: filePath,
-            hasContent: !!plan.content,
+            hasContent: !!(fullPlan && fullPlan.content),
             solution: "This plan was uploaded before database storage was implemented. Please re-upload it through the admin panel."
           }
         });
       }
 
-      console.log("✅ File found! Setting headers and serving file...");
-
-      // --- Increment download count for total downloads tracking (only for new sessions) ---
-      if (shouldIncrementCount) {
-        console.log("🔢 Incrementing download count for plan:", plan._id.toString());
-        console.log("🔢 Current download count before increment:", plan.downloadCount || 0);
-        try {
-          await getStorage().incrementDownloadCount(plan._id.toString());
-          console.log("✅ Download count incremented successfully");
-
-          // Verify the increment worked by fetching the plan again
-          const updatedPlan = await getStorage().getPlan(plan._id.toString());
-          console.log("🔍 Download count after increment:", updatedPlan?.downloadCount || 0);
-        } catch (error) {
-          console.error("❌ Failed to increment download count:", error);
-          console.error("❌ Error details:", error instanceof Error ? error.stack : error);
-          // Continue with download even if count increment fails
-        }
-      } else {
-        console.log("🔄 Skipping download count increment (duplicate request)");
-      }
+      // Download count already incremented by getPlanAndIncrementDownload if needed
 
       // Get file stats for proper headers
       const stats = fs.statSync(filePath);
       const fileSize = stats.size;
 
-      console.log(`📊 File stats:`);
-      console.log(`   - Size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
-      console.log(`   - Modified: ${stats.mtime}`);
-      console.log(`   - Is file: ${stats.isFile()}`);
-      console.log(`   - Is readable: ${fs.constants.R_OK}`);
-
       // Check if file is empty
       if (fileSize === 0) {
-        console.error("❌ ERROR: File is empty (0 bytes)!");
-        console.error(`   Plan ID: ${plan._id}`);
-        console.error(`   Plan fileName: ${plan.fileName}`);
-        console.error(`   File path: ${filePath}`);
         return res.status(500).json({
-          message: "File is empty",
-          details: {
-            planId: plan._id,
-            fileName: plan.fileName,
-            filePath: filePath,
-            fileSize: fileSize
-          }
+          message: "File is empty"
         });
       }
 
-      // Read first few bytes to validate it's a PDF
-      try {
-        const buffer = Buffer.alloc(8);
-        const fd = fs.openSync(filePath, 'r');
-        const bytesRead = fs.readSync(fd, buffer, 0, 8, 0);
-        fs.closeSync(fd);
-
-        const header = buffer.toString('hex', 0, bytesRead);
-        const headerText = buffer.toString('ascii', 0, Math.min(4, bytesRead));
-        console.log(`📄 File header (first ${bytesRead} bytes): ${header}`);
-        console.log(`📄 File header as text: ${headerText}`);
-
-        // PDF files should start with %PDF
-        if (headerText !== '%PDF') {
-          console.error(`❌ Invalid PDF file! Expected: %PDF, Got: ${headerText}`);
-          return res.status(500).json({
-            message: "File is not a valid PDF",
-            details: {
-              expectedHeader: "%PDF",
-              actualHeader: headerText,
-              filePath: filePath
-            }
-          });
-        } else {
-          console.log(`✅ Valid PDF header detected: ${headerText}`);
-        }
-      } catch (headerError) {
-        console.error(`❌ Error reading file header:`, headerError);
-        return res.status(500).json({
-          message: "Failed to validate PDF file",
-          error: headerError instanceof Error ? headerError.message : String(headerError)
-        });
-      }
+      // Skip PDF validation for better performance
 
       // Set comprehensive headers for inline PDF viewing (bypasses IDM)
       res.setHeader("Content-Type", "application/pdf");
@@ -977,14 +854,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Last-Modified", stats.mtime.toUTCString());
       res.setHeader("X-Content-Type-Options", "nosniff");
 
-      console.log(`🚀 Starting file download for ${fileSize} bytes...`);
-      console.log(`   Plan ID: ${plan._id}`);
-      console.log(`   File name: ${plan.fileName}`);
-      console.log(`   File path: ${filePath}`);
-
       // Use streaming for better performance and memory efficiency
       const absolutePath = path.resolve(filePath);
-      console.log("Streaming file from absolute path:", absolutePath);
 
       const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
 
@@ -999,7 +870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
         const chunksize = (end - start) + 1;
         
-        console.log(`📦 Range request: bytes ${start}-${end}/${fileSize}`);
+        // Range request handling
         
         res.status(206); // Partial Content
         res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
@@ -1008,14 +879,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fileStream = fs.createReadStream(absolutePath, { start, end });
         
         fileStream.on('error', (err) => {
-          console.error("❌ Range stream error:", err);
+          console.error("Range stream error:", err);
           if (!res.headersSent) {
             res.status(500).json({ message: "Failed to stream file range" });
           }
-        });
-        
-        fileStream.on('end', () => {
-          console.log(`✅ Range streaming completed: ${chunksize} bytes`);
         });
         
         fileStream.pipe(res);
@@ -1024,30 +891,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fileStream = fs.createReadStream(absolutePath);
         
         fileStream.on('error', (err) => {
-          console.error("❌ Stream error:", err);
+          console.error("Stream error:", err);
           if (!res.headersSent) {
             res.status(500).json({ message: "Failed to stream file" });
           }
-        });
-        
-        fileStream.on('end', () => {
-          console.log("✅ File streaming completed successfully!");
-          console.log("🎉 === DOWNLOAD REQUEST COMPLETED ===");
         });
         
         // Pipe the file stream to response
         fileStream.pipe(res);
       }
     } catch (error) {
-      console.error("💥 Unexpected error in download handler:", error);
-      console.error("   Error stack:", (error as Error).stack);
+      console.error("Unexpected error in download handler:", error);
       if (!res.headersSent) {
-        console.log("📤 Sending 500 error response");
         res.status(500).json({ message: "Failed to download plan" });
       }
     }
-
-    console.log("📝 Download handler function completed (but file may still be sending)");
   });
 
   // Admin routes (simplified for demo)
