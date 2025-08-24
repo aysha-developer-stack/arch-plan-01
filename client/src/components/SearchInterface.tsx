@@ -1121,22 +1121,29 @@ export default function SearchInterface() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 'Swimming pool',
-                'Spa / Hot tub',
-                'Outdoor kitchen / BBQ area',
-                'Deck / Patio / Balcony',
-                'Garden / Landscaping',
-                'Garage (attached)',
-                'Garage (detached)',
+                'Balcony',
+                'Garage',
+                'Outdoor area / Alfresco',
                 'Carport',
-                'Shed / Storage',
-                'Outdoor entertaining area',
-                'Tennis court',
-                'Playground / Play area',
-                'Driveway (paved)',
-                'Fencing',
-                'Water tank',
-                'Solar panels'
-              ].slice(0, showAllOutdoorFeatures ? undefined : 8).map((feature) => (
+                'Deck',
+                'Pergola',
+                'Patio',
+                'Verandah',
+                'Courtyard',
+                'Shed / Workshop',
+                'Garden / Landscaped yard',
+                'Rainwater tank',
+                'Solar panels',
+                'Driveway',
+                'Fence / Gated entry',
+                'BBQ area',
+                'Fire pit',
+                'Spa / Hot tub',
+                'Play area / Playground',
+                'Rumpus area (outdoor)',
+                'Greenhouse / Veggie patch',
+                'Clothesline (Hills Hoist)'
+              ].slice(0, showAllOutdoorFeatures ? undefined : 6).map((feature) => (
                 <div key={feature} className="flex items-center space-x-2">
                   <Checkbox
                     id={`outdoor-${feature.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
@@ -1176,17 +1183,14 @@ export default function SearchInterface() {
             <Label className="text-sm font-medium text-slate-700 mb-3 block">Indoor Features</Label>
             <div className="grid grid-cols-2 gap-3">
               {[
-                'Walk-in wardrobe',
-                'Ensuite bathroom',
+                'Ensuite',
                 'Study / Home office',
-                'Media room / Theatre room',
-                'Butler\'s pantry',
-                'Fireplace',
-                'High ceilings (2.7m+)',
-                'Open-plan living',
-                'Separate dining room',
-                'Separate lounge room',
-                'Rumpus room / Family room',
+                'Alarm system',
+                'Floorboards',
+                'Rumpus room (indoor)',
+                'Dishwasher',
+                'Built-in robes',
+                'Broadband / NBN',
                 'Gym / Fitness room',
                 'Workshop (indoor)',
                 'Air conditioning',
