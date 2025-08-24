@@ -20,7 +20,7 @@ export interface IStorage {
   incrementUserDownloadCount(userId: string): Promise<void>;
 
   // Plan operations
-  searchPlans(filters: PlanFilters): Promise<PlanType[]>;
+  searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}>;
   getPlan(id: string): Promise<PlanType | null>;
   createPlan(plan: InsertPlan): Promise<PlanType>;
   updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null>;
@@ -99,7 +99,7 @@ export class MemoryStorage implements IStorage {
     return user;
   }
 
-  async searchPlans(filters: PlanFilters): Promise<PlanType[]> {
+  async searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}> {
     let results = Array.from(this.plans.values()).filter(plan => plan.status === "active");
 
     if (filters.lotSize && filters.lotSize !== "Any Size") {
@@ -210,6 +210,10 @@ export class MemoryStorage implements IStorage {
       }
     });
 
+    // Get total count before pagination
+    const total = results.length;
+
+    // Apply pagination
     if (filters.offset) {
       results = results.slice(filters.offset);
     }
@@ -218,7 +222,7 @@ export class MemoryStorage implements IStorage {
       results = results.slice(0, filters.limit);
     }
 
-    return results;
+    return { plans: results, total };
   }
 
   async getPlan(id: string): Promise<PlanType | null> {
@@ -315,6 +319,25 @@ export class MemoryStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private searchCache = new Map<string, { result: {plans: PlanType[], total: number}, timestamp: number }>();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+
+  private getCacheKey(filters: PlanFilters): string {
+    return JSON.stringify(filters);
+  }
+
+  private isValidCacheEntry(entry: { result: {plans: PlanType[], total: number}, timestamp: number }): boolean {
+    return Date.now() - entry.timestamp < this.CACHE_TTL;
+  }
+
+  private clearExpiredCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.searchCache.entries()) {
+      if (now - entry.timestamp >= this.CACHE_TTL) {
+        this.searchCache.delete(key);
+      }
+    }
+  }
   async incrementUserDownloadCount(userId: string): Promise<void> {
     try {
       await User.findOneAndUpdate(
@@ -353,8 +376,19 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async searchPlans(filters: PlanFilters): Promise<PlanType[]> {
+  async searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}> {
     try {
+      // Check cache first
+      const cacheKey = this.getCacheKey(filters);
+      const cachedResult = this.searchCache.get(cacheKey);
+      
+      if (cachedResult && this.isValidCacheEntry(cachedResult)) {
+        return cachedResult.result;
+      }
+      
+      // Clear expired cache entries periodically
+      this.clearExpiredCache();
+      
       const query: any = { status: "active" };
 
     if (filters.lotSize && filters.lotSize !== "Any Size") {
@@ -527,7 +561,9 @@ export class DatabaseStorage implements IStorage {
     const sortOptions: { [key: string]: 1 | -1 } = {};
     sortOptions[sortField] = sortOrder;
 
-    let mongoQuery = Plan.find(query).sort(sortOptions);
+    let mongoQuery = Plan.find(query)
+      .select('-content') // Exclude large content field from search results
+      .sort(sortOptions);
 
     if (filters.limit) {
       mongoQuery = mongoQuery.limit(filters.limit);
@@ -537,7 +573,20 @@ export class DatabaseStorage implements IStorage {
       mongoQuery = mongoQuery.skip(filters.offset);
     }
 
-      return await mongoQuery.exec();
+    const [plans, total] = await Promise.all([
+      mongoQuery.exec(),
+      Plan.countDocuments(query)
+    ]);
+
+    const result = { plans, total };
+    
+    // Cache the result
+    this.searchCache.set(cacheKey, {
+      result,
+      timestamp: Date.now()
+    });
+
+    return result;
     } catch (error) {
       console.error('Error searching plans:', error);
       throw error;
@@ -637,6 +686,7 @@ export class DatabaseStorage implements IStorage {
   async getRecentPlans(limit = 10): Promise<PlanType[]> {
     try {
       return await Plan.find({ status: "active" })
+        .select('-content') // Exclude large content field from recent plans
         .sort({ createdAt: -1 })
         .limit(limit)
         .exec();

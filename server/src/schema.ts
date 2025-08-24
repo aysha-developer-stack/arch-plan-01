@@ -120,6 +120,34 @@ const planSchema = new Schema<IPlan>({
   timestamps: true,
 });
 
+// Add indexes for better search performance
+planSchema.index({ title: 'text', description: 'text', builderName: 'text' }); // Text search index
+planSchema.index({ planType: 1 }); // Plan type filter
+planSchema.index({ storeys: 1 }); // Storeys filter
+planSchema.index({ lotSize: 1 }); // Lot size filter
+planSchema.index({ orientation: 1 }); // Orientation filter
+planSchema.index({ siteType: 1 }); // Site type filter
+planSchema.index({ foundationType: 1 }); // Foundation type filter
+planSchema.index({ councilArea: 1 }); // Council area filter
+planSchema.index({ status: 1 }); // Status filter (active/inactive)
+planSchema.index({ createdAt: -1 }); // Sort by creation date
+planSchema.index({ downloadCount: -1 }); // Sort by popularity
+planSchema.index({ bedrooms: 1 }); // Bedrooms filter
+planSchema.index({ houseType: 1 }); // House type filter
+planSchema.index({ extractedKeywords: 1 }); // Keywords search
+planSchema.index({ lotSizeMin: 1, lotSizeMax: 1 }); // Lot size range
+planSchema.index({ plotLength: 1, plotWidth: 1 }); // Plot dimensions
+planSchema.index({ coveredArea: 1 }); // Covered area
+planSchema.index({ roadPosition: 1 }); // Road position
+planSchema.index({ constructionType: 1 }); // Construction type array
+planSchema.index({ outdoorFeatures: 1 }); // Outdoor features array
+planSchema.index({ indoorFeatures: 1 }); // Indoor features array
+
+// Compound indexes for common filter combinations
+planSchema.index({ status: 1, planType: 1, storeys: 1 }); // Common filters together
+planSchema.index({ status: 1, createdAt: -1 }); // Active plans by date
+planSchema.index({ status: 1, downloadCount: -1 }); // Popular active plans
+
 export const Plan = mongoose.model<IPlan>('Plan', planSchema);
 
 // Zod schemas for validation

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, X, Download, Sliders, Zap, Upload, FileText } from "lucide-react";
+import { Search, Filter, X, Download, Sliders, Zap, Upload, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import PlanCard from "./PlanCard";
@@ -73,9 +73,11 @@ export default function SearchInterface() {
   const [isUploading, setIsUploading] = useState(false);
   const [showAllOutdoorFeatures, setShowAllOutdoorFeatures] = useState(false);
   const [showAllIndoorFeatures, setShowAllIndoorFeatures] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20); // Fixed items per page
 
   // Debounce filters to reduce API calls while user is typing
-  const debouncedFilters = useDebounce(filters, 300);
+  const debouncedFilters = useDebounce(filters, 500); // Increased debounce time for better performance
 
   // Check if any filter has a value
   const hasActiveFilters = useMemo(() => {
@@ -87,8 +89,13 @@ export default function SearchInterface() {
     });
   }, [debouncedFilters]);
 
-  const { data: plans = [], isLoading } = useQuery<PlanType[]>({
-    queryKey: ["/api/plans/search", debouncedFilters],
+  // Reset page when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [debouncedFilters]);
+
+  const { data: searchResult, isLoading } = useQuery<{plans: PlanType[], total: number}>({
+    queryKey: ["/api/plans/search", debouncedFilters, currentPage, itemsPerPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       Object.entries(debouncedFilters).forEach(([key, value]) => {
@@ -102,6 +109,10 @@ export default function SearchInterface() {
           params.append(key, value);
         }
       });
+      
+      // Add pagination parameters
+      params.append('limit', itemsPerPage.toString());
+      params.append('offset', ((currentPage - 1) * itemsPerPage).toString());
 
       const response = await fetch(`/api/plans/search?${params}`);
       if (!response.ok) {
@@ -113,6 +124,10 @@ export default function SearchInterface() {
     staleTime: 5 * 60 * 1000, // Cache results for 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
+
+  const plans = searchResult?.plans || [];
+  const totalPlans = searchResult?.total || 0;
+  const totalPages = Math.ceil(totalPlans / itemsPerPage);
 
   const clearFilters = useCallback(() => {
     setFilters({
@@ -269,7 +284,7 @@ export default function SearchInterface() {
                     <SelectItem value="Campbelltown City Council">Campbelltown City Council</SelectItem>
                     <SelectItem value="Canada Bay Council">Canada Bay Council</SelectItem>
                     <SelectItem value="Canterbury-Bankstown Council">Canterbury-Bankstown Council</SelectItem>
-                    <SelectItem value="Central Coast Council">Central Coast Council</SelectItem>
+                    <SelectItem value="Central Coast Council (NSW)">Central Coast Council (NSW)</SelectItem>
                     <SelectItem value="Central Darling Council">Central Darling Council</SelectItem>
                     <SelectItem value="Cessnock City Council">Cessnock City Council</SelectItem>
                     <SelectItem value="Clarence Valley Council">Clarence Valley Council</SelectItem>
@@ -747,7 +762,7 @@ export default function SearchInterface() {
                     <SelectItem value="Break O'Day Council">Break O'Day Council</SelectItem>
                     <SelectItem value="Brighton Council">Brighton Council</SelectItem>
                     <SelectItem value="Burnie City Council">Burnie City Council</SelectItem>
-                    <SelectItem value="Central Coast Council">Central Coast Council</SelectItem>
+                    <SelectItem value="Central Coast Council (TAS)">Central Coast Council (TAS)</SelectItem>
                     <SelectItem value="Central Highlands Council">Central Highlands Council</SelectItem>
                     <SelectItem value="Circular Head Council">Circular Head Council</SelectItem>
                     <SelectItem value="Clarence City Council">Clarence City Council</SelectItem>
@@ -1240,8 +1255,13 @@ export default function SearchInterface() {
         <div>
           <div className="mb-6 flex justify-between items-center">
             <h3 className="text-xl font-semibold text-slate-900">
-              Search Results ({plans.length} plans found)
+              Search Results ({totalPlans} plans found)
             </h3>
+            {totalPlans > 0 && (
+              <div className="text-sm text-slate-600">
+                Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalPlans)} of {totalPlans}
+              </div>
+            )}
           </div>
 
           {isLoading ? (
@@ -1273,11 +1293,65 @@ export default function SearchInterface() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {plans.map((plan) => (
-                <PlanCard key={plan._id?.toString() || plan.id} plan={plan} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {plans.map((plan) => (
+                  <PlanCard key={plan._id?.toString() || plan.id} plan={plan} />
+                ))}
+              </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-8 flex justify-center items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Previous
+                  </Button>
+                  
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-10 h-10 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : (

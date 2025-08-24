@@ -10,6 +10,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { authenticateAdmin } from "./src/middleware/authMiddleware";
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -462,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin Migration Tool - Scan and fix legacy plans with missing files
-  app.get("/api/admin/plans/migration-scan", async (req, res) => {
+  app.get("/api/admin/plans/migration-scan", authenticateAdmin, async (req, res) => {
     try {
       console.log("🔍 Starting legacy plan migration scan...");
 
@@ -591,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin Migration Tool - Fix recoverable plans
-  app.post("/api/admin/plans/migration-fix", async (req, res) => {
+  app.post("/api/admin/plans/migration-fix", authenticateAdmin, async (req, res) => {
     try {
       const { planIds, action } = req.body;
 
@@ -790,50 +791,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Original file path from DB:", originalPath);
       console.log("Current working directory:", process.cwd());
 
-      // Strategy 1: Try the path as stored in DB (could be absolute or relative)
+      // Streamlined file path resolution - try absolute path first, then relative to project root
       if (path.isAbsolute(originalPath)) {
         filePath = originalPath;
       } else {
         filePath = path.join(process.cwd(), originalPath);
       }
 
-      console.log("Strategy 1 - Trying path:", filePath);
-      console.log("Strategy 1 - File exists:", fs.existsSync(filePath));
-
-      // Strategy 2: If not found, try relative to server directory
-      if (!fs.existsSync(filePath)) {
-        const serverRelativePath = path.join(__dirname, '..', originalPath);
-        console.log("Strategy 2 - Trying server relative path:", serverRelativePath);
-        console.log("Strategy 2 - File exists:", fs.existsSync(serverRelativePath));
-        if (fs.existsSync(serverRelativePath)) {
-          filePath = serverRelativePath;
-        }
-      }
-
-      // Strategy 3: If still not found, try looking in uploads directory
+      // If file doesn't exist, try uploads directory as fallback
       if (!fs.existsSync(filePath)) {
         const fileName = path.basename(originalPath);
-        const uploadsPath = path.join(process.cwd(), 'uploads', fileName);
-        console.log("Strategy 3 - Trying uploads directory:", uploadsPath);
-        console.log("Strategy 3 - File exists:", fs.existsSync(uploadsPath));
-        if (fs.existsSync(uploadsPath)) {
-          filePath = uploadsPath;
-        }
+        filePath = path.join(process.cwd(), 'uploads', fileName);
       }
 
-      // Strategy 4: Try server/uploads directory
-      if (!fs.existsSync(filePath)) {
-        const fileName = path.basename(originalPath);
-        const serverUploadsPath = path.join(__dirname, 'uploads', fileName);
-        console.log("Strategy 4 - Trying server/uploads:", serverUploadsPath);
-        console.log("Strategy 4 - File exists:", fs.existsSync(serverUploadsPath));
-        if (fs.existsSync(serverUploadsPath)) {
-          filePath = serverUploadsPath;
-        }
-      }
-
-      console.log("Final file path to use:", filePath);
-      console.log("Final file exists check:", fs.existsSync(filePath));
+      console.log("📁 Resolved file path:", filePath);
+      console.log("📄 File exists:", fs.existsSync(filePath));
 
       if (!fs.existsSync(filePath)) {
         console.log("⚠️ Physical file not found, checking if plan has content data in database...");
@@ -1079,7 +1051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes (simplified for demo)
-  app.get("/api/admin/stats", async (req, res) => {
+  app.get("/api/admin/stats", authenticateAdmin, async (req, res) => {
     try {
       const stats = await getStorage().getPlanStats();
       res.json(stats);
@@ -1089,7 +1061,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/plans", async (req, res) => {
+  app.get("/api/admin/plans", authenticateAdmin, async (req, res) => {
     try {
       // Parse and validate search parameters using the schema
       const queryParams = {
@@ -1108,15 +1080,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Validate the search parameters
       const filters = searchPlanSchema.parse(queryParams);
-      const plans = await getStorage().searchPlans(filters);
-      res.json(plans);
+      const result = await getStorage().searchPlans(filters);
+      // For admin endpoint, return just the plans array for backward compatibility
+      res.json(result.plans);
     } catch (error) {
       console.error("Error fetching admin plans:", error);
       res.status(500).json({ message: "Failed to fetch plans" });
     }
   });
 
-  app.post("/api/admin/plans", upload.single("file"), async (req: any, res) => {
+  app.post("/api/admin/plans", authenticateAdmin, upload.single("file"), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -1204,7 +1177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/plans/:id", async (req, res) => {
+  app.put("/api/admin/plans/:id", authenticateAdmin, async (req, res) => {
     try {
       // Process numeric fields and arrays before validation
       const processedData = {
@@ -1243,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/plans/:id", async (req, res) => {
+  app.delete("/api/admin/plans/:id", authenticateAdmin, async (req, res) => {
     try {
       const plan = await getStorage().getPlan(req.params.id);
       if (!plan) {

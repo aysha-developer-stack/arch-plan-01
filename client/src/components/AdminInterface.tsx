@@ -549,7 +549,7 @@ return (
                         <SelectItem value="Canada Bay City Council">Canada Bay City Council</SelectItem>
                         <SelectItem value="Canterbury-Bankstown Council">Canterbury-Bankstown Council</SelectItem>
                         <SelectItem value="Carrathool Shire Council">Carrathool Shire Council</SelectItem>
-                        <SelectItem value="Central Coast Council">Central Coast Council</SelectItem>
+                        <SelectItem value="Central Coast Council (NSW)">Central Coast Council (NSW)</SelectItem>
                         <SelectItem value="Central Darling Shire Council">Central Darling Shire Council</SelectItem>
                         <SelectItem value="Cessnock City Council">Cessnock City Council</SelectItem>
                         <SelectItem value="Clarence Valley Council">Clarence Valley Council</SelectItem>
@@ -1027,7 +1027,7 @@ return (
                         <SelectItem value="Break O'Day Council">Break O'Day Council</SelectItem>
                         <SelectItem value="Brighton Council">Brighton Council</SelectItem>
                         <SelectItem value="Burnie City Council">Burnie City Council</SelectItem>
-                        <SelectItem value="Central Coast Council">Central Coast Council</SelectItem>
+                        <SelectItem value="Central Coast Council (TAS)">Central Coast Council (TAS)</SelectItem>
                         <SelectItem value="Central Highlands Council">Central Highlands Council</SelectItem>
                         <SelectItem value="Clarence City Council">Clarence City Council</SelectItem>
                         <SelectItem value="Derwent Valley Council">Derwent Valley Council</SelectItem>
