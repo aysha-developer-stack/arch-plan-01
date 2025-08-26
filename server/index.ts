@@ -33,8 +33,9 @@ app.use(compression({
   threshold: 1024, // Only compress responses larger than 1KB
   chunkSize: 16 * 1024, // 16KB chunks for better streaming
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Configure body parser with increased limits for file uploads
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: false }));
 app.use(cookieParser());
 
 // CORS configuration with proper origin validation
