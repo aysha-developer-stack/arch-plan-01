@@ -7,6 +7,7 @@ import {
   type InsertPlan,
 } from "./src/schema.js";
 import { extractKeywordsFromDescription } from "./src/utils/keywordExtractor.js";
+import { getGridFSManager } from "./src/utils/gridfs.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
@@ -23,6 +24,7 @@ export interface IStorage {
   searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}>;
   getPlan(id: string, excludeContent?: boolean): Promise<PlanType | null>;
   getPlanAndIncrementDownload(id: string, excludeContent?: boolean): Promise<PlanType | null>;
+  getPlanFileStream(id: string): Promise<NodeJS.ReadableStream | null>;
   createPlan(plan: InsertPlan): Promise<PlanType>;
   updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null>;
   deletePlan(id: string): Promise<void>;
@@ -245,6 +247,12 @@ export class MemoryStorage implements IStorage {
       }
       return plan;
     }
+    return null;
+  }
+
+  async getPlanFileStream(id: string): Promise<NodeJS.ReadableStream | null> {
+    // MemoryStorage doesn't support file streams, return null
+    // This method is primarily for GridFS in DatabaseStorage
     return null;
   }
 
@@ -619,9 +627,49 @@ export class DatabaseStorage implements IStorage {
         query = query.select('-content');
       }
       const plan = await query;
+      if (!plan) return null;
+      
+      // If plan has a fileId and content is not excluded, retrieve file content from GridFS
+      if (!excludeContent && plan.fileId && !plan.content) {
+        try {
+          const gridFS = getGridFSManager();
+          const fileBuffer = await gridFS.getFileBuffer(plan.fileId);
+          plan.content = fileBuffer.toString('base64');
+        } catch (gridfsError) {
+          console.error('Failed to retrieve file from GridFS:', gridfsError);
+          // Continue without content rather than failing completely
+        }
+      }
+      
       return plan;
     } catch (error) {
       console.error('Error getting plan:', error);
+      throw error;
+    }
+  }
+
+  async getPlanFileContent(id: string): Promise<Buffer | null> {
+    try {
+      const plan = await Plan.findById(id);
+      if (!plan || !plan.fileId) return null;
+      
+      const gridFS = getGridFSManager();
+      return await gridFS.getFileBuffer(plan.fileId);
+    } catch (error) {
+      console.error('Error getting plan file content:', error);
+      throw error;
+    }
+  }
+
+  async getPlanFileStream(id: string): Promise<NodeJS.ReadableStream | null> {
+    try {
+      const plan = await Plan.findById(id);
+      if (!plan || !plan.fileId) return null;
+      
+      const gridFS = getGridFSManager();
+      return await gridFS.getFileStream(plan.fileId);
+    } catch (error) {
+      console.error('Error getting plan file stream:', error);
       throw error;
     }
   }
@@ -654,14 +702,41 @@ export class DatabaseStorage implements IStorage {
         console.log(`🔍 Extracted ${extractedKeywords.length} keywords from description: ${extractedKeywords.join(', ')}`);
       }
 
+      // Handle file storage with GridFS if content is provided
+      let fileId: mongoose.Types.ObjectId | undefined;
+      if (planData.content) {
+        try {
+          const gridFS = getGridFSManager();
+          const fileBuffer = Buffer.from(planData.content, 'base64');
+          fileId = await gridFS.storeFile(
+            fileBuffer,
+            planData.fileName,
+            {
+              originalName: planData.fileName,
+              fileSize: planData.fileSize,
+              uploadedBy: planData.uploadedBy,
+              planTitle: planData.title
+            }
+          );
+          console.log(`📦 File stored in GridFS: ${planData.fileName} (ID: ${fileId})`);
+        } catch (gridfsError) {
+          console.error('❌ Failed to store file in GridFS:', gridfsError);
+          throw new Error(`Failed to store file in GridFS: ${gridfsError instanceof Error ? gridfsError.message : gridfsError}`);
+        }
+      }
+
+      // Create plan document without the base64 content, but with GridFS file ID
+      const { content, ...planDataWithoutContent } = planData;
       const plan = new Plan({
-        ...planData,
+        ...planDataWithoutContent,
+        fileId,
         extractedKeywords,
         status: planData.status || "active",
         downloadCount: 0,
         createdAt: new Date(),
         updatedAt: new Date()
       });
+      
       const savedPlan = await plan.save();
       // Clear search cache after creation to ensure fresh results
       this.searchCache.clear();

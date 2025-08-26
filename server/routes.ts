@@ -797,18 +797,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!fs.existsSync(filePath)) {
+        // Try to serve from GridFS if plan has fileId
+        if (plan.fileId) {
+          try {
+            const fileStream = await getStorage().getPlanFileStream(req.params.id);
+            if (fileStream) {
+              const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
+              
+              // Set proper headers for file download
+              res.setHeader('Content-Type', 'application/pdf');
+              res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+              res.setHeader('Cache-Control', 'public, max-age=3600');
+              res.setHeader('Accept-Ranges', 'bytes');
+              
+              // Pipe GridFS stream to response
+              fileStream.pipe(res);
+              return;
+            }
+          } catch (gridfsError) {
+            console.error('Failed to retrieve file from GridFS:', gridfsError);
+          }
+        }
 
-        // Get full plan with content for database storage
+        // Fallback: Get full plan with content for legacy database storage
         const fullPlan = await getStorage().getPlan(req.params.id, false);
         if (fullPlan && fullPlan.content) {
-          // Serve content from database
+          // Serve content from database (legacy base64 storage)
           const contentBuffer = Buffer.from(fullPlan.content, 'base64');
 
           const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
 
           // Set proper headers for inline PDF viewing (bypasses IDM)
           res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename="${plan.title || 'plan'}.pdf"`);
+          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
           res.setHeader('Content-Length', contentBuffer.length.toString());
           res.setHeader('Cache-Control', 'public, max-age=3600');
           res.setHeader('Accept-Ranges', 'bytes');
@@ -816,13 +837,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.send(contentBuffer);
         }
 
-        // No physical file and no content in database
-
+        // No physical file, no GridFS file, and no content in database
         return res.status(404).json({
           message: "File not available - please re-upload this plan through the admin panel",
           details: {
             originalPath,
             attemptedPath: filePath,
+            hasFileId: !!plan.fileId,
             hasContent: !!(fullPlan && fullPlan.content),
             solution: "This plan was uploaded before database storage was implemented. Please re-upload it through the admin panel."
           }
@@ -957,20 +978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Convert absolute path to relative path for consistency
       const relativePath = path.relative(process.cwd(), req.file.path);
 
-      // Read file content and convert to base64 for database storage
-      // This ensures files work on cloud platforms like Railway
-      let fileContent: string;
-      try {
-        const fileBuffer = fs.readFileSync(req.file.path);
-        fileContent = fileBuffer.toString('base64');
-        console.log(`📦 File content stored in database: ${fileContent.length} characters (base64)`);
-      } catch (fileError) {
-        console.warn("⚠️ Could not read file for database storage:", fileError);
-        // Do not proceed if file cannot be read
-        return res.status(500).json({ message: "Failed to read uploaded file for storage", error: fileError instanceof Error ? fileError.message : fileError });
-      }
-
-      // Always set both filePath and content on the plan record
+      // Prepare plan data for GridFS storage (no base64 conversion needed)
       const planData = insertPlanSchema.parse({
         ...req.body,
         fileName: req.file.originalname,
@@ -997,7 +1005,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Parse array fields from JSON strings
         outdoorFeatures: req.body.outdoorFeatures ? JSON.parse(req.body.outdoorFeatures) : undefined,
         indoorFeatures: req.body.indoorFeatures ? JSON.parse(req.body.indoorFeatures) : undefined,
-        content: fileContent, // Always store file content in database
+        // File content will be handled by GridFS in storage layer
+        content: fs.readFileSync(req.file.path).toString('base64'), // Temporary for createPlan to process
       });
 
       let plan;
@@ -1013,16 +1022,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Only clean up (delete) the file if both DB and file read succeeded
-      if (fileContent) {
-        try {
-          fs.unlinkSync(req.file.path);
-          console.log(`🧹 Cleaned up temporary file: ${req.file.path}`);
-        } catch (cleanupError) {
-          console.warn("⚠️ Could not clean up temporary file:", cleanupError);
-        }
-      } else {
-        console.warn('⚠️ File was NOT deleted from disk due to file read error or missing content.');
+      // Clean up temporary file after successful database save
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log(`🧹 Cleaned up temporary file: ${req.file.path}`);
+      } catch (cleanupError) {
+        console.warn("⚠️ Could not clean up temporary file:", cleanupError);
       }
 
       res.json(plan);
@@ -1111,9 +1116,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Plan not found" });
       }
 
+      let fileName: string = plan.fileName || `${plan.title}.pdf`;
+
+      // Try GridFS first if plan has fileId
+      if (plan.fileId) {
+        try {
+          const fileStream = await getStorage().getPlanFileStream(req.params.id);
+          if (fileStream) {
+            // Increment download count
+            await getStorage().incrementDownloadCount(req.params.id);
+            console.log(`📊 Download count incremented for plan: ${plan.title} (ID: ${req.params.id})`);
+            
+            // Set proper headers for PDF download
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            
+            // Pipe GridFS stream to response
+            fileStream.pipe(res);
+            return;
+          }
+        } catch (gridfsError) {
+          console.error('Failed to retrieve file from GridFS:', gridfsError);
+        }
+      }
+
+      // Fallback to file system or legacy database content
       let filePath: string;
       let fileBuffer: Buffer;
-      let fileName: string = plan.fileName || `${plan.title}.pdf`;
 
       // Try to serve from file system first
       if (plan.filePath) {
@@ -1164,9 +1194,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`💾 Has content: ${plan.content ? 'yes' : 'no'}`);
 
 
+      let fileName: string = plan.fileName || `${plan.title}.pdf`;
+
+      // Try GridFS first if plan has fileId
+      if (plan.fileId) {
+        try {
+          const fileStream = await getStorage().getPlanFileStream(req.params.id);
+          if (fileStream) {
+            // Set proper headers for inline PDF viewing
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            
+            // Pipe GridFS stream to response
+            fileStream.pipe(res);
+            return;
+          }
+        } catch (gridfsError) {
+          console.error('Failed to retrieve file from GridFS:', gridfsError);
+        }
+      }
+
+      // Fallback to file system or legacy database content
       let filePath: string;
       let fileBuffer: Buffer;
-      let fileName: string = plan.fileName || `${plan.title}.pdf`;
 
       // Try to serve from file system first
       if (plan.filePath) {

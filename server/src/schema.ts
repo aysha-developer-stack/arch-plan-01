@@ -34,7 +34,8 @@ export interface IPlan extends Document {
   fileName: string;
   filePath: string;
   fileSize: number;
-  content?: string; // Base64 encoded file content
+  fileId?: mongoose.Types.ObjectId; // GridFS file ID for large file storage
+  content?: string; // Legacy base64 content for backward compatibility
   
   // Plan characteristics
   planType: string;
@@ -80,7 +81,8 @@ const planSchema = new Schema<IPlan>({
   fileName: { type: String, required: true, maxlength: 255 },
   filePath: { type: String, required: true, maxlength: 500 },
   fileSize: { type: Number, required: true },
-  content: String, // Base64 encoded file content
+  fileId: { type: Schema.Types.ObjectId }, // GridFS file ID for large file storage
+  content: { type: String }, // Legacy base64 content for backward compatibility
   
   // Plan characteristics
   planType: { type: String, required: true, maxlength: 100 },
@@ -165,7 +167,8 @@ export const insertPlanSchema = z.object({
   fileName: z.string().max(255),
   filePath: z.string().max(500),
   fileSize: z.number(),
-  content: z.string().optional(), // Base64 encoded file content
+  fileId: z.instanceof(mongoose.Types.ObjectId).optional(), // GridFS file ID for large file storage
+  content: z.string().optional(), // Legacy base64 content for backward compatibility
   planType: z.string().max(100),
   storeys: z.number(),
   lotSize: z.string().max(50).optional(),
