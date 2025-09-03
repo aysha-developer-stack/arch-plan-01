@@ -104,8 +104,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.incrementDownloadCount(plan._id.toString());
 
+      // Use plan title as filename, sanitized for file system compatibility
+      const sanitizedTitle = plan.title
+        ? plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, '').replace(/\s+/g, '_')
+        : null;
+      const fileName = sanitizedTitle || plan.fileName || 'plan.pdf';
+
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename=\"${plan.fileName}\"`);
+      res.setHeader("Content-Disposition", `attachment; filename=\"${fileName}.pdf\"`);
       res.sendFile(filePath);
     } catch (error) {
       console.error("Error downloading plan:", error);

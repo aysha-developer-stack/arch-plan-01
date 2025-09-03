@@ -36,6 +36,15 @@ export default {
   // Cookies
   COOKIE_SECURE: process.env.NODE_ENV === 'production',
   COOKIE_HTTP_ONLY: true,
-  COOKIE_SAME_SITE: 'strict' as const,
+  COOKIE_SAME_SITE: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
   COOKIE_MAX_AGE: 60 * 60 * 1000, // 1 hour in milliseconds
+  
+  // Email
+  EMAIL_USER: process.env.EMAIL_USER,
+  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
+  
+  // Client URL for email links
+  CLIENT_URL: process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' 
+    ? 'https://arch-plan-01-production.up.railway.app' 
+    : 'http://localhost:5000'),
 };

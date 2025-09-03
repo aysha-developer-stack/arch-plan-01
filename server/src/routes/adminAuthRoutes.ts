@@ -46,18 +46,22 @@ router.post('/login', async (req: Request, res: Response) => {
       }
     );
 
-    // 4. Send token in HTTP-only cookie
+    // 4. Send token in HTTP-only cookie AND return it for localStorage storage
     const cookieOptions = {
       httpOnly: config.COOKIE_HTTP_ONLY,
       secure: config.COOKIE_SECURE,
-      sameSite: config.COOKIE_SAME_SITE as any,
+      sameSite: config.COOKIE_SAME_SITE as 'strict' | 'lax' | 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     };
     
     res.cookie('adminToken', token, cookieOptions);
 
-    res.status(200).json({ message: 'Login successful' });
+    res.status(200).json({ 
+      message: 'Login successful',
+      token: token,
+      success: true
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -68,7 +72,7 @@ router.post('/logout', authenticateAdmin, (req: Request, res: Response) => {
   res.clearCookie('adminToken', {
     httpOnly: config.COOKIE_HTTP_ONLY,
     secure: config.COOKIE_SECURE,
-    sameSite: config.COOKIE_SAME_SITE,
+    sameSite: config.COOKIE_SAME_SITE as 'strict' | 'lax' | 'none',
     path: '/',
   });
   

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { z } from "zod";
+import bcrypt from 'bcryptjs';
 
 // User interface and schema
 export interface IUser extends Document {
@@ -7,10 +8,14 @@ export interface IUser extends Document {
   email?: string;
   firstName?: string;
   lastName?: string;
+  password?: string; // Added for user authentication
   profileImageUrl?: string;
   downloadCount: number;
+  status: 'pending' | 'approved' | 'rejected'; // Added approval status
+  rejectionReason?: string; // Added rejection reason
   createdAt: Date;
   updatedAt: Date;
+  comparePassword(candidatePassword: string): Promise<boolean>; // Added password comparison method
 }
 
 const userSchema = new Schema<IUser>({
@@ -18,13 +23,71 @@ const userSchema = new Schema<IUser>({
   email: { type: String, unique: true, sparse: true },
   firstName: String,
   lastName: String,
+  password: { type: String }, // Added password field
   profileImageUrl: String,
   downloadCount: { type: Number, default: 0 },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }, // Added status field
+  rejectionReason: { type: String }, // Added rejection reason field
 }, {
   timestamps: true,
 });
 
+// Hash password before saving
+userSchema.pre<IUser>('save', async function(next) {
+  if (!this.isModified('password') || !this.password) return next();
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
+
+// Password comparison method
+userSchema.methods.comparePassword = async function(
+  candidatePassword: string
+): Promise<boolean> {
+  if (!this.password) return false;
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
 export const User = mongoose.model<IUser>('User', userSchema);
+
+// AppUser interface and schema (for user authentication system)
+export interface IAppUser extends Document {
+  email: string;
+  password: string;
+  name: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  approvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  comparePassword(candidatePassword: string): Promise<boolean>;
+}
+
+const appUserSchema = new Schema<IAppUser>({
+  email: { type: String, required: true, unique: true, lowercase: true },
+  password: { type: String, required: true },
+  name: { type: String, required: true },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  rejectionReason: { type: String },
+  approvedAt: { type: Date }
+}, {
+  timestamps: true,
+});
+
+// Hash password before saving
+appUserSchema.pre<IAppUser>('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
+
+// Password comparison method
+appUserSchema.methods.comparePassword = async function(
+  candidatePassword: string
+): Promise<boolean> {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+export const AppUser = mongoose.model<IAppUser>('AppUser', appUserSchema, 'appusers');
 
 // Plan interface and schema
 export interface IPlan extends Document {
@@ -35,6 +98,12 @@ export interface IPlan extends Document {
   filePath: string;
   fileSize: number;
   content?: string; // Base64 encoded file content
+  images?: Array<{
+    path: string;
+    filename: string;
+    size: number;
+    fileId?: mongoose.Types.ObjectId;
+  }>; // Array of image files associated with the plan
   
   // Plan characteristics
   planType: string;
@@ -51,10 +120,12 @@ export interface IPlan extends Document {
   coveredArea?: number; // Covered area in square meters
   roadPosition?: string; // Length Side, Width Side, Corner Plot
   builderName?: string; // Builder or designer name
+  jobAddress?: string; // Job address or location
   houseType?: string; // Single Dwelling, Duplex, Townhouse, Unit
   bedrooms?: number; // Number of bedrooms
   toilets?: number; // Number of toilets/bathrooms
   livingAreas?: number; // Number of living spaces
+  numberOfUnits?: number; // Number of units (for multi-unit developments)
   constructionType?: string[]; // Array of construction types: Hebel, Cladding, Brick, NRG
   
   // Additional features and specifications
@@ -80,6 +151,12 @@ const planSchema = new Schema<IPlan>({
   filePath: { type: String, required: true, maxlength: 500 },
   fileSize: { type: Number, required: true },
   content: String, // Base64 encoded file content
+  images: [{
+    path: { type: String, required: true },
+    filename: { type: String, required: true },
+    size: { type: Number, required: true },
+    fileId: { type: Schema.Types.ObjectId } // GridFS file ID for image storage
+  }], // Array of image files associated with the plan
   
   // Plan characteristics
   planType: { type: String, required: true, maxlength: 100 },
@@ -96,10 +173,12 @@ const planSchema = new Schema<IPlan>({
   coveredArea: { type: Number }, // Covered area in square meters
   roadPosition: { type: String, maxlength: 50 }, // Length Side, Width Side, Corner Plot
   builderName: { type: String, maxlength: 255 }, // Builder or designer name
+  jobAddress: { type: String, maxlength: 500 }, // Job address or location
   houseType: { type: String, maxlength: 50 }, // Single Dwelling, Duplex, Townhouse, Unit
   bedrooms: { type: Number, default: 3 }, // Number of bedrooms
   toilets: { type: Number, default: 2 }, // Number of toilets/bathrooms
   livingAreas: { type: Number, default: 1 }, // Number of living spaces
+  numberOfUnits: { type: Number }, // Number of units (for multi-unit developments)
   constructionType: [{ type: String }], // Array of construction types: Hebel, Cladding, Brick, NRG
   
   // Additional features and specifications
@@ -126,7 +205,10 @@ export const insertUserSchema = z.object({
   email: z.string().email().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  password: z.string().min(6).optional(), // Added password validation
   profileImageUrl: z.string().optional(),
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  rejectionReason: z.string().optional(),
 });
 
 export const insertPlanSchema = z.object({
@@ -136,6 +218,12 @@ export const insertPlanSchema = z.object({
   filePath: z.string().max(500),
   fileSize: z.number(),
   content: z.string().optional(), // Base64 encoded file content
+  images: z.array(z.object({
+    path: z.string(),
+    filename: z.string(),
+    size: z.number(),
+    fileId: z.instanceof(mongoose.Types.ObjectId).optional()
+  })).optional(),
   planType: z.string().max(100),
   storeys: z.number(),
   lotSize: z.string().max(50).optional(),
@@ -150,10 +238,12 @@ export const insertPlanSchema = z.object({
   coveredArea: z.number().optional(), // Covered area in square meters
   roadPosition: z.string().max(50).optional(), // Length Side, Width Side, Corner Plot
   builderName: z.string().max(255).optional(), // Builder or designer name
+  jobAddress: z.string().max(500).optional(), // Job address or location
   houseType: z.string().max(50).optional(), // Single Dwelling, Duplex, Townhouse, Unit
   bedrooms: z.number().min(0).optional().default(3), // Number of bedrooms
   toilets: z.number().min(0).optional().default(2), // Number of toilets/bathrooms
   livingAreas: z.number().min(0).optional().default(1), // Number of living spaces
+  numberOfUnits: z.number().min(0).optional(), // Number of units (for multi-unit developments)
   constructionType: z.array(z.string()).optional(), // Array of construction types
   lotSizeMin: z.number().optional(), // Minimum lot size in square meters
   lotSizeMax: z.number().optional(), // Maximum lot size in square meters
@@ -167,7 +257,26 @@ export const insertPlanSchema = z.object({
   uploadedBy: z.string().optional(),
 });
 
+// AppUser validation schemas
+export const appUserSignupSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().min(1)
+});
+
+export const appUserLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1)
+});
+
+export const appUserApprovalSchema = z.object({
+  userId: z.string(),
+  action: z.enum(['approve', 'reject']),
+  rejectionReason: z.string().optional()
+});
+
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type UserType = IUser;
+export type AppUserType = IAppUser;
 export type InsertPlan = z.infer<typeof insertPlanSchema>;
 export type PlanType = IPlan;

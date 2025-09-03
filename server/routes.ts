@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import jwt from "jsonwebtoken";
 import { getStorage } from "./storage";
-// import { setupAuth, isAuthenticated } from "./replitAuth";
+// import { getStorage } from "./storage";
 import { insertPlanSchema, searchPlanSchema } from "./src/schema.js";
 import { z } from "zod";
 import multer from "multer";
@@ -11,6 +11,15 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { authenticateAdmin } from "./src/middleware/authMiddleware";
+import { getGridFSManager } from "./src/utils/gridfs.js";
+import mongoose from "mongoose";
+import { User, AppUser } from "../shared/schema.js";
+import bcrypt from "bcryptjs";
+import emailService from "./src/services/emailService.js";
+
+// Ensure User model is properly initialized
+console.log('📋 User model loaded:', !!User);
+console.log('📋 AppUser model loaded:', !!AppUser);
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -31,14 +40,14 @@ const upload = multer({
     },
   }),
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf") {
+    if (file.mimetype === "application/pdf" || file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
-      cb(new Error("Only PDF files are allowed"));
+      cb(new Error("Only PDF and image files are allowed"));
     }
   },
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
 });
 
@@ -73,7 +82,212 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve static files from uploads directory
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-  // Auth routes (simplified for demo)
+  // Helper function to wait for MongoDB connection
+  const waitForConnection = async (maxWaitMs = 10000) => {
+    const startTime = Date.now();
+    while (mongoose.connection.readyState !== 1) {
+      if (Date.now() - startTime > maxWaitMs) {
+        throw new Error('Database connection timeout');
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  };
+
+  // User Registration
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      console.log('🔍 [routes.ts] Registration request received:');
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+      console.log('Content-Type:', req.headers['content-type']);
+      
+      const { email, password, confirmPassword, firstName, lastName } = req.body;
+      
+      console.log('🔍 [routes.ts] Extracted fields:');
+      console.log('email:', email, 'type:', typeof email);
+      console.log('password:', password ? '[REDACTED]' : 'undefined', 'type:', typeof password);
+      console.log('confirmPassword:', confirmPassword ? '[REDACTED]' : 'undefined', 'type:', typeof confirmPassword);
+      console.log('firstName:', firstName, 'type:', typeof firstName);
+      console.log('lastName:', lastName, 'type:', typeof lastName);
+
+      if (!email || !password || !confirmPassword || !firstName || !lastName) {
+        console.log('❌ [routes.ts] Validation failed - missing fields');
+        return res.status(400).json({
+          success: false,
+          message: "All fields are required"
+        });
+      }
+
+      // Check if passwords match
+      if (password !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Passwords do not match"
+        });
+      }
+
+      // Wait for MongoDB connection
+      try {
+        await waitForConnection(5000);
+      } catch (connError) {
+        console.error("MongoDB connection failed:", connError);
+        return res.status(503).json({
+          success: false,
+          message: "Database connection unavailable. Please try again later."
+        });
+      }
+
+      // Check if user already exists with timeout handling
+      const findUserPromise = AppUser.findOne({ email: email.toLowerCase() }).maxTimeMS(5000).exec();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout after 5000ms')), 5000);
+      });
+      
+      const existingUser = await Promise.race([findUserPromise, timeoutPromise]);
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already exists"
+        });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 12);
+
+      // Create new user with pending status
+      const user = new AppUser({
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        name: `${firstName} ${lastName}`,
+        status: 'pending'
+      });
+
+      // Save user
+      const savedUser = await user.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Registration successful. Your account is pending approval.",
+        user: {
+          id: savedUser._id,
+          email: savedUser.email,
+          name: savedUser.name,
+          status: savedUser.status
+        }
+      });
+    } catch (error: any) {
+      console.error("Registration error:", error);
+
+      if (error?.message?.includes('timeout') || error?.message?.includes('buffering timed out') || error?.message?.includes('Query timeout')) {
+        return res.status(503).json({
+          success: false,
+          message: "Database operation timed out. Please try again.",
+          error: error.message
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Registration failed",
+        error: error.message
+      });
+    }
+  });
+
+  // User Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "Email and password are required"
+        });
+      }
+
+      // Wait for MongoDB connection
+      try {
+        await waitForConnection(5000);
+      } catch (connError) {
+        console.error("MongoDB connection failed:", connError);
+        return res.status(503).json({
+          success: false,
+          message: "Database connection unavailable. Please try again later."
+        });
+      }
+
+      // Find user by email
+      const user = await User.findOne({ email }).exec();
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials"
+        });
+      }
+
+      // Check password
+      const isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials"
+        });
+      }
+
+      // Check user status
+      if (user.status === 'pending') {
+        return res.status(403).json({
+          success: false,
+          message: "Your account is pending approval. Please wait for admin approval.",
+          status: 'pending'
+        });
+      }
+
+      if (user.status === 'rejected') {
+        return res.status(403).json({
+          success: false,
+          message: user.rejectionReason || "Your account has been rejected.",
+          status: 'rejected'
+        });
+      }
+
+      // Generate JWT token for approved users
+      const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.JWT_SECRET!,
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        success: true,
+        message: "Login successful",
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          status: user.status
+        }
+      });
+    } catch (error: any) {
+      console.error("Login error:", error);
+
+      if (error?.message?.includes('timeout')) {
+        return res.status(503).json({
+          success: false,
+          message: "Database operation timed out. Please try again."
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Login failed"
+      });
+    }
+  });
+
+  // Admin routes (simplified for demo)
   app.post("/api/login", async (req, res) => {
     // Mock login endpoint for development
     const { email, password } = req.body;
@@ -209,8 +423,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coveredArea: req.query.coveredArea as string,
         roadPosition: req.query.roadPosition as string,
         builderName: req.query.builderName as string,
+        jobAddress: req.query.jobAddress as string,
         toilets: req.query.toilets as string,
         livingAreas: req.query.livingAreas as string,
+        numberOfUnits: req.query.numberOfUnits as string,
         totalBuildingHeight: req.query.totalBuildingHeight as string,
         roofPitch: req.query.roofPitch as string,
         outdoorFeatures: req.query.outdoorFeatures as string,
@@ -220,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortBy: req.query.sortBy as string,
         sortOrder: req.query.sortOrder as 'asc' | 'desc',
       };
-      
+
       // Validate the search parameters
       const filters = searchPlanSchema.parse(queryParams);
 
@@ -771,7 +987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Get plan metadata and increment download count in single operation
-      const plan = shouldIncrementCount 
+      const plan = shouldIncrementCount
         ? await getStorage().getPlanAndIncrementDownload(req.params.id, true)
         : await getStorage().getPlan(req.params.id, true);
 
@@ -803,13 +1019,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const fileStream = await getStorage().getPlanFileStream(req.params.id);
             if (fileStream) {
               const fileName = plan.fileName || `${plan.title || 'plan'}.pdf`;
-              
+
               // Set proper headers for file download
               res.setHeader('Content-Type', 'application/pdf');
               res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
               res.setHeader('Cache-Control', 'public, max-age=3600');
               res.setHeader('Accept-Ranges', 'bytes');
-              
+
               // Pipe GridFS stream to response
               fileStream.pipe(res);
               return;
@@ -882,7 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Set download headers
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      
+
       // Handle range requests for partial content and resume capability
       const range = req.headers.range;
       if (range) {
@@ -890,34 +1106,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
         const chunksize = (end - start) + 1;
-        
+
         // Range request handling
-        
+
         res.status(206); // Partial Content
         res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
         res.setHeader("Content-Length", chunksize.toString());
-        
+
         const fileStream = fs.createReadStream(absolutePath, { start, end });
-        
+
         fileStream.on('error', (err) => {
           console.error("Range stream error:", err);
           if (!res.headersSent) {
             res.status(500).json({ message: "Failed to stream file range" });
           }
         });
-        
+
         fileStream.pipe(res);
       } else {
         // Full file download
         const fileStream = fs.createReadStream(absolutePath);
-        
+
         fileStream.on('error', (err) => {
           console.error("Stream error:", err);
           if (!res.headersSent) {
             res.status(500).json({ message: "Failed to stream file" });
           }
         });
-        
+
         // Pipe the file stream to response
         fileStream.pipe(res);
       }
@@ -926,6 +1142,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!res.headersSent) {
         res.status(500).json({ message: "Failed to download plan" });
       }
+    }
+  });
+
+  // Admin User Management Routes
+  app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
+    try {
+      const { status, search, limit = 50, offset = 0 } = req.query;
+
+      let query: any = {};
+
+      // Filter by status if provided
+      if (status && ['pending', 'approved', 'rejected'].includes(status as string)) {
+        query.status = status;
+      }
+
+      // Search by email, firstName, or lastName
+      if (search) {
+        query.$or = [
+          { email: { $regex: search, $options: 'i' } },
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      const users = await User.find(query)
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit as string))
+        .skip(parseInt(offset as string));
+
+      const totalUsers = await User.countDocuments(query);
+
+      res.json({
+        users,
+        total: totalUsers,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Approve user
+  app.post("/api/admin/users/:id/approve", authenticateAdmin, async (req, res) => {
+    try {
+      const user = await User.findOne({ id: req.params.id });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      user.status = 'approved';
+      user.rejectionReason = undefined;
+      await user.save();
+
+      // Send approval email
+      try {
+        const userName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email || 'User';
+        await emailService.sendApprovalEmail(user.email || '', userName);
+        console.log(`📧 Approval email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error('Failed to send approval email:', emailError);
+        // Don't fail the approval if email fails
+      }
+
+      res.json({
+        success: true,
+        message: "User approved successfully",
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          status: user.status
+        }
+      });
+    } catch (error) {
+      console.error("Error approving user:", error);
+      res.status(500).json({ message: "Failed to approve user" });
+    }
+  });
+
+  // Reject user
+  app.post("/api/admin/users/:id/reject", authenticateAdmin, async (req, res) => {
+    try {
+      const { reason } = req.body;
+
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({ message: "Rejection reason is required" });
+      }
+
+      const user = await User.findOne({ id: req.params.id });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      user.status = 'rejected';
+      user.rejectionReason = reason.trim();
+      await user.save();
+
+      // Send rejection email
+      try {
+        const userName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email || 'User';
+        await emailService.sendRejectionEmail(user.email || '', userName, user.rejectionReason || 'No reason provided');
+        console.log(`📧 Rejection email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error('Failed to send rejection email:', emailError);
+        // Don't fail the rejection if email fails
+      }
+
+      res.json({
+        success: true,
+        message: "User rejected successfully",
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          status: user.status,
+          rejectionReason: user.rejectionReason
+        }
+      });
+    } catch (error) {
+      console.error("Error rejecting user:", error);
+      res.status(500).json({ message: "Failed to reject user" });
+    }
+  });
+
+  // Get user stats for admin dashboard
+  app.get("/api/admin/user-stats", authenticateAdmin, async (req, res) => {
+    try {
+      const stats = await Promise.all([
+        User.countDocuments({ status: 'pending' }),
+        User.countDocuments({ status: 'approved' }),
+        User.countDocuments({ status: 'rejected' }),
+        User.countDocuments({})
+      ]);
+
+      res.json({
+        pending: stats[0],
+        approved: stats[1],
+        rejected: stats[2],
+        total: stats[3]
+      });
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+      res.status(500).json({ message: "Failed to fetch user stats" });
     }
   });
 
@@ -951,12 +1315,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storeys: req.query.storeys as string,
         councilArea: req.query.councilArea as string,
         search: req.query.search as string,
+        numberOfUnits: req.query.numberOfUnits as string,
+        jobAddress: req.query.jobAddress as string,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
         offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
         sortBy: req.query.sortBy as string,
         sortOrder: req.query.sortOrder as 'asc' | 'desc',
       };
-      
+
       // Validate the search parameters
       const filters = searchPlanSchema.parse(queryParams);
       const result = await getStorage().searchPlans(filters);
@@ -968,23 +1334,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/plans", authenticateAdmin, upload.single("file"), async (req: any, res) => {
+  app.post("/api/admin/plans", authenticateAdmin, upload.fields([{ name: 'file', maxCount: 1 }, { name: 'images', maxCount: 100 }]), async (req: any, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+      if (!files.file || files.file.length === 0) {
+        return res.status(400).json({ message: "No PDF file uploaded" });
       }
 
       const userId = "Admin"; // Mock user for demo
+      const pdfFile = files.file[0];
+      const imageFiles = files.images || [];
+
       // Convert absolute path to relative path for consistency
-      const relativePath = path.relative(process.cwd(), req.file.path);
+      const relativePath = path.relative(process.cwd(), pdfFile.path);
+
+      // Process image files and store them in GridFS
+      const gridFS = getGridFSManager();
+      const imageData = [];
+
+      for (const imageFile of imageFiles) {
+        try {
+          const imageBuffer = fs.readFileSync(imageFile.path);
+          const imageFileId = await gridFS.storeFile(
+            imageBuffer,
+            imageFile.originalname,
+            {
+              originalName: imageFile.originalname,
+              fileSize: imageFile.size,
+              uploadedBy: userId,
+              planTitle: req.body.title,
+              fileType: 'image'
+            }
+          );
+
+          imageData.push({
+            path: imageFile.path, // Keep original path for compatibility
+            filename: imageFile.originalname,
+            size: imageFile.size,
+            fileId: imageFileId
+          });
+
+          // Clean up temporary image file
+          fs.unlinkSync(imageFile.path);
+          console.log(`📦 Image stored in GridFS: ${imageFile.originalname} (ID: ${imageFileId})`);
+        } catch (error) {
+          console.error(`❌ Failed to store image ${imageFile.originalname} in GridFS:`, error);
+          throw new Error(`Failed to store image ${imageFile.originalname} in GridFS`);
+        }
+      }
 
       // Prepare plan data for GridFS storage (no base64 conversion needed)
       const planData = insertPlanSchema.parse({
         ...req.body,
-        fileName: req.file.originalname,
+        fileName: pdfFile.originalname,
         filePath: relativePath,
-        fileSize: req.file.size,
+        fileSize: pdfFile.size,
         uploadedBy: userId,
+        // Add image information with GridFS file IDs
+        images: imageData,
         storeys: parseInt(req.body.storeys),
         // Parse numeric fields
         plotLength: req.body.plotLength ? parseFloat(req.body.plotLength) : undefined,
@@ -997,6 +1405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : undefined,
         toilets: req.body.toilets ? parseInt(req.body.toilets) : undefined,
         livingAreas: req.body.livingAreas ? parseInt(req.body.livingAreas) : undefined,
+        numberOfUnits: req.body.numberOfUnits ? parseInt(req.body.numberOfUnits) : undefined,
         // Handle string fields
         foundationType: req.body.foundationType !== undefined ? req.body.foundationType : undefined,
         builderName: req.body.builderName !== undefined ? req.body.builderName : undefined,
@@ -1006,7 +1415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         outdoorFeatures: req.body.outdoorFeatures ? JSON.parse(req.body.outdoorFeatures) : undefined,
         indoorFeatures: req.body.indoorFeatures ? JSON.parse(req.body.indoorFeatures) : undefined,
         // File content will be handled by GridFS in storage layer
-        content: fs.readFileSync(req.file.path).toString('base64'), // Temporary for createPlan to process
+        content: fs.readFileSync(pdfFile.path).toString('base64'), // Temporary for createPlan to process
       });
 
       let plan;
@@ -1024,8 +1433,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Clean up temporary file after successful database save
       try {
-        fs.unlinkSync(req.file.path);
-        console.log(`🧹 Cleaned up temporary file: ${req.file.path}`);
+        fs.unlinkSync(pdfFile.path);
+        console.log(`🧹 Cleaned up temporary file: ${pdfFile.path}`);
       } catch (cleanupError) {
         console.warn("⚠️ Could not clean up temporary file:", cleanupError);
       }
@@ -1056,6 +1465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : undefined,
         toilets: req.body.toilets ? parseInt(req.body.toilets) : undefined,
         livingAreas: req.body.livingAreas ? parseInt(req.body.livingAreas) : undefined,
+        numberOfUnits: req.body.numberOfUnits ? parseInt(req.body.numberOfUnits) : undefined,
         storeys: req.body.storeys ? parseInt(req.body.storeys) : undefined,
         // Handle string fields
         foundationType: req.body.foundationType !== undefined ? req.body.foundationType : undefined,
@@ -1066,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         outdoorFeatures: req.body.outdoorFeatures ? (typeof req.body.outdoorFeatures === 'string' ? JSON.parse(req.body.outdoorFeatures) : req.body.outdoorFeatures) : undefined,
         indoorFeatures: req.body.indoorFeatures ? (typeof req.body.indoorFeatures === 'string' ? JSON.parse(req.body.indoorFeatures) : req.body.indoorFeatures) : undefined,
       };
-      
+
       const updates = insertPlanSchema.partial().parse(processedData);
       const plan = await getStorage().updatePlan(req.params.id, updates);
       res.json(plan);
@@ -1116,22 +1526,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Plan not found" });
       }
 
-      let fileName: string = plan.fileName || `${plan.title}.pdf`;
+      // Try to get user ID from JWT token to increment user download count
+      let userId: string | null = null;
+      try {
+        const authHeader = req.headers["authorization"] || req.headers["Authorization"];
+        if (authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+          const token = authHeader.slice(7);
+          const secret = process.env.JWT_SECRET || "dev-secret";
+          const payload: any = jwt.verify(token, secret);
+          userId = payload?.id || payload?.userId || null;
+        }
+      } catch (jwtError) {
+        // JWT verification failed, but we still allow the download
+        console.log("JWT verification failed for download, continuing without user tracking:", jwtError);
+      }
+
+      // Use plan title as download filename, sanitize for file system compatibility
+      // Original file stays unchanged in storage, only download name changes
+      let fileName: string = plan.title ? `${plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, '_')}.pdf` : (plan.fileName || 'plan.pdf');
 
       // Try GridFS first if plan has fileId
       if (plan.fileId) {
         try {
           const fileStream = await getStorage().getPlanFileStream(req.params.id);
           if (fileStream) {
-            // Increment download count
+            // Increment download count for plan
             await getStorage().incrementDownloadCount(req.params.id);
             console.log(`📊 Download count incremented for plan: ${plan.title} (ID: ${req.params.id})`);
-            
+
+            // Increment user download count if user is authenticated
+            if (userId) {
+              try {
+                await getStorage().incrementUserDownloadCount(userId);
+                console.log(`👤 User download count incremented for user: ${userId}`);
+              } catch (userError) {
+                console.error("Failed to increment user download count:", userError);
+              }
+            }
+
             // Set proper headers for PDF download
+            res.setHeader('Content-Disposition', `attachment; filename="${plan.title}.pdf"`);
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
             res.setHeader('Cache-Control', 'public, max-age=3600');
-            
+
             // Pipe GridFS stream to response
             fileStream.pipe(res);
             return;
@@ -1163,13 +1600,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "File not found" });
       }
 
-      // Increment download count
+      // Increment download count for plan
       await getStorage().incrementDownloadCount(req.params.id);
       console.log(`📊 Download count incremented for plan: ${plan.title} (ID: ${req.params.id})`);
 
+      // Increment user download count if user is authenticated
+      if (userId) {
+        try {
+          await getStorage().incrementUserDownloadCount(userId);
+          console.log(`👤 User download count incremented for user: ${userId}`);
+        } catch (userError) {
+          console.error("Failed to increment user download count:", userError);
+        }
+      }
+
       // Set proper headers for PDF download
+      res.setHeader('Content-Disposition', `attachment; filename="${plan.title}.pdf"`);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.setHeader('Content-Length', fileBuffer.length.toString());
 
       // Send the file
@@ -1205,7 +1652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
             res.setHeader('Cache-Control', 'public, max-age=3600');
-            
+
             // Pipe GridFS stream to response
             fileStream.pipe(res);
             return;
@@ -1247,6 +1694,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error viewing plan:", error);
       res.status(500).json({ message: "Failed to view plan" });
+    }
+  });
+
+  // Serve images from GridFS
+  app.get("/api/plans/:planId/images/:imageId", async (req, res) => {
+    try {
+      const { planId, imageId } = req.params;
+      console.log(`🖼️ Serving image ${imageId} for plan ${planId}`);
+
+      // Get the plan to verify it exists and get image info
+      const plan = await getStorage().getPlan(planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+
+      // Find the image in the plan's images array
+      const image = plan.images?.find(img => img.fileId?.toString() === imageId);
+      if (!image || !image.fileId) {
+        return res.status(404).json({ message: "Image not found" });
+      }
+
+      // Get image stream from GridFS
+      const gridFS = getGridFSManager();
+      const imageStream = gridFS.getFileStream(image.fileId);
+
+      // Set appropriate headers
+      const mimeType = image.filename.toLowerCase().endsWith('.png') ? 'image/png' :
+        image.filename.toLowerCase().endsWith('.gif') ? 'image/gif' :
+          image.filename.toLowerCase().endsWith('.webp') ? 'image/webp' :
+            'image/jpeg'; // default to jpeg
+
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${image.filename}"`);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+
+      // Pipe the image stream to response
+      imageStream.pipe(res);
+
+    } catch (error) {
+      console.error("Error serving image:", error);
+      res.status(500).json({ message: "Failed to serve image" });
     }
   });
 

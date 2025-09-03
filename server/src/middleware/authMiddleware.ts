@@ -20,8 +20,16 @@ declare global {
 }
 
 export const authenticateAdmin = (req: Request, res: Response, next: NextFunction) => {
-  // Get token from cookies
-  const token = req.cookies?.adminToken;
+  // Get token from cookies or Authorization header
+  let token = req.cookies?.adminToken;
+  
+  // If no cookie, check Authorization header
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
 
   if (!token) {
     return res.status(401).json({ 
@@ -46,7 +54,7 @@ export const authenticateAdmin = (req: Request, res: Response, next: NextFunctio
     res.clearCookie('adminToken', {
       httpOnly: config.COOKIE_HTTP_ONLY,
       secure: config.COOKIE_SECURE,
-      sameSite: config.COOKIE_SAME_SITE,
+      sameSite: config.COOKIE_SAME_SITE as 'strict' | 'lax' | 'none',
     });
 
     return res.status(401).json({ 

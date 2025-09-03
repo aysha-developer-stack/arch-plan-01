@@ -54,12 +54,14 @@ export interface PlanFilters {
   coveredArea?: string;
   roadPosition?: string;
   builderName?: string;
+  jobAddress?: string;
   toilets?: string;
   livingAreas?: string;
   totalBuildingHeight?: string;
   roofPitch?: string;
   outdoorFeatures?: string;
   indoorFeatures?: string;
+  numberOfUnits?: string;
   limit?: number;
   offset?: number;
   sortBy?: string;
@@ -141,6 +143,14 @@ export class MemoryStorage implements IStorage {
       results = results.filter(plan => plan.councilArea === filters.councilArea);
     }
 
+    // Handle job address filter
+    if (filters.jobAddress) {
+      const jobAddressLower = filters.jobAddress.toLowerCase();
+      results = results.filter(plan => 
+        plan.jobAddress && plan.jobAddress.toLowerCase().includes(jobAddressLower)
+      );
+    }
+
     // Handle keyword search (searches across multiple fields including extracted keywords)
     if (filters.keyword) {
       const keywordLower = filters.keyword.toLowerCase();
@@ -148,6 +158,8 @@ export class MemoryStorage implements IStorage {
         plan.title.toLowerCase().includes(keywordLower) ||
         (plan.description && plan.description.toLowerCase().includes(keywordLower)) ||
         (plan.builderName && plan.builderName.toLowerCase().includes(keywordLower)) ||
+        (plan.jobAddress && plan.jobAddress.toLowerCase().includes(keywordLower)) ||
+        (plan.numberOfUnits && plan.numberOfUnits.toString().toLowerCase().includes(keywordLower)) ||
         (plan.extractedKeywords && plan.extractedKeywords.some(keyword => 
           keyword.toLowerCase().includes(keywordLower)
         ))
@@ -161,6 +173,8 @@ export class MemoryStorage implements IStorage {
         plan.title.toLowerCase().includes(searchLower) ||
         (plan.description && plan.description.toLowerCase().includes(searchLower)) ||
         (plan.builderName && plan.builderName.toLowerCase().includes(searchLower)) ||
+        (plan.jobAddress && plan.jobAddress.toLowerCase().includes(searchLower)) ||
+        (plan.numberOfUnits && plan.numberOfUnits.toString().toLowerCase().includes(searchLower)) ||
         (plan.extractedKeywords && plan.extractedKeywords.some(keyword => 
           keyword.toLowerCase().includes(searchLower)
         ))
@@ -454,12 +468,19 @@ export class DatabaseStorage implements IStorage {
       query.councilArea = filters.councilArea;
     }
 
+    // Handle job address filter
+    if (filters.jobAddress) {
+      query.jobAddress = { $regex: filters.jobAddress, $options: 'i' };
+    }
+
     // Handle keyword search (searches across multiple fields including extracted keywords)
     if (filters.keyword) {
       query.$or = [
         { title: { $regex: filters.keyword, $options: 'i' } },
         { description: { $regex: filters.keyword, $options: 'i' } },
         { builderName: { $regex: filters.keyword, $options: 'i' } },
+        { jobAddress: { $regex: filters.keyword, $options: 'i' } },
+        { numberOfUnits: { $regex: filters.keyword, $options: 'i' } },
         { extractedKeywords: { $in: [new RegExp(filters.keyword, 'i')] } }
       ];
     }
@@ -470,6 +491,8 @@ export class DatabaseStorage implements IStorage {
         { title: { $regex: filters.search, $options: 'i' } },
         { description: { $regex: filters.search, $options: 'i' } },
         { builderName: { $regex: filters.search, $options: 'i' } },
+        { jobAddress: { $regex: filters.search, $options: 'i' } },
+        { numberOfUnits: { $regex: filters.search, $options: 'i' } },
         { extractedKeywords: { $in: [new RegExp(filters.search, 'i')] } }
       ];
     }
@@ -562,6 +585,14 @@ export class DatabaseStorage implements IStorage {
         query.livingAreas = { $gte: 5 };
       } else {
         query.livingAreas = parseInt(filters.livingAreas || "0");
+      }
+    }
+
+    if (filters.numberOfUnits && filters.numberOfUnits !== "Any") {
+      if (filters.numberOfUnits === "5+") {
+        query.numberOfUnits = { $gte: 5 };
+      } else {
+        query.numberOfUnits = parseInt(filters.numberOfUnits || "0");
       }
     }
 

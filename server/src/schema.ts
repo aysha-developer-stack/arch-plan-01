@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { z } from "zod";
+import bcrypt from 'bcryptjs';
 
-// User interface and schema
+// User interface and schema (for Replit integration and file downloads)
 export interface IUser extends Document {
   id: string;
   email?: string;
@@ -22,9 +23,52 @@ const userSchema = new Schema<IUser>({
   downloadCount: { type: Number, default: 0 },
 }, {
   timestamps: true,
+  collection: 'replit_users' // Different collection name to avoid conflicts
 });
 
-export const User = mongoose.model<IUser>('User', userSchema);
+export const User = mongoose.model<IUser>('ReplitUser', userSchema);
+
+// AppUser interface and schema (for user authentication system)
+export interface IAppUser extends Document {
+  email: string;
+  password: string;
+  name: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  approvedAt?: Date;
+  approvedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  comparePassword(candidatePassword: string): Promise<boolean>;
+}
+
+const appUserSchema = new Schema<IAppUser>({
+  email: { type: String, required: true, unique: true, lowercase: true },
+  password: { type: String, required: true },
+  name: { type: String, required: true },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  rejectionReason: { type: String },
+  approvedAt: { type: Date },
+  approvedBy: { type: String }
+}, {
+  timestamps: true,
+});
+
+// Hash password before saving
+appUserSchema.pre<IAppUser>('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
+
+// Password comparison method
+appUserSchema.methods.comparePassword = async function(
+  candidatePassword: string
+): Promise<boolean> {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+export const AppUser = mongoose.model<IAppUser>('AppUser', appUserSchema, 'appusers');
 
 // Plan interface and schema
 export interface IPlan extends Document {
@@ -36,6 +80,12 @@ export interface IPlan extends Document {
   fileSize: number;
   fileId?: mongoose.Types.ObjectId; // GridFS file ID for large file storage
   content?: string; // Legacy base64 content for backward compatibility
+  images?: Array<{
+    path: string;
+    filename: string;
+    size: number;
+    fileId?: mongoose.Types.ObjectId; // GridFS file ID for image storage
+  }>; // Array of image files associated with the plan
   
   // Plan characteristics
   planType: string;
@@ -52,10 +102,12 @@ export interface IPlan extends Document {
   coveredArea?: number; // Covered area in square meters
   roadPosition?: string; // Length Side, Width Side, Corner Plot
   builderName?: string; // Builder or designer name
+  jobAddress?: string; // Job address or location
   houseType?: string; // Single Dwelling, Duplex, Townhouse, Unit
   bedrooms?: number; // Number of bedrooms
   toilets?: number; // Number of toilets/bathrooms
   livingAreas?: number; // Number of living spaces
+  numberOfUnits?: number; // Number of units
   constructionType?: string[]; // Array of construction types: Hebel, Cladding, Brick, NRG
   
   // Additional features and specifications
@@ -83,6 +135,12 @@ const planSchema = new Schema<IPlan>({
   fileSize: { type: Number, required: true },
   fileId: { type: Schema.Types.ObjectId }, // GridFS file ID for large file storage
   content: { type: String }, // Legacy base64 content for backward compatibility
+  images: [{
+    path: { type: String, required: true },
+    filename: { type: String, required: true },
+    size: { type: Number, required: true },
+    fileId: { type: Schema.Types.ObjectId } // GridFS file ID for image storage
+  }], // Array of image files associated with the plan
   
   // Plan characteristics
   planType: { type: String, required: true, maxlength: 100 },
@@ -99,10 +157,12 @@ const planSchema = new Schema<IPlan>({
   coveredArea: { type: Number }, // Covered area in square meters
   roadPosition: { type: String, maxlength: 50 }, // Length Side, Width Side, Corner Plot
   builderName: { type: String, maxlength: 255 }, // Builder or designer name
+  jobAddress: { type: String, maxlength: 500 }, // Job address or location
   houseType: { type: String, maxlength: 50 }, // Single Dwelling, Duplex, Townhouse, Unit
   bedrooms: { type: Number, default: 3 }, // Number of bedrooms
   toilets: { type: Number, default: 2 }, // Number of toilets/bathrooms
   livingAreas: { type: Number, default: 1 }, // Number of living spaces
+  numberOfUnits: { type: Number }, // Number of units
   constructionType: [{ type: String }], // Array of construction types: Hebel, Cladding, Brick, NRG
   
   // Additional features and specifications
@@ -169,6 +229,12 @@ export const insertPlanSchema = z.object({
   fileSize: z.number(),
   fileId: z.instanceof(mongoose.Types.ObjectId).optional(), // GridFS file ID for large file storage
   content: z.string().optional(), // Legacy base64 content for backward compatibility
+  images: z.array(z.object({
+    path: z.string(),
+    filename: z.string(),
+    size: z.number(),
+    fileId: z.instanceof(mongoose.Types.ObjectId).optional() // GridFS file ID for image storage
+  })).optional(),
   planType: z.string().max(100),
   storeys: z.number(),
   lotSize: z.string().max(50).optional(),
@@ -183,10 +249,12 @@ export const insertPlanSchema = z.object({
   coveredArea: z.number().optional(), // Covered area in square meters
   roadPosition: z.string().max(50).optional(), // Length Side, Width Side, Corner Plot
   builderName: z.string().max(255).optional(), // Builder or designer name
+  jobAddress: z.string().max(500).optional(), // Job address or location
   houseType: z.string().max(50).optional(), // Single Dwelling, Duplex, Townhouse, Unit
   bedrooms: z.number().min(0).optional().default(3), // Number of bedrooms
   toilets: z.number().min(0).optional().default(2), // Number of toilets/bathrooms
   livingAreas: z.number().min(0).optional().default(1), // Number of living spaces
+  numberOfUnits: z.number().optional(), // Number of units
   constructionType: z.array(z.string()).optional(), // Array of construction types
   lotSizeMin: z.number().optional(), // Minimum lot size in square meters
   lotSizeMax: z.number().optional(), // Maximum lot size in square meters
@@ -223,6 +291,8 @@ export const searchPlanSchema = z.object({
   builderName: z.string().optional(),
   toilets: z.string().optional(),
   livingAreas: z.string().optional(),
+  numberOfUnits: z.string().optional(),
+  jobAddress: z.string().optional(),
   totalBuildingHeight: z.string().optional(),
   roofPitch: z.string().optional(),
   outdoorFeatures: z.string().optional(),
@@ -233,8 +303,27 @@ export const searchPlanSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
+// AppUser validation schemas
+export const appUserSignupSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().min(1)
+});
+
+export const appUserLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1)
+});
+
+export const appUserApprovalSchema = z.object({
+  userId: z.string(),
+  action: z.enum(['approve', 'reject']),
+  rejectionReason: z.string().optional()
+});
+
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type UserType = IUser;
+export type AppUserType = IAppUser;
 export type InsertPlan = z.infer<typeof insertPlanSchema>;
 export type PlanType = IPlan;
 export type SearchPlan = z.infer<typeof searchPlanSchema>;

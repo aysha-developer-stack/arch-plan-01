@@ -12,6 +12,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import connectDB from "./db";
 import authRoutes from './src/routes/authRoutes';
 import adminAuthRoutes from './src/routes/adminAuthRoutes';
+import adminRoutes from './src/routes/adminRoutes';
 import config from './src/config';
 import { fileURLToPath } from "url";
 import { initializeStorage } from "./storage";
@@ -174,9 +175,7 @@ app.use((req, res, next) => {
 // API Routes (must come before Vite middleware)
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminAuthRoutes);
-
-// Direct login route for frontend compatibility
-app.use('/api', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
