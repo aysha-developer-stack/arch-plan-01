@@ -47,7 +47,7 @@ userSchema.methods.comparePassword = async function(
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export const User = mongoose.model<IUser>('User', userSchema);
+export const User = mongoose.models.User || mongoose.model<IUser>('User', userSchema);
 
 // AppUser interface and schema (for user authentication system)
 export interface IAppUser extends Document {
@@ -87,7 +87,7 @@ appUserSchema.methods.comparePassword = async function(
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export const AppUser = mongoose.model<IAppUser>('AppUser', appUserSchema, 'appusers');
+export const AppUser = mongoose.models.AppUser || mongoose.model<IAppUser>('AppUser', appUserSchema, 'appusers');
 
 // Plan interface and schema
 export interface IPlan extends Document {
@@ -197,7 +197,7 @@ const planSchema = new Schema<IPlan>({
   timestamps: true,
 });
 
-export const Plan = mongoose.model<IPlan>('Plan', planSchema);
+export const Plan = mongoose.models.Plan || mongoose.model<IPlan>('Plan', planSchema);
 
 // Zod schemas for validation
 export const insertUserSchema = z.object({

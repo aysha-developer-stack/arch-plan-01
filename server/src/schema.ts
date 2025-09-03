@@ -68,7 +68,7 @@ appUserSchema.methods.comparePassword = async function(
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export const AppUser = mongoose.model<IAppUser>('AppUser', appUserSchema, 'appusers');
+export const AppUser = mongoose.models.AppUser || mongoose.model<IAppUser>('AppUser', appUserSchema, 'appusers');
 
 // Plan interface and schema
 export interface IPlan extends Document {
@@ -210,7 +210,7 @@ planSchema.index({ status: 1, planType: 1, storeys: 1 }); // Common filters toge
 planSchema.index({ status: 1, createdAt: -1 }); // Active plans by date
 planSchema.index({ status: 1, downloadCount: -1 }); // Popular active plans
 
-export const Plan = mongoose.model<IPlan>('Plan', planSchema);
+export const Plan = mongoose.models.Plan || mongoose.model<IPlan>('Plan', planSchema);
 
 // Zod schemas for validation
 export const insertUserSchema = z.object({
