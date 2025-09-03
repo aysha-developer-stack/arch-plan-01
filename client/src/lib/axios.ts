@@ -15,9 +15,16 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Check for admin token first
+    const adminToken = localStorage.getItem('adminToken');
+    if (adminToken) {
+      config.headers.Authorization = `Bearer ${adminToken}`;
+    } else {
+      // Fallback to regular user token
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -40,9 +47,17 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: ErrorResponse) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
+      // Handle unauthorized access - clear both tokens
       localStorage.removeItem('authToken');
-      window.location.href = '/admin/login';
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminEmail');
+      
+      // Redirect based on the current URL
+      if (window.location.pathname.includes('/admin')) {
+        window.location.href = '/admin/login';
+      } else {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

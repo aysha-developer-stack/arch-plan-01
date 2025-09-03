@@ -9,6 +9,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminUserApproval } from "./AdminUserApproval";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -42,12 +43,15 @@ import {
   TrendingUp,
   HardDrive,
   CloudUpload,
-  X
+  X,
+  ExternalLink
 } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import ImageLightbox from "./ImageLightbox";
 import type { PlanType } from "@shared/schema";
 
 interface AdminStats {
@@ -63,6 +67,7 @@ interface UploadFormData {
   storeys: string;
   lotSizeMin: string;
   lotSizeMax: string;
+  lotSize: string; // Legacy lot size field
   orientation: string;
   siteType: string;
   foundationType: string;
@@ -73,18 +78,25 @@ interface UploadFormData {
   coveredArea: string;
   roadPosition: string;
   builderName: string;
+  jobAddress: string;
   houseType: string;
   bedrooms: string;
   toilets: string;
   livingAreas: string;
+  numberOfUnits: string;
   constructionType: string[];
   roofPitch: number;
   outdoorFeatures: string[];
   indoorFeatures: string[];
   file: File | null;
+  images: File[];
 }
 
-export default function AdminInterface() {
+interface AdminInterfaceProps {
+  defaultTab?: string;
+}
+
+export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterfaceProps) {
   // Per-user download count state
   const [userDownloads, setUserDownloads] = useState<number | null>(null);
 
@@ -126,6 +138,7 @@ export default function AdminInterface() {
     storeys: "",
     lotSizeMin: "",
     lotSizeMax: "",
+    lotSize: "",
     orientation: "",
     siteType: "",
     foundationType: "",
@@ -136,15 +149,18 @@ export default function AdminInterface() {
     coveredArea: "",
     roadPosition: "",
     builderName: "",
+    jobAddress: "",
     houseType: "",
     bedrooms: "",
     toilets: "",
     livingAreas: "",
+    numberOfUnits: "",
     constructionType: [],
     roofPitch: 0,   // Roof pitch in degrees
     outdoorFeatures: [],
     indoorFeatures: [],
     file: null,
+    images: [],
   };
 
   const [uploadForm, setUploadForm] = useState<UploadFormData>(initialFormData);
@@ -175,9 +191,11 @@ export default function AdminInterface() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setUploadForm({
         ...initialFormData,
-        file: null
+        file: null,
+        images: []
       });
       resetFileInput();
+      resetImageInput();
     },
     onError: (error) => {
   if (isUnauthorizedError(error)) {
@@ -232,13 +250,15 @@ const deleteMutation = useMutation({
   },
 });
 
+
+
 const handleUpload = (e: React.MouseEvent) => {
   e.preventDefault();
 
-  if (!uploadForm.file) {
+  if (!uploadForm.file && uploadForm.images.length === 0) {
     showToast({
       title: "Error",
-      description: "Please select a PDF file to upload",
+      description: "Please select at least one file to upload (PDF or images)",
       variant: "destructive",
     });
     return;
@@ -248,6 +268,11 @@ const handleUpload = (e: React.MouseEvent) => {
 
   // Only append non-empty values and handle proper data types
   if (uploadForm.file) formData.append("file", uploadForm.file);
+  
+  // Append images
+  uploadForm.images.forEach((image, index) => {
+    formData.append(`images`, image);
+  });
   if (uploadForm.title.trim()) formData.append("title", uploadForm.title.trim());
   if (uploadForm.description.trim()) formData.append("description", uploadForm.description.trim());
   if (uploadForm.planType.trim()) formData.append("planType", uploadForm.planType.trim());
@@ -269,10 +294,12 @@ const handleUpload = (e: React.MouseEvent) => {
   if (uploadForm.coveredArea.trim()) formData.append("coveredArea", uploadForm.coveredArea.trim());
   if (uploadForm.roadPosition.trim()) formData.append("roadPosition", uploadForm.roadPosition.trim());
   formData.append("builderName", uploadForm.builderName.trim());
+  if (uploadForm.jobAddress.trim()) formData.append("jobAddress", uploadForm.jobAddress.trim());
   if (uploadForm.houseType.trim()) formData.append("houseType", uploadForm.houseType.trim());
   if (uploadForm.bedrooms.trim()) formData.append("bedrooms", uploadForm.bedrooms.trim());
   if (uploadForm.toilets.trim()) formData.append("toilets", uploadForm.toilets.trim());
   if (uploadForm.livingAreas.trim()) formData.append("livingAreas", uploadForm.livingAreas.trim());
+  if (uploadForm.numberOfUnits.trim()) formData.append("numberOfUnits", parseInt(uploadForm.numberOfUnits.trim()).toString());
 
   // Handle construction type
   if (uploadForm.constructionType.length > 0) {
@@ -315,12 +342,72 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   }
 };
 
+const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = Array.from(e.target.files || []);
+  const validImages = files.filter(file => file.type.startsWith('image/'));
+  
+  if (validImages.length !== files.length) {
+    showToast({
+      title: "Invalid Files",
+      description: "Please select only image files (JPG, PNG, GIF, etc.)",
+      variant: "destructive",
+    });
+  }
+  
+  if (validImages.length > 0) {
+    setUploadForm(prev => ({ ...prev, images: [...prev.images, ...validImages] }));
+  }
+};
+
+const removeImage = (index: number) => {
+  setUploadForm(prev => ({
+    ...prev,
+    images: prev.images.filter((_, i) => i !== index)
+  }));
+};
+
 const resetFileInput = () => {
   const fileInput = document.getElementById("file-upload") as HTMLInputElement;
   if (fileInput) {
     fileInput.value = "";
   }
 };
+
+const resetImageInput = () => {
+  const imageInput = document.getElementById("image-upload") as HTMLInputElement;
+  if (imageInput) {
+    imageInput.value = "";
+  }
+};
+
+const openImageLightbox = (index: number) => {
+    // Convert File objects to ImageData format for lightbox
+    const imageData = uploadForm.images.map((file, i) => ({
+      fileName: file.name,
+      filePath: URL.createObjectURL(file), // Use object URL for preview
+      fileSize: file.size
+    }));
+    
+    setLightboxImages(imageData);
+    setLightboxInitialIndex(index);
+    setIsImageLightboxOpen(true);
+  };
+
+  // Cleanup object URLs when lightbox closes
+  const closeLightbox = () => {
+    // Revoke object URLs to prevent memory leaks
+    lightboxImages.forEach(image => {
+      if (image.filePath.startsWith('blob:')) {
+        URL.revokeObjectURL(image.filePath);
+      }
+    });
+    setIsImageLightboxOpen(false);
+    setLightboxImages([]);
+  };
+
+
+
+
 
 // PDF Viewer State
 const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
@@ -330,16 +417,39 @@ const [isLoadingPdf, setIsLoadingPdf] = useState(false);
 const [lastRequestedPdfId, setLastRequestedPdfId] = useState<string | null>(null);
 const [pdfLoadTimeout, setPdfLoadTimeout] = useState<NodeJS.Timeout | null>(null);
 
+// Image Lightbox State for Upload Preview
+const [isImageLightboxOpen, setIsImageLightboxOpen] = useState(false);
+const [lightboxImages, setLightboxImages] = useState<Array<{fileName: string; filePath: string; fileSize: number}>>([]);
+const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
+
+// Image Lightbox State for Plan Management
+const [isPlanLightboxOpen, setIsPlanLightboxOpen] = useState(false);
+const [planLightboxImages, setPlanLightboxImages] = useState<string[]>([]);
+const [planCurrentImageIndex, setPlanCurrentImageIndex] = useState(0);
+
+
+
 // Get the toast function from useToast hook - using showToast to avoid name conflicts
 
 return (
-  <div className="flex h-screen bg-slate-50">
+  <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
     {/* Admin Sidebar */}
-    <div className="w-64 bg-white shadow-sm border-r border-slate-200">
+    <div className="w-64 bg-white/80 backdrop-blur-md shadow-lg border-r border-gray-200/50">
       <div className="p-6">
         <div className="flex items-center space-x-2 mb-8">
           <BarChart3 className="text-primary text-xl" />
           <h2 className="text-lg font-semibold text-slate-900">Admin Portal</h2>
+        </div>
+        
+        {/* Browse Plans Button */}
+        <div className="mb-6">
+          <a 
+            href="http://localhost:5000/app"
+            className="w-full inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Browse Plans
+          </a>
         </div>
       </div>
     </div>
@@ -347,18 +457,38 @@ return (
     {/* Admin Main Content */}
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="manage">Manage Plans</TabsTrigger>
             <TabsTrigger value="upload">Upload Plans</TabsTrigger>
           </TabsList>
 
           {/* Dashboard */}
           <TabsContent value="dashboard" className="space-y-8">
-            <div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Dashboard Overview</h3>
-              <p className="text-slate-600">Monitor your architectural plans database performance</p>
+            {/* Welcome Section */}
+            <div className="relative overflow-hidden bg-gradient-to-r from-[#2358DF] to-[#7a9cff] rounded-2xl p-8 text-white">
+              <div className="absolute inset-0 bg-black/10"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-4xl font-bold mb-2">
+                      Admin Dashboard 🚀
+                    </h2>
+                    <p className="text-white/90 text-lg">
+                      Monitor your architectural plans database performance
+                    </p>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
+                      <BarChart3 className="w-16 h-16 text-yellow-300" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
             </div>
 
             {/* Stats Cards */}
@@ -379,49 +509,58 @@ return (
       </div>
     </CardContent>
   </Card> */}
-              <Card>
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-slate-600 mb-1">Total Plans</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-sm text-blue-700 mb-1 font-medium">Total Plans</p>
+                      <p className="text-2xl font-bold text-blue-600">
                         {stats?.totalPlans || 0}
                       </p>
+                      <p className="text-xs text-blue-600/70 mt-1">
+                        Available in database
+                      </p>
                     </div>
-                    <div className="bg-blue-100 p-3 rounded-lg">
-                      <FileText className="text-blue-600 text-xl" />
+                    <div className="bg-blue-500 p-3 rounded-lg">
+                      <FileText className="text-white text-xl" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:shadow-lg transition-all duration-300">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-slate-600 mb-1">Total Downloads</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-sm text-emerald-700 mb-1 font-medium">Total Downloads</p>
+                      <p className="text-2xl font-bold text-emerald-600">
                         {totalDownloads}
                       </p>
+                      <p className="text-xs text-emerald-600/70 mt-1">
+                        User activity metric
+                      </p>
                     </div>
-                    <div className="bg-green-100 p-3 rounded-lg">
-                      <Download className="text-green-600 text-xl" />
+                    <div className="bg-emerald-500 p-3 rounded-lg">
+                      <Download className="text-white text-xl" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-300">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-slate-600 mb-1">Recent Uploads</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-sm text-purple-700 mb-1 font-medium">Recent Uploads</p>
+                      <p className="text-2xl font-bold text-purple-600">
                         {stats?.recentUploads || 0}
                       </p>
+                      <p className="text-xs text-purple-600/70 mt-1">
+                        This month's activity
+                      </p>
                     </div>
-                    <div className="bg-purple-100 p-3 rounded-lg">
-                      <TrendingUp className="text-purple-600 text-xl" />
+                    <div className="bg-purple-500 p-3 rounded-lg">
+                      <TrendingUp className="text-white text-xl" />
                     </div>
                   </div>
                 </CardContent>
@@ -430,14 +569,41 @@ return (
 
             </div>
           </TabsContent>
+
+          {/* User Management */}
+          <TabsContent value="users" className="space-y-6">
+            {/* Professional Header Section */}
+            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <User className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">User Management 👥</h2>
+                  <p className="text-indigo-100 mt-1">Approve and manage user registrations</p>
+                </div>
+              </div>
+            </div>
+            
+            <AdminUserApproval />
+          </TabsContent>
+
           {/* Upload Plans */}
           <TabsContent value="upload" className="space-y-6">
-            <div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Upload New Plans</h3>
-              <p className="text-slate-600">Add architectural plans to the database with proper metadata</p>
+            {/* Professional Header Section */}
+            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <CloudUpload className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Upload New Plans 📤</h2>
+                  <p className="text-emerald-100 mt-1">Add architectural plans to the database with proper metadata</p>
+                </div>
+              </div>
             </div>
 
-            <Card>
+            <Card className="bg-white/80 backdrop-blur-md shadow-lg border-gray-200/50">
               <CardContent className="p-6">
                 <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
                   {/* File Upload */}
@@ -463,6 +629,54 @@ return (
                     </div>
                   </div>
 
+                  {/* Image Upload Section */}
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700 mb-4 block">Upload Plan Images</Label>
+                    <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-primary transition-colors">
+                      <CloudUpload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <p className="text-lg font-medium text-slate-700 mb-2">Drop image files here or click to browse</p>
+                      <p className="text-sm text-slate-500 mb-4">Supported formats: JPG, PNG, GIF. Maximum file size: 10MB per image</p>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageChange}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <Button type="button" onClick={() => document.getElementById("image-upload")?.click()}>
+                        Browse Images
+                      </Button>
+                      {uploadForm.images.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm text-green-600 mb-2">{uploadForm.images.length} image(s) selected</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {uploadForm.images.map((image, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={URL.createObjectURL(image)}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => openImageLightbox(index)}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(index)}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b truncate">
+                                  {image.name}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Basic Information Section */}
                   <div className="space-y-6">
                     <div className="border-b border-slate-200 pb-4">
@@ -472,7 +686,7 @@ return (
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <Label htmlFor="title">Plan Title *</Label>
+                        <Label htmlFor="title">Plan Title</Label>
                         <Input
                           id="title"
                           value={uploadForm.title}
@@ -483,7 +697,7 @@ return (
                       </div>
 
                       <div>
-                        <Label htmlFor="planType">Plan Type *</Label>
+                        <Label htmlFor="planType">Plan Type</Label>
                         <Select
                           value={uploadForm.planType}
                           onValueChange={(value) => setUploadForm(prev => ({ ...prev, planType: value }))}
@@ -507,6 +721,16 @@ return (
                           value={uploadForm.builderName}
                           onChange={(e) => setUploadForm(prev => ({ ...prev, builderName: e.target.value }))}
                           placeholder="e.g., John Smith Architects"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="jobAddress">Job Address</Label>
+                        <Input
+                          id="jobAddress"
+                          value={uploadForm.jobAddress}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, jobAddress: e.target.value }))}
+                          placeholder="e.g., 123 Main Street, Sydney NSW 2000"
                         />
                       </div>
 
@@ -1124,6 +1348,18 @@ return (
                     </div>
 
                     <div>
+                      <Label htmlFor="numberOfUnits">Number of Units</Label>
+                      <Input
+                        id="numberOfUnits"
+                        type="number"
+                        min="0"
+                        value={uploadForm.numberOfUnits}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, numberOfUnits: e.target.value }))}
+                        placeholder="1"
+                      />
+                    </div>
+
+                    <div>
                       <Label htmlFor="totalBuildingHeight">Total Building Height (m)</Label>
                       <Input
                         id="totalBuildingHeight"
@@ -1154,16 +1390,15 @@ return (
                           id="roofPitch"
                           type="number"
                           min="0"
-                          max="35"
                           step="0.1"
                           value={uploadForm.roofPitch === 0 ? '' : uploadForm.roofPitch}
                           onChange={(e) => {
                             const value = e.target.value;
                             const numValue = parseFloat(value);
                             
-                            // Only allow values between 0 and 35, or empty string
+                            // Only allow values >= 0, or empty string
                             // Also limit to 1 decimal place to match step="0.1"
-                            if (value === '' || (numValue >= 0 && numValue <= 35 && /^\d*\.?\d{0,1}$/.test(value))) {
+                            if (value === '' || (numValue >= 0 && /^\d*\.?\d{0,1}$/.test(value))) {
                               setUploadForm(prev => ({
                                 ...prev,
                                 roofPitch: value === '' ? 0 : numValue
@@ -1177,7 +1412,7 @@ return (
                           <span className="text-muted-foreground">°</span>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Enter value between 0° and 35°</p>
+                      <p className="text-xs text-muted-foreground mt-1">Enter roof pitch in degrees (minimum 0°)</p>
                     </div>
 
                     <div>
@@ -1356,7 +1591,7 @@ return (
                 {/* Room Configuration Section */}
                 <div className="space-y-6">
                   <div className="border-b border-slate-200 pb-4">
-                    <h4 className="text-lg font-semibold text-slate-900 mb-2">Room Configuration</h4>
+                    <h4 className="text-lg font-semibold text-slate-900 mb-2">House Configuration</h4>
                     <p className="text-sm text-slate-600">Interior layout and room specifications</p>
                   </div>
                   
@@ -1396,6 +1631,8 @@ return (
                         placeholder="1"
                       />
                     </div>
+
+                   
                   </div>
                 </div>
 
@@ -1578,11 +1815,24 @@ return (
 
           {/* Manage Plans Tab */}
           <TabsContent value="manage" className="space-y-6">
-            <Card>
+            {/* Professional Header Section */}
+            <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Manage Plans 📋</h2>
+                  <p className="text-blue-100 mt-1">View, edit and manage all architectural plans</p>
+                </div>
+              </div>
+            </div>
+            
+            <Card className="bg-white/80 backdrop-blur-md shadow-lg border-gray-200/50">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <FileText className="w-5 h-5" />
-                  <span>Manage Plans</span>
+                <CardTitle className="flex items-center space-x-2 text-slate-700">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <span>Plans Database</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1601,7 +1851,7 @@ return (
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Title</TableHead>
+                          <TableHead>Job Address</TableHead>
                           <TableHead>Type</TableHead>
                           <TableHead>Storeys</TableHead>
                           <TableHead>Indoor Features</TableHead>
@@ -1614,7 +1864,7 @@ return (
                       <TableBody>
                         {plans.map((plan) => (
                           <TableRow key={plan._id.toString()}>
-                            <TableCell className="font-medium">{plan.title}</TableCell>
+                            <TableCell className="font-medium">{(plan as any).jobAddress || "No Address"}</TableCell>
                             <TableCell>{plan.planType}</TableCell>
                             <TableCell>{plan.storeys}</TableCell>
                             <TableCell>
@@ -1666,13 +1916,62 @@ return (
                                   </DialogTrigger>
                                   <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
                                     <DialogHeader>
-                                      <DialogTitle>{plan.title}</DialogTitle>
+                                      <DialogTitle>{(plan as any).jobAddress || "No Address"}</DialogTitle>
                                       <DialogDescription>
                                         View detailed information about this plan
                                       </DialogDescription>
                                     </DialogHeader>
                                     <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
+                                      {/* Plan Images at the top */}
+                                      {plan.images && Array.isArray(plan.images) && plan.images.length > 0 && (
+                                        <div className="mb-6">
+                                          <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden relative">
+                                            {plan.images[0]?.fileId ? (
+                                              <>
+                                                <img 
+                                                  src={`/api/plans/${plan._id}/images/${plan.images[0].fileId}`}
+                                                  alt={`Plan image 1`}
+                                                  className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                                  onClick={() => {
+                                                    const imageUrls = (plan.images || [])
+                                                      .filter(img => img?.fileId)
+                                                      .map(img => `/api/plans/${plan._id}/images/${img.fileId}`);
+                                                    setPlanLightboxImages(imageUrls);
+                                                    setIsPlanLightboxOpen(true);
+                                                    setPlanCurrentImageIndex(0);
+                                                  }}
+                                                  onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                    target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                                                  }}
+                                                />
+                                                {(plan.images?.length || 0) > 1 && (
+                                                  <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm">
+                                                    +{(plan.images?.length || 0) - 1} more
+                                                  </div>
+                                                )}
+                                              </>
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                                                  <circle cx="9" cy="9" r="2"/>
+                                                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                                                </svg>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <p className="text-sm text-slate-600 mt-2 text-center">
+                                            {plan.images?.length || 0} image{(plan.images?.length || 0) !== 1 ? 's' : ''} • Click to view all
+                                          </p>
+                                        </div>
+                                      )}
+                                      
                                       <div className="grid grid-cols-2 gap-4 py-4">
+                                      <div>
+                                        <strong>Plan Title:</strong> {plan.title || 'N/A'}
+                                      </div>
                                       <div>
                                         <strong>Plan Type:</strong> {plan.planType || 'N/A'}
                                       </div>
@@ -1687,6 +1986,9 @@ return (
                                       </div>
                                       <div>
                                         <strong>Living Areas:</strong> {plan.livingAreas || 'N/A'}
+                                      </div>
+                                      <div>
+                                        <strong>Number of Units:</strong> {(plan as any).numberOfUnits || 'N/A'}
                                       </div>
                                       <div>
                                         <strong>House Type:</strong> {plan.houseType || 'N/A'}
@@ -1728,7 +2030,10 @@ return (
                                         <strong>Construction Type:</strong> {Array.isArray(plan.constructionType) ? plan.constructionType.join(', ') : plan.constructionType || 'N/A'}
                                       </div>
                                       <div>
-                                        <strong>Builder/Designer:</strong> {plan.builderName || 'N/A'}
+                                        <strong>Builder / Designer:</strong> {plan.builderName || 'N/A'}
+                                      </div>
+                                      <div>
+                                        <strong>Job Address:</strong> {(plan as any).jobAddress || 'N/A'}
                                       </div>
                                       <div>
                                         <strong>Council Area:</strong> {plan.councilArea || 'N/A'}
@@ -1752,6 +2057,7 @@ return (
                                         <strong>Updated:</strong> {plan.updatedAt ? new Date(plan.updatedAt).toLocaleDateString() : 'N/A'}
                                       </div>
                                     </div>
+
                                     
                                     {/* Outdoor Features */}
                                     {plan.outdoorFeatures && plan.outdoorFeatures.length > 0 && (
@@ -1790,29 +2096,43 @@ return (
                                   </DialogContent>
                                 </Dialog>
 
+
+
                                 {/* Download PDF Button */}
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => {
-                                    const planId = plan._id.toString();
-                                    const fileName = `${plan.title || 'plan'}.pdf`;
+                                  onClick={async () => {
+                                    try {
+                                      const planId = plan._id.toString();
+                                      
+                                      // Use fetch with blob to force custom filename
+                                      const response = await fetch(`/api/plans/${planId}/download`);
+                                      if (!response.ok) {
+                                        throw new Error('Download failed');
+                                      }
+                                      
+                                      const blob = await response.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = `${plan.title}.pdf`; // Force custom name
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      a.remove();
+                                      window.URL.revokeObjectURL(url);
 
-                                    // Create direct download link
-                                    const link = document.createElement('a');
-                                    link.href = `/api/plans/${planId}/download`;
-                                    link.download = fileName;
-                                    link.target = '_blank'; // Open in new tab as fallback
-
-                                    // Trigger download
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-
-                                    showToast({
-                                      title: "Download Started",
-                                      description: `${plan.title} is downloading to your Downloads folder.`,
-                                    });
+                                      showToast({
+                                        title: "Download Started",
+                                        description: `${plan.title} is downloading to your Downloads folder.`,
+                                      });
+                                    } catch (error) {
+                                      showToast({
+                                        title: "Download Failed",
+                                        description: "Failed to download PDF. Please try again.",
+                                        variant: "destructive",
+                                      });
+                                    }
                                   }}
                                 >
                                   <Download className="w-4 h-4 mr-1" /> Download
@@ -1964,6 +2284,106 @@ return (
               </div>
             )}
           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Image Lightbox for Upload Form */}
+    <ImageLightbox
+      images={lightboxImages}
+      isOpen={isImageLightboxOpen}
+      onClose={closeLightbox}
+      initialIndex={lightboxInitialIndex}
+    />
+
+    {/* Plan Image Lightbox for Management */}
+    <Dialog open={isPlanLightboxOpen} onOpenChange={setIsPlanLightboxOpen}>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 bg-black/95 border-0">
+          <div className="relative w-full h-full flex items-center justify-center min-h-[80vh]">
+          {/* Close Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 z-50 text-white bg-black/40 hover:bg-black/60 border border-white/20 hover:border-white/40 shadow-lg backdrop-blur-sm"
+            onClick={() => setIsPlanLightboxOpen(false)}
+          >
+            <X className="w-6 h-6" />
+          </Button>
+
+          {/* Navigation Buttons */}
+          {planLightboxImages.length > 1 && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-50 text-white bg-black/40 hover:bg-black/60 border border-white/20 hover:border-white/40 shadow-lg backdrop-blur-sm"
+                onClick={() => setPlanCurrentImageIndex(prev => prev > 0 ? prev - 1 : planLightboxImages.length - 1)}
+              >
+                <ChevronLeft className="w-8 h-8" />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-50 text-white bg-black/40 hover:bg-black/60 border border-white/20 hover:border-white/40 shadow-lg backdrop-blur-sm"
+                onClick={() => setPlanCurrentImageIndex(prev => prev < planLightboxImages.length - 1 ? prev + 1 : 0)}
+              >
+                <ChevronRight className="w-8 h-8" />
+              </Button>
+            </>
+          )}
+
+          {/* Main Image */}
+          <div className="w-full h-full flex items-center justify-center p-4">
+            {planLightboxImages[planCurrentImageIndex] && (
+              <img
+                src={planLightboxImages[planCurrentImageIndex]}
+                alt={`Plan image ${planCurrentImageIndex + 1}`}
+                className="max-w-[calc(100vw-8rem)] max-h-[calc(100vh-12rem)] w-auto h-auto object-contain"
+                style={{ maxWidth: '100%', maxHeight: '100%' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=';
+                }}
+              />
+            )}
+          </div>
+
+          {/* Image Counter */}
+          {planLightboxImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+              <div className="bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                {planCurrentImageIndex + 1} / {planLightboxImages.length}
+              </div>
+            </div>
+          )}
+
+          {/* Thumbnail Strip */}
+          {planLightboxImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 mb-8">
+              <div className="flex space-x-2 bg-black/50 p-2 rounded-lg max-w-md overflow-x-auto">
+                {planLightboxImages.map((imageUrl, index) => (
+                  <button
+                    key={index}
+                    className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-all shadow-lg ${
+                      index === planCurrentImageIndex ? 'border-white shadow-white/50' : 'border-white/30 opacity-60 hover:opacity-80 hover:border-white/50'
+                    }`}
+                    onClick={() => setPlanCurrentImageIndex(index)}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OWEzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5OL0E8L3RleHQ+PC9zdmc+';
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

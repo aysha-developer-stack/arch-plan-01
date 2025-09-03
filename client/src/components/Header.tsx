@@ -27,9 +27,9 @@ export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
               <h1 className="text-xl font-bold text-slate-900">ArchPlan</h1>
             </div>
           </div>
-          
+
           <nav className="hidden md:flex items-center space-x-6">
-            <button 
+            <button
               onClick={() => onTabChange?.('search')}
               className={`px-3 py-2 text-sm font-medium ${activeTab === 'search' ? 'text-primary border-b-2 border-primary' : 'text-slate-500 hover:text-slate-700'}`}
             >
@@ -47,7 +47,7 @@ export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
             <Button className="bg-transparent hover:bg-slate-100 p-2">
               <Bell className="h-5 w-5" />
             </Button>
-            
+
             {/* {user?.profileImageUrl ? (
               <img
                 src={user.profileImageUrl}
@@ -57,7 +57,7 @@ export default function Header({ user, activeTab, onTabChange }: HeaderProps) {
             ) : (
               <div className="w-8 h-8 rounded-full bg-slate-300"></div>
             )} */}
-            
+
             {/* <Button
               onClick={() => setLocation("/logout")}
             >

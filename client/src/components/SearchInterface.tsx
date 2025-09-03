@@ -32,8 +32,10 @@ interface SearchFilters {
   coveredArea: string;
   roadPosition: string;
   builderName: string;
+  jobAddress: string;
   toilets: string;
   livingAreas: string;
+  numberOfUnits: string;
   totalBuildingHeight: string;
   roofPitch: string;
   outdoorFeatures: string[];
@@ -61,8 +63,10 @@ export default function SearchInterface() {
     coveredArea: "",
     roadPosition: "",
     builderName: "",
+    jobAddress: "",
     toilets: "",
     livingAreas: "",
+    numberOfUnits: "",
     totalBuildingHeight: "",
     roofPitch: "",
     outdoorFeatures: [],
@@ -150,8 +154,10 @@ export default function SearchInterface() {
       coveredArea: "",
       roadPosition: "",
       builderName: "",
+      jobAddress: "",
       toilets: "",
       livingAreas: "",
+      numberOfUnits: "",
       totalBuildingHeight: "",
       roofPitch: "",
       outdoorFeatures: [],
@@ -246,6 +252,16 @@ export default function SearchInterface() {
                     placeholder="Builder or designer name"
                     value={filters.builderName}
                     onChange={(e) => updateFilter("builderName", e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="jobAddress">Job Address</Label>
+                  <Input
+                    id="jobAddress"
+                    placeholder="Job address or location"
+                    value={filters.jobAddress}
+                    onChange={(e) => updateFilter("jobAddress", e.target.value)}
                   />
                 </div>
                 
@@ -855,6 +871,18 @@ export default function SearchInterface() {
                 </div>
                 
                 <div>
+                  <Label htmlFor="numberOfUnits">Number of Units</Label>
+                  <Input
+                    id="numberOfUnits"
+                    type="number"
+                    min="0"
+                    placeholder="e.g., 1"
+                    value={filters.numberOfUnits}
+                    onChange={(e) => updateFilter("numberOfUnits", e.target.value)}
+                  />
+                </div>
+                
+                <div>
                   <Label htmlFor="totalBuildingHeight">Total Building Height (m)</Label>
                   <Input
                     id="totalBuildingHeight"
@@ -875,7 +903,6 @@ export default function SearchInterface() {
                       id="roofPitch"
                       type="number"
                       min="0"
-                      max="35"
                       step="0.1"
                       placeholder="e.g., 22.5"
                       value={filters.roofPitch}
@@ -883,9 +910,9 @@ export default function SearchInterface() {
                          const value = e.target.value;
                          const numValue = parseFloat(value);
                          
-                         // Only allow values between 0 and 35, or empty string
+                         // Only allow values >= 0, or empty string
                          // Also limit to 1 decimal place to match step="0.1"
-                         if (value === '' || (numValue >= 0 && numValue <= 35 && /^\d*\.?\d{0,1}$/.test(value))) {
+                         if (value === '' || (numValue >= 0 && /^\d*\.?\d{0,1}$/.test(value))) {
                            updateFilter("roofPitch", value);
                          }
                        }}
@@ -895,7 +922,7 @@ export default function SearchInterface() {
                       <span className="text-muted-foreground">°</span>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Enter value between 0° and 35°</p>
+                  <p className="text-xs text-muted-foreground mt-1">Enter roof pitch in degrees (minimum 0°)</p>
                 </div>
                 
                 <div>
@@ -1062,7 +1089,7 @@ export default function SearchInterface() {
               <p className="text-sm text-slate-600">Interior layout and room specifications</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div>
                 <Label htmlFor="bedrooms" className="text-sm font-medium text-gray-700 mb-2 block">
                   Bedrooms

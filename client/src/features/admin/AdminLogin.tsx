@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'wouter';
 import { apiClient } from '../../lib/axios';
-import { Button, Flex } from '@radix-ui/themes';
-import { LockClosedIcon, EnvelopeClosedIcon } from '@radix-ui/react-icons';
+import { Loader2 } from 'lucide-react';
 
 interface LoginFormData {
   email: string;
@@ -10,13 +9,17 @@ interface LoginFormData {
 }
 
 const AdminLogin: React.FC = () => {
+  const [location, navigate] = useLocation();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
   });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [, navigate] = useLocation();
+  const [error, setError] = useState('');
+  
+  // Check if we should redirect to /app after login
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const redirectTo = urlParams.get('redirect') || '/admin';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -33,10 +36,29 @@ const AdminLogin: React.FC = () => {
       const response = await apiClient.post('/api/admin/login', formData);
       
       // Store the auth token and admin email for session management
-      if (response.data.message === 'Login successful') {
-        // Admin login uses HTTP-only cookies, so no token in response
+      if (response.data.success && response.data.token) {
+        // Store admin token and email for authentication
+        localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('adminEmail', formData.email);
-        navigate('/admin');
+        
+        // Clear browser history to prevent navigation to previous tabs
+        // This ensures admin cannot go back to non-admin pages
+        window.history.replaceState(null, '', window.location.href);
+        
+        // Clear the entire browser history stack
+        const clearHistory = () => {
+          // Replace current state and clear history
+          window.history.replaceState({ adminSession: true }, '', '/admin');
+          
+          // Push a new state to establish admin as the base
+          window.history.pushState({ adminSession: true }, '', '/admin');
+        };
+        
+        clearHistory();
+        
+        // Redirect based on the redirect parameter or default to admin dashboard
+        const target = redirectTo.startsWith('/') ? redirectTo : `/${redirectTo}`;
+        navigate(target, { replace: true });
       } else {
         setError('Login failed. Please check your credentials.');
       }
@@ -56,256 +78,206 @@ const AdminLogin: React.FC = () => {
     }
   };
 
+
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%)',
-      padding: '1rem'
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '420px',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '6px',
-          background: 'linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%)',
-        }} />
-        <div style={{ padding: '2.5rem 2rem' }}>
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div style={{
-              margin: '0 auto 1rem',
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              backgroundColor: '#f0f5ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-              marginBottom: '1.25rem'
-            }}>
-              <LockClosedIcon style={{ width: '28px', height: '28px', color: '#4f46e5' }} />
-            </div>
-            <h1 style={{
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              color: '#111827',
-              marginBottom: '0.5rem',
-              lineHeight: '1.2'
-            }}>
-              Welcome Back
-            </h1>
-            <p style={{
-              color: '#6b7280',
-              fontSize: '0.9375rem',
-              lineHeight: '1.5',
-              maxWidth: '320px',
-              margin: '0 auto'
-            }}>
-              Sign in to access your admin dashboard
-            </p>
-          </div>
-
-          {error && (
-            <div style={{
-              padding: '0.75rem 1rem',
-              backgroundColor: '#fef2f2',
-              borderLeft: '4px solid #ef4444',
-              borderRadius: '0.375rem',
-              marginBottom: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontSize: '0.875rem',
-              color: '#b91c1c'
-            }}>
-              <svg style={{ flexShrink: 0, width: '1.25rem', height: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="email" style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: '#374151',
-                marginBottom: '0.5rem'
-              }}>
-                Email
-              </label>
-              <div style={{ position: 'relative' }}>
-                <div style={{
-                  position: 'absolute',
-                  left: '0.75rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: '#9ca3af',
-                  pointerEvents: 'none'
-                }}>
-                  <EnvelopeClosedIcon width="18" height="18" />
-                </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '0.625rem 0.75rem 0.625rem 2.5rem',
-                    fontSize: '0.9375rem',
-                    lineHeight: '1.5',
-                    color: '#111827',
-                    backgroundColor: '#fff',
-                    backgroundClip: 'padding-box',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.5rem',
-                    transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out',
-                    outline: 'none'
-                  }}
-                  onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
-                    e.target.style.borderColor = '#818cf8';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(129, 140, 248, 0.2)';
-                  }}
-                  onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                    e.target.style.borderColor = '#d1d5db';
-                    e.target.style.boxShadow = 'none';
-                  }}
-                />
-            </div>
-
-            </div>
-
-            <div style={{ marginTop: '1.5rem', position: 'relative' }}>
-              <div style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: 0,
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                pointerEvents: 'none'
-              }}>
-                <LockClosedIcon width="16" height="16" style={{
-                  position: 'relative',
-                  top: '-12px' // Slight vertical adjustment
-                }} />
-              </div>
-              <input
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                style={{
-                  padding: '0.75rem 1rem 0.75rem 2.75rem',
-                  width: '100%',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #d1d5db',
-                  fontSize: '0.9375rem',
-                  lineHeight: '1.5',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  marginBottom: '1.5rem'
-                }}
-                onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
-                  e.target.style.borderColor = '#3b82f6';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.2)';
-                }}
-                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                  e.target.style.borderColor = '#d1d5db';
-                  e.target.style.boxShadow = 'none';
-                }}
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={loading} 
-              style={{ 
-                width: '100%',
-                padding: '0.75rem',
-                fontSize: '1rem',
-                fontWeight: 500,
-                backgroundColor: '#4f46e5',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s',
-                ...(loading ? {
-                  opacity: 0.7,
-                  cursor: 'not-allowed'
-                } : {})
-              }}
-              onMouseEnter={(e) => {
-                if (!loading) {
-                  e.currentTarget.style.backgroundColor = '#4338ca';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#4f46e5';
-              }}
-            >
-              {loading ? 'Logging in...' : 'Sign in'}
-            </Button>
-          </form>
-
-          {/* Browse Plans Button */}
-          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-            <Button 
-              type="button"
-              onClick={() => navigate('/app')}
-              style={{
-                width: '100%',
-                padding: '0.625rem',
-                fontSize: '0.875rem',
-                fontWeight: 400,
-                backgroundColor: 'transparent',
-                color: '#6b7280',
-                border: '1px solid #d1d5db',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f9fafb';
-                e.currentTarget.style.borderColor = '#9ca3af';
-                e.currentTarget.style.color = '#374151';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.borderColor = '#d1d5db';
-                e.currentTarget.style.color = '#6b7280';
-              }}
-            >
-              Browse Plans
-            </Button>
-          </div>
+    <div 
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        fontFamily: "'Nunito', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
+        color: '#2563EB',
+        background: `
+          radial-gradient(circle at center, rgba(255,255,255,.25) 0%, transparent 35%),
+          radial-gradient(circle at center, rgba(255,255,255,.15) 0%, transparent 60%),
+          linear-gradient(135deg, #1E4ED8 0%, #2563EB 55%, #ffffff 100%)
+        `,
+        backgroundSize: '400px 400px, 600px 600px, cover',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      <main 
+        className="text-center relative text-white"
+        style={{
+          width: 'min(520px, 92vw)',
+          padding: '56px 42px 54px',
+          background: 'rgba(255, 255, 255, 0.12)',
+          backdropFilter: 'blur(14px)',
+          borderRadius: '18px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.25)'
+        }}
+        role="main"
+        aria-label="Admin Login"
+      >
+        {/* Avatar */}
+        <div 
+          className="mx-auto mb-6 rounded-full flex items-center justify-center"
+          style={{
+            width: '92px',
+            height: '92px',
+            background: '#2563EB',
+            boxShadow: '0 10px 30px rgba(0,0,0,.2) inset, 0 6px 18px rgba(0,0,0,.08)'
+          }}
+          aria-hidden="true"
+        >
+          <svg 
+            viewBox="0 0 24 24" 
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ width: '44px', height: '44px', fill: 'white', opacity: '.95' }}
+          >
+            <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z"/>
+          </svg>
         </div>
-      </div>
-    </div>
-  );
-};
+
+        <h1 
+          className="mb-9"
+          style={{
+            fontFamily: "'Montserrat', sans-serif",
+            fontWeight: 300,
+            letterSpacing: '.35em',
+            textIndent: '.35em',
+            fontSize: 'clamp(18px, 2.6vw, 28px)',
+            margin: '6px 0 36px',
+            color: 'white'
+          }}
+        >
+          ADMIN LOGIN
+        </h1>
+
+        {error && (
+          <div 
+            className="mb-6 p-3 rounded-md flex items-center gap-2"
+            style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: 'rgba(255, 255, 255, 0.9)',
+              fontSize: '0.875rem'
+            }}
+          >
+            <svg 
+              style={{ flexShrink: 0, width: '1rem', height: '1rem' }} 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="w-full">
+          {/* Email Input */}
+          <label 
+            className="flex items-center gap-4 pb-4 mb-6"
+            htmlFor="email"
+            style={{
+              borderBottom: '1px solid rgba(255,255,255,.65)',
+              padding: '10px 2px 14px'
+            }}
+          >
+            <svg 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg" 
+              aria-hidden="true"
+              style={{ width: '20px', height: '20px', fill: 'white', opacity: '.9' }}
+            >
+              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+            <input 
+              id="email" 
+              name="email" 
+              type="email" 
+              placeholder="Email ID" 
+              required 
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full bg-transparent border-0 outline-none text-white text-base p-1"
+              style={{
+                caretColor: 'white'
+              }}
+            />
+          </label>
+
+          {/* Password Input */}
+          <label 
+            className="flex items-center gap-4 pb-4 mb-6"
+            htmlFor="password"
+            style={{
+              borderBottom: '1px solid rgba(255,255,255,.65)',
+              padding: '10px 2px 14px'
+            }}
+          >
+            <svg 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg" 
+              aria-hidden="true"
+              style={{ width: '20px', height: '20px', fill: 'white', opacity: '.9' }}
+            >
+              <path d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-6h-1V9a5 5 0 10-10 0v2H6c-1.1 0-2 .9-2 2v7c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-7c0-1.1-.9-2-2-2zm-3 0H9V9a3 3 0 016 0v2z"/>
+            </svg>
+            <input 
+              id="password" 
+              name="password" 
+              type="password" 
+              placeholder="Password" 
+              required 
+              value={formData.password}
+              onChange={handleChange}
+              className="w-full bg-transparent border-0 outline-none text-white text-base p-1"
+              style={{
+                caretColor: 'white'
+              }}
+            />
+          </label>
+
+          <button 
+            className="w-full border-0 text-white font-semibold py-4 px-5 rounded-md cursor-pointer transition-transform active:translate-y-px"
+            type="submit"
+            disabled={loading}
+            style={{
+              background: 'linear-gradient(90deg, #1E4ED8, #2563EB)',
+              fontFamily: "'Montserrat', sans-serif",
+              letterSpacing: '.25em',
+              textIndent: '.25em',
+              fontWeight: 600,
+              boxShadow: '0 12px 26px rgba(0,0,0,.18)'
+            }}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing In...
+              </span>
+            ) : (
+              'LOGIN'
+            )}
+          </button>
+        </form>
+
+        {/* Back to Home Button */}
+        <div className="mt-6 text-center">
+          <button 
+            type="button"
+            onClick={() => navigate('/')}
+            className="text-white/70 underline hover:text-white bg-transparent border-0 cursor-pointer text-sm transition-colors"
+          >
+            ← Back to Home
+          </button>
+        </div>
+
+      </main>
+
+      <style>{`
+        input::placeholder {
+          color: rgba(255,255,255,.55);
+        }
+        input:focus, button:focus, a:focus {
+          outline: 2px dashed rgba(255,255,255,.45);
+          outline-offset: 3px;
+        }
+      `}</style>
+     </div>
+   );
+ };
 
 export default AdminLogin;

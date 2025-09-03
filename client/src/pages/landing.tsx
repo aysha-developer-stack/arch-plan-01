@@ -2,9 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, Shield, Download, Upload, ArrowRight, CheckCircle } from "lucide-react";
 import { useLocation } from "wouter";
+import { apiClient } from "@/lib/axios";
 
 export default function Landing() {
   const [, navigate] = useLocation();
+  
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -23,7 +26,7 @@ export default function Landing() {
             <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
-                onClick={() => navigate('/app')}
+                onClick={() => navigate('/login')}
                 className="hidden sm:inline-flex"
               >
                 Search Plans
@@ -53,14 +56,16 @@ export default function Landing() {
             Simplify your project workflow with advanced search capabilities and fast, one-click downloads.
           </p>
           <div className="flex flex-col items-center gap-6 justify-center">
-            <Button 
-              size="lg"
-              onClick={() => navigate('/app')}
-              className="text-lg px-12 py-6 h-auto bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              Get Started - Search Plans
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                size="lg"
+                onClick={() => navigate('/login')}
+                className="text-lg px-12 py-6 h-auto bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                Get Started - Search Plans
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </div>
             <div className="text-sm text-slate-500">
               Looking for admin access? 
               <button 
@@ -136,7 +141,7 @@ export default function Landing() {
             <div>
               <h4 className="font-semibold mb-4">Platform</h4>
               <ul className="space-y-2 text-slate-400">
-                <li><button onClick={() => navigate('/app')} className="hover:text-white transition-colors">Search Plans</button></li>
+                <li><button onClick={() => navigate('/login')} className="hover:text-white transition-colors">Search Plans</button></li>
                 <li><button onClick={() => navigate('/admin/login')} className="hover:text-white transition-colors">Admin Portal</button></li>
               </ul>
             </div>
