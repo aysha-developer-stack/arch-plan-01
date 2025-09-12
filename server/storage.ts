@@ -9,10 +9,6 @@ import {
 import { extractKeywordsFromDescription } from "./src/utils/keywordExtractor.js";
 import { getGridFSManager } from "./src/utils/gridfs.js";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-
-// Ensure environment variables are loaded
-dotenv.config();
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)

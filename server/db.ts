@@ -1,7 +1,4 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-
-dotenv.config(); // Load .env variables
 
 const connectDB = async (retries = 3) => {
   if (!process.env.MONGODB_URI) {

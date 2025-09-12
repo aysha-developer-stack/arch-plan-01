@@ -1,12 +1,16 @@
 import dotenv from "dotenv";
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import type { RequestHandler } from 'express';
 import compression from 'compression';
-import path from 'path';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import connectDB from "./db";
@@ -14,7 +18,6 @@ import authRoutes from './src/routes/authRoutes';
 import adminAuthRoutes from './src/routes/adminAuthRoutes';
 import adminRoutes from './src/routes/adminRoutes';
 import config from './src/config';
-import { fileURLToPath } from "url";
 import { initializeStorage } from "./storage";
 
 const app = express();
