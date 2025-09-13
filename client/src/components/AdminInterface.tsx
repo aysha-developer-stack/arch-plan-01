@@ -444,7 +444,12 @@ return (
         {/* Browse Plans Button */}
         <div className="mb-6">
           <button 
-            onClick={() => window.open('/app', '_blank')}
+            onClick={() => {
+              // Use production URL for Railway deployment
+              const isProduction = window.location.hostname.includes('railway.app');
+              const targetUrl = isProduction ? 'https://arch-plan-01-production.up.railway.app/app' : '/app';
+              window.open(targetUrl, '_blank');
+            }}
             className="w-full inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
           >
             <ExternalLink className="w-4 h-4 mr-2" />
