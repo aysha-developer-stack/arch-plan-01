@@ -51,29 +51,7 @@ const upload = multer({
   },
 });
 
-// Single admin session management
-let activeAdminSession: {
-  userId: string;
-  email: string;
-  loginTime: number;
-  lastActivity: number;
-} | null = null;
-
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-
-// Helper function to check if session is expired
-function isSessionExpired(session: typeof activeAdminSession): boolean {
-  if (!session) return true;
-  return Date.now() - session.lastActivity > SESSION_TIMEOUT;
-}
-
-// Helper function to clean up expired sessions
-function cleanupExpiredSession() {
-  if (activeAdminSession && isSessionExpired(activeAdminSession)) {
-    console.log(`🧹 Cleaning up expired admin session for ${activeAdminSession.email}`);
-    activeAdminSession = null;
-  }
-}
+// Removed single admin session management to allow multiple concurrent admin sessions
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Skip auth setup for now to get the app running
@@ -292,35 +270,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Mock login endpoint for development
     const { email, password } = req.body;
 
-    // Clean up any expired sessions first
-    cleanupExpiredSession();
-
-    // Simple mock authentication
+    // Simple mock authentication - allow multiple concurrent admin sessions
     if (email && password) {
-      // If the same admin is trying to log in again, allow it by clearing the existing session
-      if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
-        if (activeAdminSession.email === email) {
-          console.log(`🔄 Same admin (${email}) is logging in again, allowing session refresh`);
-          activeAdminSession = null;
-        } else {
-          // A different admin is already logged in
-          return res.status(423).json({
-            success: false,
-            message: `Admin portal is currently in use by ${activeAdminSession.email}. Please try again later.`,
-            code: "ADMIN_SESSION_ACTIVE"
-          });
-        }
-      }
-
-      // Create new admin session
-      const now = Date.now();
-      activeAdminSession = {
-        userId: "admin-user",
-        email: email,
-        loginTime: now,
-        lastActivity: now
-      };
-
       const mockUser = {
         id: "admin-user",
         email: email,
@@ -330,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: "admin-jwt-token",
       };
 
-      console.log(`🔐 New admin session started for ${email}`);
+      console.log(`🔐 Admin login successful for ${email}`);
       res.json({ success: true, user: mockUser });
     } else {
       res.status(400).json({ success: false, message: "Email and password required" });
@@ -338,65 +289,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/logout", async (req, res) => {
-    // Clear the active admin session
-    if (activeAdminSession) {
-      console.log(`🚪 Admin session ended for ${activeAdminSession.email}`);
-      activeAdminSession = null;
-    }
+    // Admin logout - no session tracking needed for multiple concurrent sessions
+    console.log(`🚪 Admin logout request received`);
     res.json({ success: true, message: "Logged out successfully" });
   });
 
   // Endpoint to clear admin session when navigating away from admin portal
   app.post("/api/admin/clear-session", async (req, res) => {
     const { email } = req.body;
-    if (activeAdminSession && activeAdminSession.email === email) {
-      console.log(`🔄 Clearing admin session for ${email} (navigated away)`);
-      activeAdminSession = null;
-      return res.json({ success: true, message: "Session cleared" });
-    }
-    res.json({ success: false, message: "No matching active session found" });
+    console.log(`🔄 Session clear request for ${email} (no action needed for concurrent sessions)`);
+    res.json({ success: true, message: "Session cleared" });
   });
 
   app.get("/api/auth/user", async (req: any, res) => {
-    // Clean up expired sessions
-    cleanupExpiredSession();
-
-    // Check if there's an active admin session
-    if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
-      // Update last activity
-      activeAdminSession.lastActivity = Date.now();
-
-      // Return the active admin user
-      const adminUser = {
-        id: activeAdminSession.userId,
-        email: activeAdminSession.email,
-        firstName: "Admin",
-        lastName: "User",
-        profileImageUrl: null,
-        createdAt: new Date(activeAdminSession.loginTime),
-        updatedAt: new Date(),
-      };
-      return res.json(adminUser);
-    }
-
-    // No active session
-    res.status(401).json({ message: "No active admin session" });
+    // For multiple concurrent sessions, we'll need proper JWT validation
+    // For now, return a generic admin user (this should be updated with proper JWT auth)
+    const adminUser = {
+      id: "admin-user",
+      email: "admin@example.com",
+      firstName: "Admin",
+      lastName: "User",
+      profileImageUrl: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    res.json(adminUser);
   });
 
   // Check admin session status
   app.get("/api/admin/session-status", async (req, res) => {
-    cleanupExpiredSession();
-
-    if (activeAdminSession && !isSessionExpired(activeAdminSession)) {
-      res.json({
-        active: true,
-        email: activeAdminSession.email,
-        loginTime: activeAdminSession.loginTime,
-        lastActivity: activeAdminSession.lastActivity
-      });
-    } else {
-      res.json({ active: false });
-    }
+    // No longer tracking single admin sessions - concurrent sessions enabled
+    res.json({ active: false, message: "Concurrent sessions enabled" });
   });
 
   // Public plan search endpoint

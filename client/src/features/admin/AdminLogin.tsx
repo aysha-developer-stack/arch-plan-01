@@ -63,16 +63,9 @@ const AdminLogin: React.FC = () => {
         setError('Login failed. Please check your credentials.');
       }
     } catch (err: any) {
-      if (err.response?.status === 423 && err.response?.data?.code === 'ADMIN_SESSION_ACTIVE') {
-        // Another admin is already logged in
-        setError(
-          err.response.data.message + ' Only one admin can be logged in at a time.'
-        );
-      } else {
-        setError(
-          err.response?.data?.message || 'Login failed. Please check your credentials.'
-        );
-      }
+      setError(
+        err.response?.data?.message || 'Login failed. Please check your credentials.'
+      );
     } finally {
       setLoading(false);
     }
