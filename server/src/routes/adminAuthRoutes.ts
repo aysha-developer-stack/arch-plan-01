@@ -51,7 +51,7 @@ router.post('/login', async (req: Request, res: Response) => {
       httpOnly: config.COOKIE_HTTP_ONLY,
       secure: config.COOKIE_SECURE,
       sameSite: config.COOKIE_SAME_SITE as 'strict' | 'lax' | 'none',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: config.COOKIE_MAX_AGE,
       path: '/',
     };
     

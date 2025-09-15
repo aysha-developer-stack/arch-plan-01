@@ -23,7 +23,7 @@ export default {
   
   // JWT
   JWT_SECRET: process.env.JWT_SECRET!,
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1h',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || (process.env.NODE_ENV === 'production' ? '7d' : '1h'),
   
   // Database
   MONGODB_URI: process.env.MONGODB_URI!,
@@ -37,7 +37,7 @@ export default {
   COOKIE_SECURE: process.env.NODE_ENV === 'production',
   COOKIE_HTTP_ONLY: true,
   COOKIE_SAME_SITE: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-  COOKIE_MAX_AGE: 60 * 60 * 1000, // 1 hour in milliseconds
+  COOKIE_MAX_AGE: process.env.NODE_ENV === 'production' ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000, // 7 days in production, 1 hour in development
   
   // Email
   EMAIL_USER: process.env.EMAIL_USER,
