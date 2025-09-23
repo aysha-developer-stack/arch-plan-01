@@ -22,4 +22,20 @@ if (!supabaseUrl || !supabaseServiceKey) {
   process.exit(1);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseServiceKey);
+export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  },
+  global: {
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        timeout: 30000, // 30 second timeout
+      });
+    }
+  },
+  db: {
+    schema: 'public'
+  }
+});

@@ -28,7 +28,24 @@ if (!supabaseUrl || !supabaseServiceKey) {
   console.error("\u274C Supabase URL or Service Role Key not set in environment variables.");
   process.exit(1);
 }
-var supabase = createClient(supabaseUrl, supabaseServiceKey);
+var supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  },
+  global: {
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        timeout: 3e4
+        // 30 second timeout
+      });
+    }
+  },
+  db: {
+    schema: "public"
+  }
+});
 
 // server/storage.ts
 var SupabaseStorage = class {
@@ -1111,29 +1128,51 @@ async function createAdmin(email, password, name) {
   }
 }
 async function authenticateAdmin2(email, password) {
-  try {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    if (authError) {
-      throw authError;
+  const maxRetries = 3;
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Admin authentication attempt ${attempt}/${maxRetries} for ${email}`);
+      const { data: authData, error: authError } = await Promise.race([
+        supabase.auth.signInWithPassword({
+          email,
+          password
+        }),
+        new Promise(
+          (_, reject) => setTimeout(() => reject(new Error("Authentication timeout")), 15e3)
+        )
+      ]);
+      if (authError) {
+        console.error(`Authentication error on attempt ${attempt}:`, authError);
+        if (authError.message?.includes("Unexpected end of JSON input") && attempt < maxRetries) {
+          console.log(`Retrying authentication due to JSON parsing error...`);
+          await new Promise((resolve) => setTimeout(resolve, 1e3 * attempt));
+          continue;
+        }
+        throw authError;
+      }
+      if (!authData.user.user_metadata?.is_admin) {
+        throw new Error("User is not an admin");
+      }
+      console.log(`Admin authentication successful for ${email}`);
+      return {
+        admin: {
+          id: authData.user.id,
+          email: authData.user.email,
+          name: authData.user.user_metadata.name || email
+        },
+        session: authData.session
+      };
+    } catch (error) {
+      lastError = error;
+      console.error(`Error authenticating admin on attempt ${attempt}:`, error);
+      if (attempt === maxRetries || !error.message?.includes("Unexpected end of JSON input")) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1e3 * attempt));
     }
-    if (!authData.user.user_metadata?.is_admin) {
-      throw new Error("User is not an admin");
-    }
-    return {
-      admin: {
-        id: authData.user.id,
-        email: authData.user.email,
-        name: authData.user.user_metadata.name || email
-      },
-      session: authData.session
-    };
-  } catch (error) {
-    console.error("Error authenticating admin:", error);
-    throw error;
   }
+  throw lastError;
 }
 async function getAllAdmins() {
   try {
@@ -2113,7 +2152,7 @@ var startServer = async () => {
     console.log("RAILWAY_ENVIRONMENT:", process.env.RAILWAY_ENVIRONMENT);
     console.log("RAILWAY_PROJECT_ID:", process.env.RAILWAY_PROJECT_ID);
     console.log("RAILWAY_SERVICE_ID:", process.env.RAILWAY_SERVICE_ID);
-    const PORT = parseInt(process.env.PORT || "5000", 10);
+    const PORT = parseInt(process.env.PORT || "3000", 10);
     console.log(`   PORT (final): ${PORT}`);
     if (process.env.NODE_ENV === "production") {
       server.listen(PORT, "0.0.0.0", () => {

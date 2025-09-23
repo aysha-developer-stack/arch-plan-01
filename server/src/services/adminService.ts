@@ -65,36 +65,69 @@ export async function createAdmin(email: string, password: string, name: string)
  * @returns The authenticated admin user or an error
  */
 export async function authenticateAdmin(email: string, password: string) {
-  try {
-    // Sign in the user
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+  const maxRetries = 3;
+  let lastError: any;
 
-    if (authError) {
-      throw authError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Admin authentication attempt ${attempt}/${maxRetries} for ${email}`);
+      
+      // Sign in the user with timeout handling
+      const { data: authData, error: authError } = await Promise.race([
+        supabase.auth.signInWithPassword({
+          email,
+          password
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Authentication timeout')), 15000)
+        )
+      ]) as any;
+
+      if (authError) {
+        console.error(`Authentication error on attempt ${attempt}:`, authError);
+        
+        // If it's a JSON parsing error, retry
+        if (authError.message?.includes('Unexpected end of JSON input') && attempt < maxRetries) {
+          console.log(`Retrying authentication due to JSON parsing error...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+          continue;
+        }
+        
+        throw authError;
+      }
+
+      // Skip checking the admins table to avoid recursion
+      // Just check if the user has admin metadata
+      if (!authData.user.user_metadata?.is_admin) {
+        throw new Error('User is not an admin');
+      }
+
+      console.log(`Admin authentication successful for ${email}`);
+      
+      // Return the user data without querying the admins table
+      return {
+        admin: {
+          id: authData.user.id,
+          email: authData.user.email,
+          name: authData.user.user_metadata.name || email
+        },
+        session: authData.session
+      };
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Error authenticating admin on attempt ${attempt}:`, error);
+      
+      // If it's the last attempt or not a retryable error, throw
+      if (attempt === maxRetries || !error.message?.includes('Unexpected end of JSON input')) {
+        throw error;
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-
-    // Skip checking the admins table to avoid recursion
-    // Just check if the user has admin metadata
-    if (!authData.user.user_metadata?.is_admin) {
-      throw new Error('User is not an admin');
-    }
-
-    // Return the user data without querying the admins table
-    return {
-      admin: {
-        id: authData.user.id,
-        email: authData.user.email,
-        name: authData.user.user_metadata.name || email
-      },
-      session: authData.session
-    };
-  } catch (error) {
-    console.error('Error authenticating admin:', error);
-    throw error;
   }
+  
+  throw lastError;
 }
 
 /**
