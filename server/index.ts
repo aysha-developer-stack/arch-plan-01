@@ -233,17 +233,19 @@ const startServer = async () => {
       serveStatic(app);
     }
 
-    // Start the server
-    const PORT = parseInt(process.env.PORT || '5000', 10);
-    
-    // Debug: Log environment variables for Railway
+    // Debug: Log ALL environment variables for Railway
     console.log(`🔧 Environment Debug:`);
     console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`   PORT (env): ${process.env.PORT}`);
-    console.log(`   PORT (parsed): ${PORT}`);
     console.log(`   Railway App URL: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'not set'}`);
+    console.log(`   All Railway env vars:`);
+    Object.keys(process.env)
+      .filter(key => key.includes('RAILWAY') || key === 'PORT')
+      .forEach(key => console.log(`     ${key}: ${process.env[key]}`));
     
-    // Railway requires binding to 0.0.0.0 to accept external connections
+    // Railway might not set PORT, so we need to use a different approach
+    const PORT = parseInt(process.env.PORT || process.env.RAILWAY_PORT || '3000', 10);
+    console.log(`   PORT (final): ${PORT}`);
     if (process.env.NODE_ENV === 'production') {
       // Railway needs explicit binding to 0.0.0.0 to route traffic properly
       server.listen(PORT, '0.0.0.0', () => {
