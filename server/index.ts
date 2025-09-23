@@ -233,7 +233,7 @@ const startServer = async () => {
       serveStatic(app);
     }
 
-    // Debug: Log ALL environment variables for Railway
+    // Debug: Log ALL environment variables for Railway - Force rebuild for asset sync
     console.log(`🔧 Environment Debug:`);
     console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`   PORT (env): ${process.env.PORT}`);
@@ -242,6 +242,9 @@ const startServer = async () => {
     Object.keys(process.env)
       .filter(key => key.includes('RAILWAY') || key === 'PORT')
       .forEach(key => console.log(`     ${key}: ${process.env[key]}`));
+    console.log('RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
+    console.log('RAILWAY_PROJECT_ID:', process.env.RAILWAY_PROJECT_ID);
+    console.log('RAILWAY_SERVICE_ID:', process.env.RAILWAY_SERVICE_ID);
     
     // Railway sets PORT environment variable - we must use exactly what Railway provides
     const PORT = parseInt(process.env.PORT || '3000', 10);
