@@ -247,7 +247,7 @@ const startServer = async () => {
     console.log('RAILWAY_SERVICE_ID:', process.env.RAILWAY_SERVICE_ID);
     
     // Railway sets PORT environment variable - we must use exactly what Railway provides
-    const PORT = parseInt(process.env.PORT || '3000', 10);
+    const PORT = parseInt(process.env.PORT || '5000', 10);
     console.log(`   PORT (final): ${PORT}`);
     
     if (process.env.NODE_ENV === 'production') {
