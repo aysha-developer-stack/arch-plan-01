@@ -219,15 +219,14 @@ const startServer = async () => {
     // Start the server
     const PORT = parseInt(process.env.PORT || '5000', 10);
     
-    // More secure binding approach for Railway
+    // Railway requires binding to 0.0.0.0 to accept external connections
     if (process.env.NODE_ENV === 'production') {
-      // Railway automatically handles the host binding securely
-      // Only bind to the port, let Railway handle the network interface
-      server.listen(PORT, () => {
-        console.log(`🚀 Server running on port ${PORT} (Railway managed)`);
+      // Railway needs explicit binding to 0.0.0.0 to route traffic properly
+      server.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Server running on port ${PORT} (bound to 0.0.0.0 for Railway)`);
       });
     } else {
-      // Development: bind to localhost only
+      // Development: bind to localhost only for security
       server.listen(PORT, 'localhost', () => {
         console.log(`🚀 Server running on http://localhost:${PORT}`);
       });
