@@ -1,76 +1,25 @@
-import mongoose from "mongoose";
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const connectDB = async (retries = 3) => {
-  if (!process.env.MONGODB_URI) {
-    console.warn("⚠️  MONGODB_URI not set. Application will use in-memory storage.");
-    console.warn("⚠️  Data will not persist between restarts.");
-    console.warn("⚠️  Set MONGODB_URI to use MongoDB database.");
-    return null;
-  }
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-  console.log('🔍 MongoDB Connection Debug Info:');
-  console.log(`   URI exists: ${!!process.env.MONGODB_URI}`);
-  console.log(`   URI length: ${process.env.MONGODB_URI.length}`);
-  console.log(`   URI starts with: ${process.env.MONGODB_URI.substring(0, 20)}...`);
-  console.log(`   Full URI (masked): ${process.env.MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
+// Load environment variables from both server/.env and root .env
+dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      console.log(`🔌 Attempting MongoDB connection (attempt ${attempt}/${retries})...`);
+// Also try loading from the actual server directory when running from dist
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
-      // Set mongoose connection options globally
-      mongoose.set('bufferCommands', false);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-      const conn = await mongoose.connect(process.env.MONGODB_URI!, {
-        serverSelectionTimeoutMS: 60000, // 60 seconds
-        connectTimeoutMS: 60000, // 60 seconds
-        socketTimeoutMS: 90000, // 90 seconds
-        maxPoolSize: 20, // Maintain up to 20 socket connections
-        minPoolSize: 5, // Maintain a minimum of 5 socket connections
-        maxIdleTimeMS: 60000, // Close connections after 60 seconds of inactivity
-        heartbeatFrequencyMS: 5000, // Send heartbeat every 5 seconds
-        bufferCommands: false // Disable buffering
-      });
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Supabase URL or Service Role Key not set in environment variables.');
+  process.exit(1);
+}
 
-      console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-      console.log(`📊 Connection state: ${conn.connection.readyState}`);
-      console.log(`🗄️  Database name: ${conn.connection.name}`);
-
-      // Add connection event listeners
-      mongoose.connection.on('error', (error) => {
-        console.error('❌ MongoDB connection error:', error);
-      });
-
-      mongoose.connection.on('disconnected', () => {
-        console.warn('⚠️  MongoDB disconnected');
-      });
-
-      mongoose.connection.on('reconnected', () => {
-        console.log('🔄 MongoDB reconnected');
-      });
-
-      return conn;
-    } catch (error) {
-      console.error(`❌ MongoDB connection attempt ${attempt}/${retries} failed:`);
-      console.error('   Error name:', (error as any)?.name);
-      console.error('   Error message:', (error as any)?.message);
-      if ((error as any)?.code) console.error('   Error code:', (error as any).code);
-      if ((error as any)?.codeName) console.error('   Error codeName:', (error as any).codeName);
-
-      if (attempt === retries) {
-        console.error("❌ All MongoDB connection attempts failed.");
-        console.warn("⚠️  Falling back to in-memory storage.");
-        return null;
-      }
-
-      // Wait before retrying
-      const delay = attempt * 2000; // 2s, 4s, 6s delays
-      console.log(`⏳ Waiting ${delay}ms before retry...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  return null;
-};
-
-export default connectDB;
+export const supabase = createClient(supabaseUrl, supabaseServiceKey);

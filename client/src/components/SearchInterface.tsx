@@ -10,7 +10,7 @@ import { Search, Filter, X, Download, Sliders, Zap, Upload, FileText, ChevronLef
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import PlanCard from "./PlanCard";
-import type { PlanType } from "@shared/schema";
+import type { IPlan } from "@shared/schema";
 
 interface SearchFilters {
   keyword: string;
@@ -98,7 +98,7 @@ export default function SearchInterface() {
     setCurrentPage(1);
   }, [debouncedFilters]);
 
-  const { data: searchResult, isLoading } = useQuery<{plans: PlanType[], total: number}>({
+  const { data: searchResult, isLoading } = useQuery<{plans: IPlan[], total: number}>({
     queryKey: ["/api/plans/search", debouncedFilters, currentPage, itemsPerPage],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -1327,7 +1327,7 @@ export default function SearchInterface() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {plans.map((plan) => (
-                  <PlanCard key={plan._id?.toString() || plan.id} plan={plan} />
+                  <PlanCard key={plan.id} plan={plan} />
                 ))}
               </div>
               

@@ -11,24 +11,15 @@ export const useAdminAuth = (options: { skipAuthCheck?: boolean } = {}) => {
       return;
     }
 
-    // Check if admin token exists first
-    const adminToken = localStorage.getItem('adminToken');
-    if (!adminToken) {
-      setIsAuthenticated(false);
-      setIsLoading(false);
-      localStorage.removeItem('adminEmail');
-      return;
-    }
-
     try {
       // Use the admin authentication endpoint
+      // This will work with cookie-based authentication
       await apiClient.get('/api/admin/check-auth');
       setIsAuthenticated(true);
     } catch (error) {
       setIsAuthenticated(false);
-      // Clear admin tokens from localStorage if auth fails
+      // Clear admin info from localStorage if auth fails
       localStorage.removeItem('adminEmail');
-      localStorage.removeItem('adminToken');
     } finally {
       setIsLoading(false);
     }

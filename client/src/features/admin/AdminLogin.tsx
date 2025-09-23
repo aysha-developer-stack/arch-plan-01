@@ -35,10 +35,9 @@ const AdminLogin: React.FC = () => {
       // Using our configured apiClient which already has withCredentials set
       const response = await apiClient.post('/api/admin/login', formData);
       
-      // Store the auth token and admin email for session management
-      if (response.data.success && response.data.token) {
-        // Store admin token and email for authentication
-        localStorage.setItem('adminToken', response.data.token);
+      // Check if login was successful
+      if (response.data.success) {
+        // Store admin email for session management
         localStorage.setItem('adminEmail', formData.email);
         
         // Clear browser history to prevent navigation to previous tabs

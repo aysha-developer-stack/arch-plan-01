@@ -15,12 +15,13 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // Check for admin token first
-    const adminToken = localStorage.getItem('adminToken');
-    if (adminToken) {
-      config.headers.Authorization = `Bearer ${adminToken}`;
+    // For admin routes, rely on cookies only (no Authorization header)
+    if (config.url?.includes('/admin/')) {
+      // Admin routes use cookie-based authentication only
+      // Remove any Authorization header that might interfere
+      delete config.headers.Authorization;
     } else {
-      // Fallback to regular user token
+      // For regular user routes, use token-based authentication
       const token = localStorage.getItem('authToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -47,15 +48,14 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: ErrorResponse) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access - clear both tokens
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminEmail');
-      
-      // Redirect based on the current URL
+      // Handle unauthorized access
       if (window.location.pathname.includes('/admin')) {
+        // For admin routes, clear admin-related data
+        localStorage.removeItem('adminEmail');
         window.location.href = '/admin/login';
       } else {
+        // For regular user routes, clear user token
+        localStorage.removeItem('authToken');
         window.location.href = '/login';
       }
     }

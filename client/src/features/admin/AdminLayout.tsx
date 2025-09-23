@@ -308,9 +308,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         }
         
         // Clear local storage and auth data
-        localStorage.removeItem('adminToken');
         localStorage.removeItem('adminEmail');
-        apiClient.defaults.headers.common['Authorization'] = '';
         setIsAuthenticated(false);
       };
       
@@ -344,10 +342,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       }
       
       // Clear local storage and auth data
-      localStorage.removeItem('adminToken');
       localStorage.removeItem('adminEmail');
       sessionStorage.clear();
-      apiClient.defaults.headers.common['Authorization'] = '';
       
       // Set authentication state to false
       setIsAuthenticated(false);

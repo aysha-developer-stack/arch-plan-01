@@ -11,14 +11,8 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import type { RequestHandler } from 'express';
 import compression from 'compression';
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import connectDB from "./db";
-import authRoutes from './src/routes/authRoutes';
-import adminAuthRoutes from './src/routes/adminAuthRoutes';
-import adminRoutes from './src/routes/adminRoutes';
-import config from './src/config';
-import { initializeStorage } from "./storage";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
 
 const app = express();
 
@@ -44,7 +38,7 @@ app.use(cookieParser());
 
 // CORS configuration with proper origin validation
 const allowedOrigins = [
-  config.CORS_ORIGIN, // Use config CORS_ORIGIN as primary
+  process.env.CORS_ORIGIN, // Use environment variable as primary
   'https://arch-plan-01-production.up.railway.app', // Explicit Railway frontend URL
   'http://localhost:5173',
   'http://localhost:3000',
@@ -53,7 +47,7 @@ const allowedOrigins = [
 ].filter(Boolean); // Remove any undefined values
 
 console.log('🔧 CORS Configuration:');
-console.log('   config.CORS_ORIGIN:', config.CORS_ORIGIN);
+console.log('   CORS_ORIGIN:', process.env.CORS_ORIGIN);
 console.log('   allowedOrigins:', allowedOrigins);
 
 // Function to validate and normalize origins
@@ -175,11 +169,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// API Routes (must come before Vite middleware)
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminAuthRoutes);
-app.use('/api/admin', adminRoutes);
-
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
   res.json({
@@ -200,14 +189,6 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 // Start the server
 const startServer = async () => {
   try {
-    // Connect to database
-    await connectDB();
-    console.log("🚀 Connected to database");
-
-    // Initialize storage
-    initializeStorage();
-    console.log("💾 Storage initialized");
-
     // Register API routes BEFORE Vite middleware to ensure they take precedence
     const server = await registerRoutes(app);
     console.log("✅ API routes registered");
@@ -222,7 +203,7 @@ const startServer = async () => {
     }
 
     // Start the server
-    const PORT = config.PORT;
+    const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });

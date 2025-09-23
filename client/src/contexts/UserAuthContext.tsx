@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiClient } from '../lib/axios';
+import { supabase } from '../lib/supabase';
 import type { AppUserType } from '@shared/schema';
 
 interface UserAuthContextType {
@@ -35,39 +35,62 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
     try {
       setIsLoading(true);
       
-      // Check if there's a token in localStorage or cookies before making API call
-      const userEmail = localStorage.getItem('userEmail');
-      const hasToken = document.cookie.includes('userToken=') || 
-                      localStorage.getItem('userToken') || 
-                      userEmail;
+      // Get the current user session from Supabase
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!hasToken) {
-        // No token found, user is not authenticated
+      if (sessionError || !session) {
+        // No session found, user is not authenticated
         setUser(null);
         setIsAuthenticated(false);
         setIsLoading(false);
         return;
       }
       
-      const response = await apiClient.get('/api/auth/me');
+      // Get the user data from Supabase
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
       
-      if (response.data.success && response.data.user) {
-        setUser(response.data.user);
-        setIsAuthenticated(true);
-      } else {
+      if (userError || !authUser) {
         setUser(null);
         setIsAuthenticated(false);
-        localStorage.removeItem('userEmail');
+        setIsLoading(false);
+        return;
       }
+      
+      // Get the user profile from the users table
+      const { data: profile, error: profileError } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+      
+      if (profileError || !profile) {
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Check if user is approved
+      if (profile.status !== 'approved') {
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Set the user data
+      setUser({
+        id: authUser.id,
+        email: authUser.email || '',
+        name: profile.name,
+        status: profile.status,
+        ...profile
+      } as AppUserType);
+      setIsAuthenticated(true);
     } catch (error: any) {
-      // Only log error if it's not a 401 (expected for unauthenticated users)
-      if (error.response?.status !== 401) {
-        console.error('Auth check failed:', error);
-      }
+      console.error('Auth check failed:', error);
       setUser(null);
       setIsAuthenticated(false);
-      // Clear any stored user data
-      localStorage.removeItem('userEmail');
     } finally {
       setIsLoading(false);
     }
@@ -75,41 +98,83 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiClient.post('/api/auth/login', { email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      if (response.data.success && response.data.user) {
-        setUser(response.data.user);
-        setIsAuthenticated(true);
-        localStorage.setItem('userEmail', email);
-        return { success: true, user: response.data.user };
-      } else {
+      if (error) {
         return { 
           success: false, 
-          message: response.data.message || 'Login failed',
-          status: response.data.status
+          message: error.message || 'Login failed'
         };
       }
+      
+      if (!data.user) {
+        return { 
+          success: false, 
+          message: 'Login failed. User not found.'
+        };
+      }
+      
+      // Get the user profile from the users table
+      const { data: profile, error: profileError } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        return { 
+          success: false, 
+          message: 'Login failed. User profile not found.'
+        };
+      }
+      
+      // Check if user is approved
+      if (profile.status !== 'approved') {
+        return { 
+          success: false, 
+          message: 'Your account is not approved yet.',
+          status: profile.status,
+          rejectionReason: profile.rejection_reason
+        };
+      }
+      
+      // Set the user data
+      const userData = {
+        id: data.user.id,
+        email: data.user.email || '',
+        name: profile.name,
+        status: profile.status,
+        ...profile
+      } as AppUserType;
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      
+      return { success: true, user: userData };
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Login failed';
-      const status = error.response?.data?.status;
-      const rejectionReason = error.response?.data?.rejectionReason;
-      return { success: false, message, status, rejectionReason };
+      console.error('Login error:', error);
+      return { 
+        success: false, 
+        message: error.message || 'Login failed'
+      };
     }
   };
 
   const logout = async () => {
     try {
-      await apiClient.post('/api/auth/logout');
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Logout error:', error);
+      }
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
       setIsAuthenticated(false);
-      localStorage.removeItem('userEmail');
-      // Clear any user-related data from localStorage
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
       
       // Clear browser history to prevent back button access to authenticated pages
       window.history.replaceState(null, '', '/login');
@@ -124,6 +189,21 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   useEffect(() => {
     checkAuth();
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: string, session: any) => {
+      if (session) {
+        checkAuth();
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value: UserAuthContextType = {

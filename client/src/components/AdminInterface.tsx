@@ -42,7 +42,6 @@ import {
   BarChart3,
   TrendingUp,
   HardDrive,
-  CloudUpload,
   X,
   ExternalLink
 } from "lucide-react";
@@ -52,7 +51,7 @@ import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import ImageLightbox from "./ImageLightbox";
-import type { PlanType } from "@shared/schema";
+import type { IPlan } from "@shared/schema";
 
 interface AdminStats {
   totalPlans: number;
@@ -172,10 +171,21 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
   });
 
   // Fetch admin plans
-  const { data: plans = [], isLoading: plansLoading } = useQuery<PlanType[]>({
+  const { data: plansResponse, isLoading: plansLoading } = useQuery<{
+    success: boolean;
+    data: IPlan[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    };
+  }>({
     queryKey: ["/api/admin/plans"],
     retry: false,
   });
+
+  const plans = plansResponse?.data || [];
 
   // Upload plan mutation
   const uploadMutation = useMutation({
@@ -294,6 +304,7 @@ const handleUpload = (e: React.MouseEvent) => {
   if (uploadForm.coveredArea.trim()) formData.append("coveredArea", uploadForm.coveredArea.trim());
   if (uploadForm.roadPosition.trim()) formData.append("roadPosition", uploadForm.roadPosition.trim());
   formData.append("builderName", uploadForm.builderName.trim());
+
   if (uploadForm.jobAddress.trim()) formData.append("jobAddress", uploadForm.jobAddress.trim());
   if (uploadForm.houseType.trim()) formData.append("houseType", uploadForm.houseType.trim());
   if (uploadForm.bedrooms.trim()) formData.append("bedrooms", uploadForm.bedrooms.trim());
@@ -599,7 +610,7 @@ return (
             <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-xl p-6 text-white shadow-lg">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <CloudUpload className="w-6 h-6" />
+                  <Upload className="w-6 h-6" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold">Upload New Plans 📤</h2>
@@ -615,7 +626,7 @@ return (
                   <div>
                     <Label className="text-sm font-medium text-slate-700 mb-4 block">Upload PDF Plans</Label>
                     <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-primary transition-colors">
-                      <CloudUpload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                       <p className="text-lg font-medium text-slate-700 mb-2">Drop PDF files here or click to browse</p>
                       <p className="text-sm text-slate-500 mb-4">Maximum file size: 50MB per file</p>
                       <Input
@@ -638,7 +649,7 @@ return (
                   <div>
                     <Label className="text-sm font-medium text-slate-700 mb-4 block">Upload Plan Images</Label>
                     <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-primary transition-colors">
-                      <CloudUpload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                       <p className="text-lg font-medium text-slate-700 mb-2">Drop image files here or click to browse</p>
                       <p className="text-sm text-slate-500 mb-4">Supported formats: JPG, PNG, GIF. Maximum file size: 10MB per image</p>
                       <Input
@@ -728,6 +739,8 @@ return (
                           placeholder="e.g., John Smith Architects"
                         />
                       </div>
+
+
 
                       <div>
                         <Label htmlFor="jobAddress">Job Address</Label>
@@ -1868,7 +1881,7 @@ return (
                       </TableHeader>
                       <TableBody>
                         {plans.map((plan) => (
-                          <TableRow key={plan._id.toString()}>
+                          <TableRow key={plan.id}>
                             <TableCell className="font-medium">{(plan as any).jobAddress || "No Address"}</TableCell>
                             <TableCell>{plan.planType}</TableCell>
                             <TableCell>{plan.storeys}</TableCell>
@@ -1934,13 +1947,13 @@ return (
                                             {plan.images[0]?.fileId ? (
                                               <>
                                                 <img 
-                                                  src={`/api/plans/${plan._id}/images/${plan.images[0].fileId}`}
+                                                  src={`/api/plans/${plan.id}/images/${plan.images[0].fileId}`}
                                                   alt={`Plan image 1`}
                                                   className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                                   onClick={() => {
                                                     const imageUrls = (plan.images || [])
                                                       .filter(img => img?.fileId)
-                                                      .map(img => `/api/plans/${plan._id}/images/${img.fileId}`);
+                                                      .map(img => `/api/plans/${plan.id}/images/${img.fileId}`);
                                                     setPlanLightboxImages(imageUrls);
                                                     setIsPlanLightboxOpen(true);
                                                     setPlanCurrentImageIndex(0);
@@ -2056,10 +2069,7 @@ return (
                                         </Badge>
                                       </div>
                                       <div>
-                                        <strong>Created:</strong> {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'N/A'}
-                                      </div>
-                                      <div>
-                                        <strong>Updated:</strong> {plan.updatedAt ? new Date(plan.updatedAt).toLocaleDateString() : 'N/A'}
+                                        <strong>Uploaded By:</strong> {plan.uploadedBy ? "admin" : "N/A"}
                                       </div>
                                     </div>
 
@@ -2109,7 +2119,7 @@ return (
                                   size="sm"
                                   onClick={async () => {
                                     try {
-                                      const planId = plan._id.toString();
+                                      const planId = plan.id;
                                       
                                       // Use fetch with blob to force custom filename
                                       const response = await fetch(`/api/plans/${planId}/download`);
@@ -2149,7 +2159,7 @@ return (
                                   size="sm"
                                   onClick={() => {
                                     if (window.confirm(`Are you sure you want to delete "${plan.title}"? This action cannot be undone.`)) {
-                                      deleteMutation.mutate(plan._id.toString());
+                                      deleteMutation.mutate(plan.id);
                                     }
                                   }}
                                   disabled={deleteMutation.isPending}

@@ -1,46 +1,29 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { fileURLToPath, URL } from "node:url";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { fileURLToPath } from "node:url";
 
-export default defineConfig(async () => {
-  const plugins = [
-    react(),
-    runtimeErrorOverlay(),
-  ];
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-  // Add cartographer plugin conditionally for Replit environment
-  if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined) {
-    try {
-      const cartographerModule = await import("@replit/vite-plugin-cartographer");
-      plugins.push(cartographerModule.cartographer());
-    } catch (error) {
-      console.warn("Failed to load cartographer plugin:", error);
-    }
-  }
-
-  return {
-    plugins,
-    resolve: {
-      alias: {
-        "@": fileURLToPath(new URL("./client/src", import.meta.url)),
-        "@shared": fileURLToPath(new URL("./shared", import.meta.url)),
-        "@assets": fileURLToPath(new URL("./attached_assets", import.meta.url)),
-      },
+export default defineConfig({
+  plugins: [react({
+    jsxRuntime: 'automatic'
+  })],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./client/src"),
+      "@shared": path.resolve(__dirname, "./shared"),
+      "@assets": path.resolve(__dirname, "./attached_assets"),
     },
-    root: fileURLToPath(new URL("./client", import.meta.url)),
-    server: {
-      port: 3001,
-      fs: {
-        strict: true,
-        deny: ["**/.*"],
-      },
-    },
-    build: {
-      outDir: fileURLToPath(new URL("./dist/public", import.meta.url)),
-      emptyOutDir: true,
-      manifest: true,
-    },
-  };
+  },
+  root: path.resolve(__dirname, "./client"),
+  server: {
+    port: 3001,
+    host: true,
+  },
+  build: {
+    outDir: path.resolve(__dirname, "./dist/public"),
+    emptyOutDir: true,
+  },
 });

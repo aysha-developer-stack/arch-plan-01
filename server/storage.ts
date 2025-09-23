@@ -1,33 +1,31 @@
 import {
-  User,
-  Plan,
   type UserType,
   type UpsertUser,
   type PlanType,
   type InsertPlan,
 } from "./src/schema.js";
-import { extractKeywordsFromDescription } from "./src/utils/keywordExtractor.js";
-import { getGridFSManager } from "./src/utils/gridfs.js";
-import mongoose from "mongoose";
+import { supabase } from "./db.js";
 
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
+  // User operations
   getUser(id: string): Promise<UserType | null>;
   upsertUser(user: UpsertUser): Promise<UserType>;
   incrementUserDownloadCount(userId: string): Promise<void>;
 
   // Plan operations
-  searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}>;
+  searchPlans(filters: PlanFilters): Promise<{ plans: PlanType[]; total: number }>;
   getPlan(id: string, excludeContent?: boolean): Promise<PlanType | null>;
-  getPlanAndIncrementDownload(id: string, excludeContent?: boolean): Promise<PlanType | null>;
-  getPlanFileStream(id: string): Promise<NodeJS.ReadableStream | null>;
-  createPlan(plan: InsertPlan): Promise<PlanType>;
+  createPlan(plan: InsertPlan, userId?: string): Promise<PlanType>;
   updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null>;
   deletePlan(id: string): Promise<void>;
   incrementDownloadCount(id: string): Promise<void>;
-  resetDownloadCount(id: string): Promise<void>;
   getRecentPlans(limit?: number): Promise<PlanType[]>;
   getPlanStats(): Promise<PlanStats>;
+  
+  // File operations
+  uploadFile(file: Buffer, fileName: string): Promise<string>;
+  getFileUrl(filePath: string): Promise<string>;
+  deleteFile(filePath: string): Promise<void>;
 }
 
 export interface PlanFilters {
@@ -61,7 +59,7 @@ export interface PlanFilters {
   limit?: number;
   offset?: number;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 }
 
 export interface PlanStats {
@@ -70,832 +68,416 @@ export interface PlanStats {
   recentUploads: number;
 }
 
-// In-memory storage fallback
-export class MemoryStorage implements IStorage {
-  private users: Map<string, UserType> = new Map();
-  private plans: Map<string, PlanType> = new Map();
-  private nextId = 1;
-
-  async incrementUserDownloadCount(userId: string): Promise<void> {
-    const user = this.users.get(userId);
-    if (user) {
-      user.downloadCount = (user.downloadCount || 0) + 1;
-      this.users.set(userId, user);
-    }
-  }
-
-  async getUser(id: string): Promise<UserType | null> {
-    return this.users.get(id) || null;
-  }
-
-  async upsertUser(userData: UpsertUser): Promise<UserType> {
-    const existing = this.users.get(userData.id);
-    const user = {
-      ...existing,
-      ...userData,
-      updatedAt: new Date(),
-      createdAt: existing?.createdAt || new Date(),
-    } as UserType;
-    this.users.set(userData.id, user);
-    return user;
-  }
-
-  async searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}> {
-    let results = Array.from(this.plans.values()).filter(plan => plan.status === "active");
-
-    if (filters.lotSize && filters.lotSize !== "Any Size") {
-      results = results.filter(plan => plan.lotSize === filters.lotSize);
-    }
-
-    if (filters.orientation && filters.orientation !== "Any Orientation") {
-      results = results.filter(plan => plan.orientation === filters.orientation);
-    }
-
-    if (filters.siteType && filters.siteType !== "Any Type") {
-      results = results.filter(plan => plan.siteType === filters.siteType);
-    }
-
-    if (filters.foundationType && filters.foundationType !== "Any Foundation") {
-      results = results.filter(plan => plan.foundationType === filters.foundationType);
-    }
-
-    if (filters.storeys && filters.storeys !== "Any") {
-      const storeyMap: Record<string, number> = {
-        "Single Storey": 1,
-        "Two Storey": 2,
-        "Three+ Storey": 3,
-      };
-      const storeyNumber = storeyMap[filters.storeys];
-      if (storeyNumber) {
-        if (storeyNumber === 3) {
-          results = results.filter(plan => plan.storeys >= 3);
-        } else {
-          results = results.filter(plan => plan.storeys === storeyNumber);
-        }
-      }
-    }
-
-    if (filters.councilArea && filters.councilArea !== "Any Council") {
-      results = results.filter(plan => plan.councilArea === filters.councilArea);
-    }
-
-    // Handle job address filter
-    if (filters.jobAddress) {
-      const jobAddressLower = filters.jobAddress.toLowerCase();
-      results = results.filter(plan => 
-        plan.jobAddress && plan.jobAddress.toLowerCase().includes(jobAddressLower)
-      );
-    }
-
-    // Handle keyword search (searches across multiple fields including extracted keywords)
-    if (filters.keyword) {
-      const keywordLower = filters.keyword.toLowerCase();
-      results = results.filter(plan => 
-        plan.title.toLowerCase().includes(keywordLower) ||
-        (plan.description && plan.description.toLowerCase().includes(keywordLower)) ||
-        (plan.builderName && plan.builderName.toLowerCase().includes(keywordLower)) ||
-        (plan.jobAddress && plan.jobAddress.toLowerCase().includes(keywordLower)) ||
-        (plan.numberOfUnits && plan.numberOfUnits.toString().toLowerCase().includes(keywordLower)) ||
-        (plan.extractedKeywords && plan.extractedKeywords.some(keyword => 
-          keyword.toLowerCase().includes(keywordLower)
-        ))
-      );
-    }
-
-    // Handle general search (legacy support)
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      results = results.filter(plan => 
-        plan.title.toLowerCase().includes(searchLower) ||
-        (plan.description && plan.description.toLowerCase().includes(searchLower)) ||
-        (plan.builderName && plan.builderName.toLowerCase().includes(searchLower)) ||
-        (plan.jobAddress && plan.jobAddress.toLowerCase().includes(searchLower)) ||
-        (plan.numberOfUnits && plan.numberOfUnits.toString().toLowerCase().includes(searchLower)) ||
-        (plan.extractedKeywords && plan.extractedKeywords.some(keyword => 
-          keyword.toLowerCase().includes(searchLower)
-        ))
-      );
-    }
-
-    if (filters.bedrooms && filters.bedrooms !== "Any") {
-      if (filters.bedrooms === "5+") {
-        results = results.filter(plan => (plan.bedrooms || 0) >= 5);
-      } else {
-        const bedroomCount = parseInt(filters.bedrooms || "0");
-        results = results.filter(plan => plan.bedrooms === bedroomCount);
-      }
-    }
-
-    if (filters.houseType && filters.houseType !== "Any Type") {
-      results = results.filter(plan => plan.houseType === filters.houseType);
-    }
-
-    if (filters.constructionType && filters.constructionType !== "Any Construction") {
-      results = results.filter(plan => 
-        plan.constructionType && plan.constructionType.includes(filters.constructionType!)
-      );
-    }
-
-    // Determine sort field and order
-    const sortField = filters.sortBy || 'createdAt';
-    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
-    
-    results.sort((a, b) => {
-      let valueA: any, valueB: any;
-      
-      // Handle different field types
-      if (sortField === 'createdAt' || sortField === 'updatedAt') {
-        valueA = new Date(a[sortField as keyof PlanType] as string).getTime();
-        valueB = new Date(b[sortField as keyof PlanType] as string).getTime();
-      } else if (sortField === 'downloadCount' || sortField === 'storeys') {
-        valueA = (a[sortField as keyof PlanType] as number) || 0;
-        valueB = (b[sortField as keyof PlanType] as number) || 0;
-      } else {
-        valueA = String((a[sortField as keyof PlanType] as string) || '').toLowerCase();
-        valueB = String((b[sortField as keyof PlanType] as string) || '').toLowerCase();
-      }
-      
-      // Compare based on sort order
-      if (typeof valueA === 'string' && typeof valueB === 'string') {
-        return sortOrder * valueA.localeCompare(valueB);
-      } else {
-        return sortOrder * (valueA > valueB ? 1 : valueA < valueB ? -1 : 0);
-      }
-    });
-
-    // Get total count before pagination
-    const total = results.length;
-
-    // Apply pagination
-    if (filters.offset) {
-      results = results.slice(filters.offset);
-    }
-
-    if (filters.limit) {
-      results = results.slice(0, filters.limit);
-    }
-
-    return { plans: results, total };
-  }
-
-  async getPlan(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
-    const plan = this.plans.get(id) || null;
-    if (plan && excludeContent) {
-      const { content, ...planWithoutContent } = plan;
-      return planWithoutContent as PlanType;
-    }
-    return plan;
-  }
-
-  async getPlanAndIncrementDownload(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
-    const plan = this.plans.get(id);
-    if (plan) {
-      plan.downloadCount = (plan.downloadCount || 0) + 1;
-      if (excludeContent) {
-        const { content, ...planWithoutContent } = plan;
-        return planWithoutContent as PlanType;
-      }
-      return plan;
-    }
-    return null;
-  }
-
-  async getPlanFileStream(id: string): Promise<NodeJS.ReadableStream | null> {
-    // MemoryStorage doesn't support file streams, return null
-    // This method is primarily for GridFS in DatabaseStorage
-    return null;
-  }
-
-  async createPlan(planData: InsertPlan): Promise<PlanType> {
-    const id = (this.nextId++).toString();
-    
-    // Extract keywords from description if provided
-    let extractedKeywords: string[] = [];
-    if (planData.description) {
-      const keywordResult = extractKeywordsFromDescription(planData.description);
-      extractedKeywords = keywordResult.keywords;
-      console.log(`🔍 Extracted ${extractedKeywords.length} keywords from description: ${extractedKeywords.join(', ')}`);
-    }
-    
-    const plan = {
-      _id: id as any,
-      ...planData,
-      extractedKeywords,
-      status: planData.status || "active",
-      downloadCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    } as PlanType;
-    this.plans.set(id, plan);
-    return plan;
-  }
-
-  async updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null> {
-    const existing = this.plans.get(id);
-    if (!existing) return null;
-    
-    // Extract keywords from description if it's being updated
-    let updateData = { ...updates };
-    if (updates.description) {
-      const keywordResult = extractKeywordsFromDescription(updates.description);
-      updateData.extractedKeywords = keywordResult.keywords;
-      console.log(`🔍 Updated extracted keywords: ${keywordResult.keywords.join(', ')}`);
-    }
-    
-    const updated = {
-      ...existing,
-      ...updateData,
-      updatedAt: new Date(),
-    } as PlanType;
-    this.plans.set(id, updated);
-    return updated;
-  }
-
-  async deletePlan(id: string): Promise<void> {
-    this.plans.delete(id);
-  }
-
-  async incrementDownloadCount(id: string): Promise<void> {
-    const plan = this.plans.get(id);
-    if (plan) {
-      plan.downloadCount = (plan.downloadCount || 0) + 1;
-      this.plans.set(id, plan);
-    }
-  }
-
-  async resetDownloadCount(id: string): Promise<void> {
-    const plan = this.plans.get(id);
-    if (plan) {
-      plan.downloadCount = 0;
-      this.plans.set(id, plan);
-    }
-  }
-
-  async getRecentPlans(limit = 10): Promise<PlanType[]> {
-    const plans = Array.from(this.plans.values())
-      .filter(plan => plan.status === "active")
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, limit);
-    return plans;
-  }
-
-  async getPlanStats(): Promise<PlanStats> {
-    const activePlans = Array.from(this.plans.values()).filter(plan => plan.status === "active");
-    const totalPlans = activePlans.length;
-    const totalDownloads = activePlans.reduce((sum, plan) => sum + (plan.downloadCount || 0), 0);
-    
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentUploads = activePlans.filter(plan => new Date(plan.createdAt) >= oneDayAgo).length;
-
-    return {
-      totalPlans,
-      totalDownloads,
-      recentUploads,
-    };
-  }
-}
-
-export class DatabaseStorage implements IStorage {
-  private searchCache = new Map<string, { result: {plans: PlanType[], total: number}, timestamp: number }>();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
-
-  private getCacheKey(filters: PlanFilters): string {
-    return JSON.stringify(filters);
-  }
-
-  private isValidCacheEntry(entry: { result: {plans: PlanType[], total: number}, timestamp: number }): boolean {
-    return Date.now() - entry.timestamp < this.CACHE_TTL;
-  }
-
-  private clearExpiredCache(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.searchCache.entries()) {
-      if (now - entry.timestamp >= this.CACHE_TTL) {
-        this.searchCache.delete(key);
-      }
-    }
-  }
-  async incrementUserDownloadCount(userId: string): Promise<void> {
-    try {
-      await User.findOneAndUpdate(
-        { id: userId },
-        { $inc: { downloadCount: 1 } }
-      );
-    } catch (error) {
-      console.error('Error incrementing user download count:', error);
-      throw error;
-    }
-  }
-  async getUser(id: string): Promise<UserType | null> {
-    try {
-      const user = await User.findOne({ id });
-      return user;
-    } catch (error) {
-      console.error('Error getting user:', error);
-      throw error;
-    }
-  }
-
-  async upsertUser(userData: UpsertUser): Promise<UserType> {
-    try {
-      const user = await User.findOneAndUpdate(
-        { id: userData.id },
-        { ...userData, updatedAt: new Date() },
-        { upsert: true, new: true }
-      );
-      if (!user) {
-        throw new Error('Failed to upsert user');
-      }
-      return user;
-    } catch (error) {
-      console.error('Error upserting user:', error);
-      throw error;
-    }
-  }
-
-  async searchPlans(filters: PlanFilters): Promise<{plans: PlanType[], total: number}> {
-    try {
-      // Check cache first
-      const cacheKey = this.getCacheKey(filters);
-      const cachedResult = this.searchCache.get(cacheKey);
-      
-      if (cachedResult && this.isValidCacheEntry(cachedResult)) {
-        return cachedResult.result;
-      }
-      
-      // Clear expired cache entries periodically
-      this.clearExpiredCache();
-      
-      const query: any = { status: "active" };
-
-    if (filters.lotSize && filters.lotSize !== "Any Size") {
-      query.lotSize = filters.lotSize;
-    }
-
-    if (filters.orientation && filters.orientation !== "Any Orientation") {
-      query.orientation = filters.orientation;
-    }
-
-    if (filters.siteType && filters.siteType !== "Any Type") {
-      query.siteType = filters.siteType;
-    }
-
-    if (filters.foundationType && filters.foundationType !== "Any Foundation") {
-      query.foundationType = filters.foundationType;
-    }
-
-    if (filters.storeys && filters.storeys !== "Any") {
-      const storeyMap: Record<string, number> = {
-        "Single Storey": 1,
-        "Two Storey": 2,
-        "Three+ Storey": 3,
-      };
-      const storeyNumber = storeyMap[filters.storeys];
-      if (storeyNumber) {
-        if (storeyNumber === 3) {
-          query.storeys = { $gte: 3 };
-        } else {
-          query.storeys = storeyNumber;
-        }
-      }
-    }
-
-    if (filters.councilArea && filters.councilArea !== "Any Council") {
-      query.councilArea = filters.councilArea;
-    }
-
-    // Handle job address filter
-    if (filters.jobAddress) {
-      query.jobAddress = { $regex: filters.jobAddress, $options: 'i' };
-    }
-
-    // Handle keyword search (searches across multiple fields including extracted keywords)
-    if (filters.keyword) {
-      query.$or = [
-        { title: { $regex: filters.keyword, $options: 'i' } },
-        { description: { $regex: filters.keyword, $options: 'i' } },
-        { builderName: { $regex: filters.keyword, $options: 'i' } },
-        { jobAddress: { $regex: filters.keyword, $options: 'i' } },
-        { numberOfUnits: { $regex: filters.keyword, $options: 'i' } },
-        { extractedKeywords: { $in: [new RegExp(filters.keyword, 'i')] } }
-      ];
-    }
-
-    // Handle general search (legacy support)
-    if (filters.search) {
-      query.$or = [
-        { title: { $regex: filters.search, $options: 'i' } },
-        { description: { $regex: filters.search, $options: 'i' } },
-        { builderName: { $regex: filters.search, $options: 'i' } },
-        { jobAddress: { $regex: filters.search, $options: 'i' } },
-        { numberOfUnits: { $regex: filters.search, $options: 'i' } },
-        { extractedKeywords: { $in: [new RegExp(filters.search, 'i')] } }
-      ];
-    }
-
-    // Lot size range filters
-    if (filters.lotSizeMin) {
-      const minSize = parseFloat(filters.lotSizeMin);
-      if (!isNaN(minSize)) {
-        query.lotSizeMin = { $gte: minSize };
-      }
-    }
-
-    if (filters.lotSizeMax) {
-      const maxSize = parseFloat(filters.lotSizeMax);
-      if (!isNaN(maxSize)) {
-        query.lotSizeMax = { $lte: maxSize };
-      }
-    }
-
-    // Plan type filter
-    if (filters.planType && filters.planType !== "Any Type") {
-      query.planType = filters.planType;
-    }
-
-    // Numeric filters
-    if (filters.plotLength) {
-      const length = parseFloat(filters.plotLength);
-      if (!isNaN(length)) {
-        query.plotLength = length;
-      }
-    }
-
-    if (filters.plotWidth) {
-      const width = parseFloat(filters.plotWidth);
-      if (!isNaN(width)) {
-        query.plotWidth = width;
-      }
-    }
-
-    if (filters.coveredArea) {
-      const area = parseFloat(filters.coveredArea);
-      if (!isNaN(area)) {
-        query.coveredArea = area;
-      }
-    }
-
-    if (filters.totalBuildingHeight) {
-      const height = parseFloat(filters.totalBuildingHeight);
-      if (!isNaN(height)) {
-        query.totalBuildingHeight = height;
-      }
-    }
-
-    if (filters.roofPitch) {
-      const pitch = parseFloat(filters.roofPitch);
-      if (!isNaN(pitch)) {
-        query.roofPitch = pitch;
-      }
-    }
-
-    // Road position filter
-    if (filters.roadPosition && filters.roadPosition !== "Any Position") {
-      query.roadPosition = filters.roadPosition;
-    }
-
-    // Builder name filter
-    if (filters.builderName) {
-      query.builderName = { $regex: filters.builderName, $options: 'i' };
-    }
-
-    // Room configuration filters
-    if (filters.bedrooms && filters.bedrooms !== "Any") {
-      if (filters.bedrooms === "5+") {
-        query.bedrooms = { $gte: 5 };
-      } else {
-        query.bedrooms = parseInt(filters.bedrooms || "0");
-      }
-    }
-
-    if (filters.toilets && filters.toilets !== "Any") {
-      if (filters.toilets === "5+") {
-        query.toilets = { $gte: 5 };
-      } else {
-        query.toilets = parseInt(filters.toilets || "0");
-      }
-    }
-
-    if (filters.livingAreas && filters.livingAreas !== "Any") {
-      if (filters.livingAreas === "5+") {
-        query.livingAreas = { $gte: 5 };
-      } else {
-        query.livingAreas = parseInt(filters.livingAreas || "0");
-      }
-    }
-
-    if (filters.numberOfUnits && filters.numberOfUnits !== "Any") {
-      if (filters.numberOfUnits === "5+") {
-        query.numberOfUnits = { $gte: 5 };
-      } else {
-        query.numberOfUnits = parseInt(filters.numberOfUnits || "0");
-      }
-    }
-
-    if (filters.houseType && filters.houseType !== "Any Type") {
-      query.houseType = filters.houseType;
-    }
-
-    if (filters.constructionType && filters.constructionType !== "Any Construction") {
-      query.constructionType = { $in: [filters.constructionType] };
-    }
-
-    // Feature filters (text search in arrays)
-    if (filters.outdoorFeatures) {
-      query.outdoorFeatures = { $regex: filters.outdoorFeatures, $options: 'i' };
-    }
-
-    if (filters.indoorFeatures) {
-      query.indoorFeatures = { $regex: filters.indoorFeatures, $options: 'i' };
-    }
-
-    // Determine sort field and order
-    const sortField = filters.sortBy || 'createdAt';
-    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
-    const sortOptions: { [key: string]: 1 | -1 } = {};
-    sortOptions[sortField] = sortOrder;
-
-    let mongoQuery = Plan.find(query)
-      .select('-content') // Exclude large content field from search results
-      .sort(sortOptions);
-
-    if (filters.limit) {
-      mongoQuery = mongoQuery.limit(filters.limit);
-    }
-
-    if (filters.offset) {
-      mongoQuery = mongoQuery.skip(filters.offset);
-    }
-
-    const [plans, total] = await Promise.all([
-      mongoQuery.exec(),
-      Plan.countDocuments(query)
-    ]);
-
-    const result = { plans, total };
-    
-    // Cache the result
-    this.searchCache.set(cacheKey, {
-      result,
-      timestamp: Date.now()
-    });
-
-    return result;
-    } catch (error) {
-      console.error('Error searching plans:', error);
-      throw error;
-    }
-  }
-
-  async getPlan(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
-    try {
-      let query = Plan.findById(id);
-      if (excludeContent) {
-        query = query.select('-content');
-      }
-      const plan = await query;
-      if (!plan) return null;
-      
-      // If plan has a fileId and content is not excluded, retrieve file content from GridFS
-      if (!excludeContent && plan.fileId && !plan.content) {
-        try {
-          const gridFS = getGridFSManager();
-          const fileBuffer = await gridFS.getFileBuffer(plan.fileId);
-          plan.content = fileBuffer.toString('base64');
-        } catch (gridfsError) {
-          console.error('Failed to retrieve file from GridFS:', gridfsError);
-          // Continue without content rather than failing completely
-        }
-      }
-      
-      return plan;
-    } catch (error) {
-      console.error('Error getting plan:', error);
-      throw error;
-    }
-  }
-
-  async getPlanFileContent(id: string): Promise<Buffer | null> {
-    try {
-      const plan = await Plan.findById(id);
-      if (!plan || !plan.fileId) return null;
-      
-      const gridFS = getGridFSManager();
-      return await gridFS.getFileBuffer(plan.fileId);
-    } catch (error) {
-      console.error('Error getting plan file content:', error);
-      throw error;
-    }
-  }
-
-  async getPlanFileStream(id: string): Promise<NodeJS.ReadableStream | null> {
-    try {
-      const plan = await Plan.findById(id);
-      if (!plan || !plan.fileId) return null;
-      
-      const gridFS = getGridFSManager();
-      return await gridFS.getFileStream(plan.fileId);
-    } catch (error) {
-      console.error('Error getting plan file stream:', error);
-      throw error;
-    }
-  }
-
-  async getPlanAndIncrementDownload(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
-    try {
-      let selectFields = excludeContent ? '-content' : '';
-      const plan = await Plan.findByIdAndUpdate(
-        id,
-        { $inc: { downloadCount: 1 } },
-        { 
-          new: true,
-          select: selectFields || undefined
-        }
-      );
-      return plan;
-    } catch (error) {
-      console.error('Error getting plan and incrementing download:', error);
-      throw error;
-    }
-  }
-
-  async createPlan(planData: InsertPlan): Promise<PlanType> {
-    try {
-      // Extract keywords from description if provided
-      let extractedKeywords: string[] = [];
-      if (planData.description) {
-        const keywordResult = extractKeywordsFromDescription(planData.description);
-        extractedKeywords = keywordResult.keywords;
-        console.log(`🔍 Extracted ${extractedKeywords.length} keywords from description: ${extractedKeywords.join(', ')}`);
-      }
-
-      // Handle file storage with GridFS if content is provided
-      let fileId: mongoose.Types.ObjectId | undefined;
-      if (planData.content) {
-        try {
-          const gridFS = getGridFSManager();
-          const fileBuffer = Buffer.from(planData.content, 'base64');
-          fileId = await gridFS.storeFile(
-            fileBuffer,
-            planData.fileName,
-            {
-              originalName: planData.fileName,
-              fileSize: planData.fileSize,
-              uploadedBy: planData.uploadedBy,
-              planTitle: planData.title
-            }
-          );
-          console.log(`📦 File stored in GridFS: ${planData.fileName} (ID: ${fileId})`);
-        } catch (gridfsError) {
-          console.error('❌ Failed to store file in GridFS:', gridfsError);
-          throw new Error(`Failed to store file in GridFS: ${gridfsError instanceof Error ? gridfsError.message : gridfsError}`);
-        }
-      }
-
-      // Create plan document without the base64 content, but with GridFS file ID
-      const { content, ...planDataWithoutContent } = planData;
-      const plan = new Plan({
-        ...planDataWithoutContent,
-        fileId,
-        extractedKeywords,
-        status: planData.status || "active",
-        downloadCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      const savedPlan = await plan.save();
-      // Clear search cache after creation to ensure fresh results
-      this.searchCache.clear();
-      return savedPlan;
-    } catch (error) {
-      console.error('Error creating plan:', error);
-      throw error;
-    }
-  }
-
-  async updatePlan(id: string, updates: Partial<InsertPlan>): Promise<PlanType | null> {
-    try {
-      // Extract keywords from description if it's being updated
-      let updateData = { ...updates, updatedAt: new Date() };
-      if (updates.description) {
-        const keywordResult = extractKeywordsFromDescription(updates.description);
-        updateData.extractedKeywords = keywordResult.keywords;
-        console.log(`🔍 Updated extracted keywords: ${keywordResult.keywords.join(', ')}`);
-      }
-
-      const plan = await Plan.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true }
-      );
-      // Clear search cache after update to ensure fresh results
-      this.searchCache.clear();
-      return plan;
-    } catch (error) {
-      console.error('Error updating plan:', error);
-      throw error;
-    }
-  }
-
-  async deletePlan(id: string): Promise<void> {
-    try {
-      await Plan.findByIdAndDelete(id);
-      // Clear search cache after deletion to ensure fresh results
-      this.searchCache.clear();
-    } catch (error) {
-      console.error('Error deleting plan:', error);
-      throw error;
-    }
-  }
-
-  async incrementDownloadCount(id: string): Promise<void> {
-    try {
-      await Plan.findByIdAndUpdate(
-        id,
-        { $inc: { downloadCount: 1 } }
-      );
-    } catch (error) {
-      console.error('Error incrementing download count:', error);
-      throw error;
-    }
-  }
-
-  async resetDownloadCount(id: string): Promise<void> {
-    try {
-      await Plan.findByIdAndUpdate(
-        id,
-        { $set: { downloadCount: 0 } }
-      );
-    } catch (error) {
-      console.error('Error resetting download count:', error);
-      throw error;
-    }
-  }
-
-  async getRecentPlans(limit = 10): Promise<PlanType[]> {
-    try {
-      return await Plan.find({ status: "active" })
-        .select('-content') // Exclude large content field from recent plans
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .exec();
-    } catch (error) {
-      console.error('Error getting recent plans:', error);
-      throw error;
-    }
-  }
-
-  async getPlanStats(): Promise<PlanStats> {
-    try {
-      const totalPlans = await Plan.countDocuments({ status: "active" });
-      
-      const downloadStats = await Plan.aggregate([
-        { $match: { status: "active" } },
-        { $group: { _id: null, totalDownloads: { $sum: "$downloadCount" } } }
-      ]);
-      
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentUploads = await Plan.countDocuments({
-        status: "active",
-        createdAt: { $gte: oneDayAgo }
-      });
-
-      return {
-        totalPlans,
-        totalDownloads: downloadStats[0]?.totalDownloads || 0,
-        recentUploads,
-      };
-    } catch (error) {
-      console.error('Error getting plan stats:', error);
-      throw error;
-    }
-  }
-}
-
-// Initialize storage instance based on MongoDB availability
-let storage: IStorage;
-
-export function initializeStorage(): IStorage {
-  console.log('🔍 Storage Configuration:');
-  console.log(`   MONGODB_URI exists: ${!!process.env.MONGODB_URI}`);
-  console.log(`   MONGODB_URI length: ${process.env.MONGODB_URI?.length || 0}`);
-
-  if (process.env.MONGODB_URI) {
-    console.log('✅ Using MongoDB Database Storage');
-    storage = new DatabaseStorage();
-  } else {
-    console.log('⚠️  Falling back to in-memory storage.');
-    storage = new MemoryStorage();
+export class SupabaseStorage implements IStorage {
+  private BUCKET_NAME = 'plan-files';
+  
+  constructor() {
+    this.initializeStorage();
   }
   
+  private async initializeStorage() {
+    try {
+      // Check if the bucket exists, if not create it
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      
+      if (listError) {
+        console.error('Error listing buckets:', listError);
+        throw new Error(`Failed to list Supabase buckets: ${listError.message}`);
+      }
+      
+      const bucketExists = buckets?.some(bucket => bucket.name === this.BUCKET_NAME);
+      
+      if (!bucketExists) {
+        const { error: createError } = await supabase.storage.createBucket(this.BUCKET_NAME, {
+          public: false,
+          fileSizeLimit: 50 * 1024 * 1024, // 50MB - reduced from 100MB
+          allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/zip']
+        });
+        
+        if (createError) {
+          console.error('Error creating bucket:', createError);
+          // Don't throw error, just log it and continue
+          console.log(`Continuing without bucket creation. Bucket may already exist or need manual creation.`);
+        } else {
+          console.log(`Bucket '${this.BUCKET_NAME}' created successfully`);
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing Supabase Storage:', error);
+      // Continue execution even if bucket creation fails
+      // The application can still function without file storage
+    }
+  }
+
+  async getUser(id: string): Promise<UserType | null> {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) {
+      console.error("Error getting user:", error);
+      return null;
+    }
+    return data as UserType;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<UserType> {
+    const { data, error } = await supabase
+      .from("users")
+      .upsert(userData)
+      .select()
+      .single();
+    if (error) {
+      console.error("Error upserting user:", error);
+      throw error;
+    }
+    return data as UserType;
+  }
+
+  async incrementUserDownloadCount(userId: string): Promise<void> {
+    const { error } = await supabase.rpc("increment_user_download_count", {
+      user_id: userId,
+    });
+    if (error) {
+      console.error("Error incrementing user download count:", error);
+    }
+  }
+
+  async searchPlans(
+    filters: PlanFilters
+  ): Promise<{ plans: PlanType[]; total: number }> {
+    let query = supabase.from("plans").select("*", { count: "exact" });
+
+    if (filters.keyword) {
+      query = query.or(
+        `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`
+      );
+    }
+
+    // Add other filters here based on the filters object
+
+    if (filters.sortBy) {
+      query = query.order(filters.sortBy, {
+        ascending: filters.sortOrder === "asc",
+      });
+    }
+
+    if (filters.limit) {
+      query = query.limit(filters.limit);
+    }
+
+    if (filters.offset) {
+      query = query.range(filters.offset, filters.offset + (filters.limit || 0) - 1);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Error searching plans:", error);
+      return { plans: [], total: 0 };
+    }
+
+    return { plans: (data as PlanType[]) || [], total: count || 0 };
+  }
+
+  async getPlan(id: string, excludeContent: boolean = false): Promise<PlanType | null> {
+    let query = supabase.from("plans").select("*");
+    if (excludeContent) {
+        query = supabase.from("plans").select(`*, content:content_excluded`);
+    }
+    const { data, error } = await query.eq("id", id).single();
+
+    if (error) {
+      console.error("Error getting plan:", error);
+      return null;
+    }
+    
+    // If the plan has a file_url, get a signed URL for it
+    if (data && data.file_url) {
+      try {
+        const fileUrl = await this.getFileUrl(data.file_url);
+        data.file_url = fileUrl;
+      } catch (err) {
+        console.error('Error getting signed URL for plan file:', err);
+      }
+    }
+    
+    return data as PlanType;
+  }
+
+  async createPlan(plan: InsertPlan, userId?: string): Promise<PlanType> {
+    // If the plan has content as base64, upload it to Supabase Storage
+    if (plan.content && plan.fileName) {
+      try {
+        const buffer = Buffer.from(plan.content, 'base64');
+        const filePath = await this.uploadFile(buffer, plan.fileName);
+        
+        // Replace the content with the file URL
+        plan.file_url = filePath;
+        delete plan.content;
+      } catch (err) {
+        console.error('Error uploading plan file:', err);
+      }
+    }
+    
+    // Ensure building_type is never null before database insertion
+    const planWithBuildingType = plan as InsertPlan & { 
+      building_type?: string; 
+      keywords?: string[];
+      download_count?: number;
+      view_count?: number;
+      created_by?: string;
+    };
+    if (!planWithBuildingType.building_type) {
+      if (plan.planType) {
+        planWithBuildingType.building_type = plan.planType;
+      } else {
+        planWithBuildingType.building_type = "Residential"; // Default value
+      }
+    }
+    
+    // Ensure keywords field is provided (required by database)
+    if (!planWithBuildingType.keywords) {
+      planWithBuildingType.keywords = [];
+    }
+    
+    // Ensure download_count and view_count are provided (required by database)
+    if (planWithBuildingType.download_count === undefined) {
+      planWithBuildingType.download_count = 0;
+    }
+    if (planWithBuildingType.view_count === undefined) {
+      planWithBuildingType.view_count = 0;
+    }
+    
+    // Ensure created_by is provided (required by database)
+    if (userId) {
+      planWithBuildingType.created_by = userId;
+    } else if (!planWithBuildingType.created_by) {
+      // If no userId provided and no created_by in plan, this will cause an error
+      // In production, you should always provide a userId
+      throw new Error("created_by is required - please provide a userId parameter");
+    }
+    
+    const { data, error } = await supabase
+      .from("plans")
+      .insert(planWithBuildingType)
+      .select()
+      .single();
+    if (error) {
+      console.error("Error creating plan:", error);
+      throw error;
+    }
+    return data as PlanType;
+  }
+
+  async updatePlan(
+    id: string,
+    updates: Partial<InsertPlan>
+  ): Promise<PlanType | null> {
+    // If the plan update includes new content, upload it to Supabase Storage
+    if (updates.content && updates.fileName) {
+      try {
+        // Get the existing plan to check if we need to delete an old file
+        const existingPlan = await this.getPlan(id);
+        if (existingPlan && existingPlan.file_url) {
+          await this.deleteFile(existingPlan.file_url);
+        }
+        
+        const buffer = Buffer.from(updates.content, 'base64');
+        const filePath = await this.uploadFile(buffer, updates.fileName);
+        
+        // Replace the content with the file URL
+        updates.file_url = filePath;
+        delete updates.content;
+      } catch (err) {
+        console.error('Error updating plan file:', err);
+      }
+    }
+    
+    const { data, error } = await supabase
+      .from("plans")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("Error updating plan:", error);
+      return null;
+    }
+    return data as PlanType;
+  }
+
+  async deletePlan(id: string): Promise<void> {
+    // Get the plan to check if we need to delete a file
+    const plan = await this.getPlan(id);
+    if (plan && plan.file_url) {
+      await this.deleteFile(plan.file_url);
+    }
+    
+    const { error } = await supabase.from("plans").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting plan:", error);
+    }
+  }
+
+  async incrementDownloadCount(id: string): Promise<void> {
+    // First get the current count
+    const { data: currentPlan, error: fetchError } = await supabase
+      .from("plans")
+      .select("download_count")
+      .eq("id", id)
+      .single();
+    
+    if (fetchError) {
+      console.error("Error fetching current download count:", fetchError);
+      return;
+    }
+    
+    // Then update with incremented value
+    const { error } = await supabase
+      .from("plans")
+      .update({ 
+        download_count: (currentPlan.download_count || 0) + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id);
+    
+    if (error) {
+      console.error("Error incrementing plan download count:", error);
+    }
+  }
+
+  async getRecentPlans(limit: number = 10): Promise<PlanType[]> {
+    const { data, error } = await supabase
+      .from("plans")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.error("Error getting recent plans:", error);
+      throw error;
+    }
+    return data as PlanType[];
+  }
+
+  async getPlanStats(): Promise<PlanStats> {
+    const { data, error } = await supabase.rpc("get_plan_stats");
+    if (error) {
+      console.error("Error getting plan stats:", error);
+      return { totalPlans: 0, totalDownloads: 0, recentUploads: 0 };
+    }
+    
+    // The Supabase function returns an array with one object containing snake_case fields
+    // We need to extract the first element and convert to camelCase
+    if (Array.isArray(data) && data.length > 0) {
+      const stats = data[0];
+      return {
+        totalPlans: stats.total_plans || 0,
+        totalDownloads: stats.total_downloads || 0,
+        recentUploads: stats.recent_uploads || 0
+      };
+    }
+    
+    return { totalPlans: 0, totalDownloads: 0, recentUploads: 0 };
+  }
+  
+  // File operations using Supabase Storage
+  
+  async uploadFile(file: Buffer, fileName: string): Promise<string> {
+    try {
+      const timestamp = Date.now();
+      const uniqueFileName = `${timestamp}-${fileName}`;
+      const filePath = `${uniqueFileName}`;
+      
+      const { error } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .upload(filePath, file, {
+          contentType: this.getContentType(fileName),
+          upsert: false
+        });
+        
+      if (error) {
+        console.error('Error uploading file:', error);
+        throw error;
+      }
+      
+      return filePath;
+    } catch (error) {
+      console.error('Error in uploadFile:', error);
+      throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  async getFileUrl(filePath: string): Promise<string> {
+    try {
+      const { data, error } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .createSignedUrl(filePath, 60 * 60); // 1 hour expiry
+        
+      if (error) {
+        console.error('Error getting file URL:', error);
+        throw error;
+      }
+      
+      if (!data || !data.signedUrl) {
+        throw new Error('Failed to create signed URL: No data returned');
+      }
+      
+      return data.signedUrl;
+    } catch (error) {
+      console.error('Error in getFileUrl:', error);
+      throw new Error(`Failed to get file URL: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  async deleteFile(filePath: string): Promise<void> {
+    try {
+      const { error } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .remove([filePath]);
+        
+      if (error) {
+        console.error('Error deleting file:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in deleteFile:', error);
+      // Don't throw error for delete operations to prevent cascading failures
+      // Just log the error and continue
+    }
+  }
+  
+  private getContentType(fileName: string): string {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    
+    switch (extension) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+}
+
+let storage: IStorage | null = null;
+
+export function getStorage(): IStorage {
+  if (!storage) {
+    storage = new SupabaseStorage();
+  }
   return storage;
 }
 
-// Export getter function for storage
-export function getStorage(): IStorage {
+export function initializeStorage(): void {
   if (!storage) {
-    throw new Error('Storage not initialized. Call initializeStorage() first.');
+    storage = new SupabaseStorage();
   }
-  return storage;
 }

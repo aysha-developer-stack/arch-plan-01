@@ -102,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "File not found" });
       }
 
-      await storage.incrementDownloadCount(plan._id.toString());
+      await storage.incrementDownloadCount(plan.id.toString());
 
       // Use plan title as filename, sanitized for file system compatibility
       const sanitizedTitle = plan.title
@@ -163,7 +163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storeys: parseInt(req.body.storeys),
       });
 
-      const plan = await storage.createPlan(planData);
+      const plan = await storage.createPlan(planData, userId);
       res.json(plan);
     } catch (error) {
       console.error("Error uploading plan:", error);

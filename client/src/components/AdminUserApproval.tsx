@@ -42,7 +42,7 @@ export const AdminUserApproval: React.FC = () => {
     try {
       setIsLoading(true);
       const response = await apiClient.get(`/api/admin/users?status=${filter}`);
-      setUsers(response.data.users);
+      setUsers(response.data.data);
     } catch (error) {
       console.error('Error fetching users:', error);
       setMessage({ type: 'error', text: 'Failed to fetch users' });
@@ -53,8 +53,8 @@ export const AdminUserApproval: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await apiClient.get('/api/admin/user-stats');
-      setStats(response.data);
+      const response = await apiClient.get('/api/admin/users/stats');
+      setStats(response.data.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -68,7 +68,10 @@ export const AdminUserApproval: React.FC = () => {
   const handleApprove = async (userId: string) => {
     try {
       setIsActionLoading(true);
-      await apiClient.post(`/api/admin/approve-user/${userId}`);
+      await apiClient.post('/api/admin/users/approve-reject', {
+        userId,
+        action: 'approve'
+      });
       setMessage({ type: 'success', text: 'User approved successfully' });
       fetchUsers();
       fetchStats();
@@ -88,8 +91,10 @@ export const AdminUserApproval: React.FC = () => {
 
     try {
       setIsActionLoading(true);
-      await apiClient.post(`/api/admin/reject-user/${selectedUser._id}`, {
-        reason: rejectionReason.trim()
+      await apiClient.post('/api/admin/users/approve-reject', {
+        userId: selectedUser.id,
+        action: 'reject',
+        rejectionReason: rejectionReason.trim()
       });
       setMessage({ type: 'success', text: 'User rejected successfully' });
       setSelectedUser(null);
@@ -220,7 +225,7 @@ export const AdminUserApproval: React.FC = () => {
               <Loader2 className="h-6 w-6 animate-spin" />
               <span className="ml-2">Loading users...</span>
             </div>
-          ) : users.length === 0 ? (
+          ) : !users || users.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               No users found
             </div>
@@ -252,7 +257,7 @@ export const AdminUserApproval: React.FC = () => {
                       <>
                         <Button
                           size="sm"
-                          onClick={() => handleApprove(user._id)}
+                          onClick={() => handleApprove(user.id)}
                           disabled={isActionLoading}
                         >
                           <CheckCircle className="w-4 h-4 mr-1" />

@@ -1,15 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import config from '../config';
-
-// Extend the Express Request type to include our custom properties
-declare global {
-  namespace Express {
-    interface Request {
-      adminId?: string;
-    }
-  }
-}
+import { supabase } from '../../db';
 
 declare global {
   namespace Express {
@@ -19,17 +9,8 @@ declare global {
   }
 }
 
-export const authenticateAdmin = (req: Request, res: Response, next: NextFunction) => {
-  // Get token from cookies or Authorization header
-  let token = req.cookies?.adminToken;
-  
-  // If no cookie, check Authorization header
-  if (!token) {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    }
-  }
+export const authenticateAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  const token = req.cookies?.['supabase-auth-token'];
 
   if (!token) {
     return res.status(401).json({ 
@@ -39,27 +20,30 @@ export const authenticateAdmin = (req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    // Verify token
-    const decoded = jwt.verify(token, config.JWT_SECRET) as { adminId: string };
-    
-    // Add admin ID to request object
-    req.adminId = decoded.adminId;
-    
-    // Proceed to the next middleware/route handler
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid or expired token. Please log in again.' 
+      });
+    }
+
+    // Check if the user has admin privileges by checking the is_admin flag in metadata
+    if (!user.user_metadata?.is_admin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. User is not an admin.'
+      });
+    }
+
+    req.adminId = user.id;
     next();
   } catch (error) {
     console.error('Authentication error:', error);
-    
-    // Clear invalid token
-    res.clearCookie('adminToken', {
-      httpOnly: config.COOKIE_HTTP_ONLY,
-      secure: config.COOKIE_SECURE,
-      sameSite: config.COOKIE_SAME_SITE as 'strict' | 'lax' | 'none',
-    });
-
-    return res.status(401).json({ 
+    return res.status(500).json({ 
       success: false, 
-      message: 'Invalid or expired token. Please log in again.' 
+      message: 'Server error during authentication.' 
     });
   }
 };

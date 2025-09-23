@@ -69,12 +69,10 @@ export default function UserSignup() {
     setMessage(null);
 
     try {
-      const response = await apiClient.post<SignupResponse>('/api/auth/register', {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
+      const response = await apiClient.post<SignupResponse>('/api/users/signup', {
+        name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
         email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        confirmPassword: formData.confirmPassword
+        password: formData.password
       });
 
       if (response.data.success) {

@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Users, UserCheck, UserX, Search, RefreshCw } from 'lucide-react';
+import { Users, UserCheck, UserX, Search, RefreshCw, Trash2 } from 'lucide-react';
 import { apiClient } from '@/lib/axios';
 import { useToast } from '@/hooks/use-toast';
 import type { AppUserType } from '@shared/schema';
@@ -40,7 +40,7 @@ const UserManagement = () => {
     queryKey: ['admin', 'user-stats'],
     queryFn: async () => {
       const response = await apiClient.get('/api/admin/users/stats');
-      return response.data;
+      return response.data.data;
     },
   });
 
@@ -62,7 +62,10 @@ const UserManagement = () => {
   // Approve user mutation
   const approveMutation = useMutation({
     mutationFn: async (userId: string) => {
-      await apiClient.post(`/api/admin/approve-user/${userId}`);
+      await apiClient.post('/api/admin/users/approve-reject', {
+        userId,
+        action: 'approve'
+      });
     },
     onSuccess: () => {
       toast({
@@ -84,7 +87,11 @@ const UserManagement = () => {
   // Reject user mutation
   const rejectMutation = useMutation({
     mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
-      await apiClient.post(`/api/admin/reject-user/${userId}`, { reason });
+      await apiClient.post('/api/admin/users/approve-reject', {
+        userId,
+        action: 'reject',
+        rejectionReason: reason
+      });
     },
     onSuccess: () => {
       toast({
@@ -106,8 +113,30 @@ const UserManagement = () => {
     },
   });
 
+  // Delete user mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiClient.delete(`/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'User deleted successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'user-stats'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to delete user',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleApprove = (user: AppUserType) => {
-    approveMutation.mutate(user._id as string);
+    approveMutation.mutate(user.id as string);
   };
 
   const handleReject = (user: AppUserType) => {
@@ -115,10 +144,16 @@ const UserManagement = () => {
     setIsRejectDialogOpen(true);
   };
 
+  const handleDelete = (user: AppUserType) => {
+    if (window.confirm(`Are you sure you want to delete user ${user.email}? This action cannot be undone.`)) {
+      deleteMutation.mutate(user.id as string);
+    }
+  };
+
   const confirmReject = () => {
     if (selectedUser && rejectionReason.trim()) {
       rejectMutation.mutate({
-        userId: selectedUser._id as string,
+        userId: selectedUser.id as string,
         reason: rejectionReason.trim(),
       });
     }
@@ -268,7 +303,7 @@ const UserManagement = () => {
                   </TableRow>
                 ) : (
                   usersData?.users?.map((user: AppUserType) => (
-                    <TableRow key={user._id as string}>
+                    <TableRow key={user.id as string}>
                       <TableCell className="font-medium">{user.name}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{getStatusBadge(user.status)}</TableCell>
@@ -299,9 +334,33 @@ const UserManagement = () => {
                             </>
                           )}
                           {user.status === 'rejected' && user.rejectionReason && (
-                            <div className="text-sm text-slate-600">
-                              Reason: {user.rejectionReason}
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm text-slate-600">
+                                Reason: {user.rejectionReason}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(user)}
+                                disabled={deleteMutation.isPending}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="mr-1 h-3 w-3" />
+                                Delete
+                              </Button>
                             </div>
+                          )}
+                          {user.status === 'approved' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDelete(user)}
+                              disabled={deleteMutation.isPending}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              Delete
+                            </Button>
                           )}
                         </div>
                       </TableCell>

@@ -8,11 +8,11 @@ import { Eye, Download, Home, Compass, MapPin, ChevronLeft, ChevronRight, X } fr
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import apiClient from "@/setupAxios";
-import type { PlanType } from "@shared/schema";
+import type { IPlan } from "@shared/schema";
 import { AxiosError } from "axios";
 
 interface PlanCardProps {
-  plan: PlanType;
+  plan: IPlan;
 }
 
 export default function PlanCard({ plan }: PlanCardProps) {
@@ -26,13 +26,13 @@ export default function PlanCard({ plan }: PlanCardProps) {
   const lightboxImages = plan.images && Array.isArray(plan.images) 
     ? plan.images
         .filter(img => img?.fileId)
-        .map(img => `/api/plans/${plan._id}/images/${img.fileId}`)
+        .map(img => `/api/plans/${plan.id}/images/${img.fileId}`)
     : [];
 
   const downloadMutation = useMutation({
     mutationFn: async () => {
       // Use fetch with blob to force custom filename
-      const response = await fetch(`/api/plans/${plan._id}/download`);
+      const response = await fetch(`/api/plans/${plan.id}/download`);
       if (!response.ok) {
         throw new Error('Download failed');
       }
@@ -76,7 +76,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
       <div className="w-full h-48 bg-slate-200 flex items-center justify-center overflow-hidden">
         {plan.images && plan.images.length > 0 && plan.images[0].fileId ? (
           <img 
-            src={`/api/plans/${plan._id}/images/${plan.images[0].fileId}`}
+            src={`/api/plans/${plan.id}/images/${plan.images[0].fileId}`}
             alt={plan.title || "Plan image"}
             className="w-full h-full object-cover"
             onError={(e) => {
@@ -139,7 +139,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
                   {plan.images && plan.images.length > 0 && plan.images[0].fileId ? (
                     <>
                       <img 
-                        src={`/api/plans/${plan._id}/images/${plan.images[0].fileId}`}
+                        src={`/api/plans/${plan.id}/images/${plan.images[0].fileId}`}
                         alt={plan.title || "Plan image"}
                         className="w-full h-full object-cover rounded-lg cursor-pointer transition-opacity hover:opacity-90"
                         onClick={() => {
@@ -198,9 +198,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>File Size:</strong> {plan.fileSize ? `${(plan.fileSize / 1024 / 1024).toFixed(2)} MB` : "N/A"}</div>
                     <div><strong>Downloads:</strong> {plan.downloadCount || 0}</div>
                     <div><strong>Status:</strong> {plan.status || "N/A"}</div>
-                    <div><strong>Uploaded By:</strong> {plan.uploadedBy || "N/A"}</div>
-                    <div><strong>Created:</strong> {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : "N/A"}</div>
-                    <div><strong>Updated:</strong> {plan.updatedAt ? new Date(plan.updatedAt).toLocaleDateString() : "N/A"}</div>
+                    <div><strong>Uploaded By:</strong> {plan.uploadedBy ? "admin" : "N/A"}</div>
                   </div>
                   
                   {/* Outdoor Features */}

@@ -29,58 +29,27 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup }) => {
     setIsLoading(true);
     setMessage(null);
 
-    try {
-      const result = await login(formData.email, formData.password);
-      
-      if (result.success) {
-        setMessage({ 
-          type: 'success', 
-          text: 'Login successful! Redirecting...' 
-        });
-        // The auth context will handle the redirect
-      } else {
-        if (result.status === 'pending') {
-          setMessage({ 
-            type: 'pending', 
-            text: 'Your account is pending approval. Please wait for admin approval before logging in.' 
-          });
-        } else if (result.status === 'rejected') {
-          setMessage({ 
-            type: 'rejected', 
-            text: 'Your account has been rejected.',
-            rejectionReason: result.message?.includes('rejected:') ? result.message.split('rejected:')[1].trim() : undefined
-          });
-        } else {
-          setMessage({ 
-            type: 'error', 
-            text: result.message || 'Login failed. Please check your credentials.' 
-          });
-        }
-      }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';
-      const status = error.response?.data?.status;
-      
-      if (status === 'pending') {
-        setMessage({ 
-          type: 'pending', 
-          text: 'Your account is pending approval. Please wait for admin approval before logging in.' 
-        });
-      } else if (status === 'rejected') {
-        setMessage({ 
-          type: 'rejected', 
-          text: 'Your account has been rejected.',
-          rejectionReason: error.response?.data?.rejectionReason
-        });
-      } else {
-        setMessage({ 
-          type: 'error', 
-          text: errorMessage 
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    // Redirect to the correct server login endpoint
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'http://localhost:5000/api/users/login';
+    
+    // Add email field
+    const emailInput = document.createElement('input');
+    emailInput.type = 'hidden';
+    emailInput.name = 'email';
+    emailInput.value = formData.email;
+    form.appendChild(emailInput);
+    
+    // Add password field
+    const passwordInput = document.createElement('input');
+    passwordInput.type = 'hidden';
+    passwordInput.name = 'password';
+    passwordInput.value = formData.password;
+    form.appendChild(passwordInput);
+    
+    document.body.appendChild(form);
+    form.submit();
   };
 
   const getAlertIcon = () => {

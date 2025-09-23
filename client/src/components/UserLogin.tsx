@@ -15,8 +15,7 @@ interface LoginResponse {
   user?: {
     id: string;
     email: string;
-    firstName: string;
-    lastName: string;
+    name: string;
     status: string;
     downloadCount: number;
     token: string;
@@ -62,7 +61,7 @@ export default function UserLogin() {
     setMessage(null);
 
     try {
-      const response = await apiClient.post<LoginResponse>('/api/auth/login', {
+      const response = await apiClient.post<LoginResponse>('/api/users/login', {
         email: formData.email.trim().toLowerCase(),
         password: formData.password
       });

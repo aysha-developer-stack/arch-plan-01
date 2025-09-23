@@ -1,50 +1,14 @@
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Load environment variables
+dotenv.config();
 
-dotenv.config({ path: path.join(__dirname, '../../.env') });
-
-// Validate required environment variables
-const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI'];
-const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-if (missingVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
-}
-
-// Server configuration
-export default {
-  // Server
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: process.env.PORT || 5000,
-  
-  // JWT
-  JWT_SECRET: process.env.JWT_SECRET!,
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || (process.env.NODE_ENV === 'production' ? '7d' : '1h'),
-  
-  // Database
-  MONGODB_URI: process.env.MONGODB_URI!,
-  
-  // CORS
-  CORS_ORIGIN: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' 
-    ? 'https://arch-plan-01-production.up.railway.app' 
-    : 'http://localhost:3000'),
-  
-  // Cookies
-  COOKIE_SECURE: process.env.NODE_ENV === 'production',
-  COOKIE_HTTP_ONLY: true,
-  COOKIE_SAME_SITE: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-  COOKIE_MAX_AGE: process.env.NODE_ENV === 'production' ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000, // 7 days in production, 1 hour in development
-  
-  // Email
-  EMAIL_USER: process.env.EMAIL_USER,
-  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
-  
-  // Client URL for email links
-  CLIENT_URL: process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' 
-    ? 'https://arch-plan-01-production.up.railway.app' 
-    : 'http://localhost:5000'),
+const config = {
+  EMAIL_USER: process.env.EMAIL_USER || '',
+  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || '',
+  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
+  PORT: process.env.PORT || 3000,
+  NODE_ENV: process.env.NODE_ENV || 'development'
 };
+
+export default config;

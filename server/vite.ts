@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
+// Remove the vite config import as we'll use inline config
 import { nanoid } from "nanoid";
 
 // Get current directory for ES modules
@@ -31,11 +31,32 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
-  // Resolve the async vite config
-  const resolvedViteConfig = typeof viteConfig === 'function' ? await viteConfig({ command: 'serve', mode: 'development' }) : viteConfig;
+  // Use inline config instead of importing from parent directory
+  const viteConfig = {
+    plugins: [
+      // Import react plugin
+      (await import('@vitejs/plugin-react')).default({
+        jsxRuntime: 'automatic'
+      })
+    ],
+    root: path.join(__dirname, '..', 'client'),
+    resolve: {
+      alias: {
+        '@': path.join(__dirname, '..', 'client', 'src'),
+        '@shared': path.join(__dirname, '..', 'shared'),
+        '@assets': path.join(__dirname, '..', 'attached_assets'),
+      },
+    },
+    build: {
+      outDir: '../server/public',
+    },
+    server: {
+      middlewareMode: true,
+    }
+  };
   
   const vite = await createViteServer({
-    ...resolvedViteConfig,
+    ...viteConfig,
     configFile: false,
     customLogger: {
       ...viteLogger,
