@@ -106,10 +106,59 @@ export async function setupVite(app: Express, server: Server) {
 
 export function serveStatic(app: Express) {
   // Path to your built frontend (Vite output folder)
-  const distPath = path.join(__dirname, 'public');
+  // Check multiple possible paths for the built files
+  const possiblePaths = [
+    path.join(__dirname, '..', 'dist', 'public'),  // From server/dist to dist/public
+    path.join(__dirname, 'public'),                // Direct public folder
+    path.join(__dirname, '..', 'public'),          // Parent public folder
+  ];
+  
+  let distPath = '';
+  let indexHtmlPath = '';
+  
+  // Find the correct path that contains the built files
+  for (const testPath of possiblePaths) {
+    const indexPath = path.join(testPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      distPath = testPath;
+      indexHtmlPath = indexPath;
+      break;
+    }
+  }
+  
+  console.log(`📦 Attempting to serve static files from: ${distPath}`);
+  console.log(`📄 Index.html path: ${indexHtmlPath}`);
+  console.log(`📁 Directory exists: ${fs.existsSync(distPath)}`);
+  console.log(`📄 Index.html exists: ${fs.existsSync(indexHtmlPath)}`);
+  
+  if (!distPath || !fs.existsSync(indexHtmlPath)) {
+    console.error('❌ Could not find built frontend files!');
+    console.error('   Checked paths:', possiblePaths);
+    console.error('   Make sure to run the build process before starting the server.');
+    
+    // Serve a basic error page for all non-API routes
+    app.get('*', (req, res) => {
+      if (req.originalUrl.startsWith('/api/')) {
+        return res.status(404).json({ message: 'API endpoint not found' });
+      }
+      res.status(500).send(`
+        <html>
+          <body>
+            <h1>Build Error</h1>
+            <p>Frontend build files not found. Please run the build process.</p>
+            <p>Checked paths: ${possiblePaths.join(', ')}</p>
+          </body>
+        </html>
+      `);
+    });
+    return;
+  }
 
   // Serve all static files (CSS, JS, images, etc.)
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, {
+    maxAge: '1d', // Cache static assets for 1 day
+    etag: true
+  }));
 
   // Serve index.html for any other route (SPA fallback)
   // But skip API routes - let them be handled by Express routes
@@ -123,7 +172,14 @@ export function serveStatic(app: Express) {
     }
     
     console.log(`📄 Production static: Serving SPA for ${url}`);
-    res.sendFile(path.join(distPath, 'index.html'));
+    
+    // Add error handling for sendFile
+    res.sendFile(indexHtmlPath, (err) => {
+      if (err) {
+        console.error(`❌ Error serving index.html for ${url}:`, err);
+        res.status(500).send('Error loading application');
+      }
+    });
   });
 }
 
