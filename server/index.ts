@@ -154,8 +154,25 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    cors_origin: process.env.CORS_ORIGIN || 'not set'
+    cors_origin: process.env.CORS_ORIGIN || 'not set',
+    node_env: process.env.NODE_ENV,
+    port: process.env.PORT,
+    uptime: process.uptime()
   });
+});
+
+// Root health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    service: 'ArchPlan Live',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Simple root endpoint to test basic connectivity
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
 });
 
 // Request logging middleware
@@ -219,11 +236,24 @@ const startServer = async () => {
     // Start the server
     const PORT = parseInt(process.env.PORT || '5000', 10);
     
+    // Debug: Log environment variables for Railway
+    console.log(`🔧 Environment Debug:`);
+    console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`   PORT (env): ${process.env.PORT}`);
+    console.log(`   PORT (parsed): ${PORT}`);
+    console.log(`   Railway App URL: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'not set'}`);
+    
     // Railway requires binding to 0.0.0.0 to accept external connections
     if (process.env.NODE_ENV === 'production') {
       // Railway needs explicit binding to 0.0.0.0 to route traffic properly
       server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Server running on port ${PORT} (bound to 0.0.0.0 for Railway)`);
+        console.log(`🌐 Server should be accessible at: https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'your-app.railway.app'}`);
+        
+        // Add a simple health check log
+        setTimeout(() => {
+          console.log(`💓 Server health check: Still running after 5 seconds`);
+        }, 5000);
       });
     } else {
       // Development: bind to localhost only for security
