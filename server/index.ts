@@ -36,15 +36,29 @@ app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ limit: '200mb', extended: false }));
 app.use(cookieParser());
 
+// Function to normalize origins by removing trailing slashes
+const normalizeOrigin = (origin: string): string => {
+  if (!origin) return origin;
+  return origin.replace(/\/$/, ''); // Remove trailing slash
+};
+
 // CORS configuration with proper origin validation
-const allowedOrigins = [
+const baseAllowedOrigins = [
   process.env.CORS_ORIGIN, // Use environment variable as primary
   'https://arch-plan-01-production.up.railway.app', // Explicit Railway frontend URL
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:4173', // Vite preview mode
   'http://localhost:5000'  // Additional dev port
-].filter(Boolean); // Remove any undefined values
+].filter(Boolean) as string[]; // Remove any undefined values and assert type
+
+// Normalize all origins and create both with and without trailing slash versions
+const allowedOrigins: string[] = baseAllowedOrigins.reduce((acc: string[], origin: string) => {
+  const normalized = normalizeOrigin(origin);
+  acc.push(normalized); // Without trailing slash
+  acc.push(normalized + '/'); // With trailing slash
+  return acc;
+}, [] as string[]);
 
 console.log('🔧 CORS Configuration:');
 console.log('   CORS_ORIGIN:', process.env.CORS_ORIGIN);
@@ -58,7 +72,7 @@ const validateOrigin = (origin: string): string => {
   if (!origin.startsWith('http://') && !origin.startsWith('https://')) {
     return `https://${origin}`;
   }
-  return origin;
+  return normalizeOrigin(origin); // Always normalize by removing trailing slash
 };
 
 // Security middleware for admin routes
