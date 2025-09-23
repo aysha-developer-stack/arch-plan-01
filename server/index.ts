@@ -243,14 +243,16 @@ const startServer = async () => {
       .filter(key => key.includes('RAILWAY') || key === 'PORT')
       .forEach(key => console.log(`     ${key}: ${process.env[key]}`));
     
-    // Railway might not set PORT, so we need to use a different approach
-    const PORT = parseInt(process.env.PORT || process.env.RAILWAY_PORT || '3000', 10);
+    // Railway sets PORT environment variable - we must use exactly what Railway provides
+    const PORT = parseInt(process.env.PORT || '3000', 10);
     console.log(`   PORT (final): ${PORT}`);
+    
     if (process.env.NODE_ENV === 'production') {
-      // Railway needs explicit binding to 0.0.0.0 to route traffic properly
+      // Railway requires binding to 0.0.0.0 and the exact PORT it provides
       server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Server running on port ${PORT} (bound to 0.0.0.0 for Railway)`);
         console.log(`🌐 Server should be accessible at: https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'your-app.railway.app'}`);
+        console.log(`🔍 Railway Debug: Listening on 0.0.0.0:${PORT} as required by Railway proxy`);
         
         // Add a simple health check log
         setTimeout(() => {
