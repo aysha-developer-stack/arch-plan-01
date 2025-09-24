@@ -272,8 +272,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (plan.file_url) {
         console.log("Using file_url:", plan.file_url);
         try {
-          // Get signed URL from Supabase Storage
-          const signedUrl = await storage.getFileUrl(plan.file_url);
+          // Check if file_url is already a signed URL or just a filename
+          let signedUrl = plan.file_url;
+          if (!plan.file_url.includes('supabase.co')) {
+            // It's just a filename, get signed URL from Supabase Storage
+            signedUrl = await storage.getFileUrl(plan.file_url);
+          }
           
           // Fetch the file from Supabase Storage
           const response = await fetch(signedUrl);
