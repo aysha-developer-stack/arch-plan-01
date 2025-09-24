@@ -10,7 +10,10 @@ declare global {
 }
 
 export const authenticateAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  console.log('🍪 Debug - All cookies:', req.cookies);
+  console.log('🍪 Debug - Headers:', req.headers.cookie);
   const token = req.cookies?.['supabase-auth-token'];
+  console.log('🍪 Debug - Token found:', !!token);
 
   if (!token) {
     return res.status(401).json({ 

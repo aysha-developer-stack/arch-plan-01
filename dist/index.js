@@ -754,7 +754,10 @@ import { Router as Router2 } from "express";
 
 // server/src/middleware/authMiddleware.ts
 var authenticateAdmin = async (req, res, next) => {
+  console.log("\u{1F36A} Debug - All cookies:", req.cookies);
+  console.log("\u{1F36A} Debug - Headers:", req.headers.cookie);
   const token = req.cookies?.["supabase-auth-token"];
+  console.log("\u{1F36A} Debug - Token found:", !!token);
   if (!token) {
     return res.status(401).json({
       success: false,
@@ -1322,11 +1325,12 @@ router3.post("/login", async (req, res) => {
     const { admin, session } = await authenticateAdmin2(email, password);
     res.cookie("supabase-auth-token", session.access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
+      secure: false,
+      // Always false for development testing
+      sameSite: "lax",
       maxAge: session.expires_in * 1e3,
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? void 0 : void 0
+      domain: void 0
     });
     res.status(200).json({
       success: true,
