@@ -205,6 +205,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get total downloads endpoint (for dashboard)
+  app.get("/api/plans/total-downloads", async (req: Request, res: Response) => {
+    try {
+      const storage = getStorage();
+      const stats = await storage.getPlanStats();
+      res.json({ totalDownloads: stats.totalDownloads || 0 });
+    } catch (error) {
+      console.error("Error fetching total downloads:", error);
+      res.status(500).json({ message: "Failed to fetch total downloads" });
+    }
+  });
+
   const server = createServer(app);
   return server;
 }
