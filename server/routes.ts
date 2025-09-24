@@ -235,27 +235,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Image not found" });
       }
 
-      // 3. Get the image file from Supabase Storage
-      const { data: imageBlob, error: storageError } = await supabase.storage
-        .from('plan-files')
-        .download(image.path);
-
-      if (storageError) {
-        console.error(`Error downloading image from Supabase:`, storageError);
-        return res.status(404).json({ 
-          message: "Image not found in storage",
-          details: storageError.message 
-        });
-      }
-
-      // 4. Set appropriate headers for image display
-      const contentType = imageBlob.type || 'image/jpeg'; // Default to JPEG if type is unknown
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+      // 3. Get a signed URL from Supabase Storage and redirect to it
+      const signedUrl = await storage.getFileUrl(image.path);
       
-      // 5. Send the image to the client
-      const imageBuffer = await imageBlob.arrayBuffer();
-      return res.send(Buffer.from(imageBuffer));
+      // 4. Redirect the client to the signed URL to display the image
+      res.redirect(signedUrl);
       
     } catch (error) {
       console.error(`Error in image endpoint for plan ${req.params.planId}, image ${req.params.imageId}:`, error);
