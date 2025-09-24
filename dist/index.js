@@ -2,13 +2,12 @@
 import dotenv3 from "dotenv";
 import path5 from "path";
 import { fileURLToPath as fileURLToPath4 } from "url";
-import express3 from "express";
+import express2 from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import compression from "compression";
 
 // server/routes.ts
-import express from "express";
 import { createServer } from "http";
 
 // server/db.ts
@@ -202,14 +201,6 @@ var SupabaseStorage = class {
       console.error("Error getting plan:", error);
       return null;
     }
-    if (data && data.file_url) {
-      try {
-        const fileUrl = await this.getFileUrl(data.file_url);
-        data.file_url = fileUrl;
-      } catch (err) {
-        console.error("Error getting signed URL for plan file:", err);
-      }
-    }
     return data;
   }
   async createPlan(plan, userId) {
@@ -394,137 +385,7 @@ function getStorage() {
   return storage;
 }
 
-// server/src/schema.ts
-import { z } from "zod";
-var insertUserSchema = z.object({
-  id: z.string(),
-  email: z.string().email().optional(),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  profileImageUrl: z.string().optional()
-});
-var insertPlanSchema = z.object({
-  title: z.string().max(255),
-  description: z.string().optional(),
-  architect: z.string().max(255).optional(),
-  // Architect or designer name
-  fileName: z.string().max(255),
-  filePath: z.string().max(500),
-  fileSize: z.number(),
-  fileId: z.string().optional(),
-  // GridFS file ID for large file storage
-  content: z.string().optional(),
-  // Legacy base64 content for backward compatibility
-  file_url: z.string().optional(),
-  // URL to the file in Supabase Storage
-  images: z.array(z.object({
-    path: z.string(),
-    filename: z.string(),
-    size: z.number(),
-    fileId: z.string().optional()
-    // GridFS file ID for image storage
-  })).optional(),
-  planType: z.string().max(100),
-  building_type: z.string().max(100).optional(),
-  // Type of building (Residential, Commercial, etc.)
-  storeys: z.number(),
-  lotSize: z.string().max(50).optional(),
-  orientation: z.string().max(50).optional(),
-  siteType: z.string().max(100).optional(),
-  foundationType: z.string().max(100).optional(),
-  councilArea: z.string().max(100).optional(),
-  // Additional plan details
-  plotLength: z.number().optional(),
-  // Plot length in meters
-  plotWidth: z.number().optional(),
-  // Plot width in meters
-  coveredArea: z.number().optional(),
-  // Covered area in square meters
-  roadPosition: z.string().max(50).optional(),
-  // Length Side, Width Side, Corner Plot
-  builderName: z.string().max(255).optional(),
-  // Builder or designer name
-  jobAddress: z.string().max(500).optional(),
-  // Job address or location
-  houseType: z.string().max(50).optional(),
-  // Single Dwelling, Duplex, Townhouse, Unit
-  bedrooms: z.number().min(0).optional().default(3),
-  // Number of bedrooms
-  toilets: z.number().min(0).optional().default(2),
-  // Number of toilets/bathrooms
-  livingAreas: z.number().min(0).optional().default(1),
-  // Number of living spaces
-  numberOfUnits: z.number().optional(),
-  // Number of units
-  constructionType: z.array(z.string()).optional(),
-  // Array of construction types
-  lotSizeMin: z.number().optional(),
-  // Minimum lot size in square meters
-  lotSizeMax: z.number().optional(),
-  // Maximum lot size in square meters
-  totalBuildingHeight: z.number().optional(),
-  // Total building height in meters
-  roofPitch: z.number().optional(),
-  // Roof pitch in degrees
-  outdoorFeatures: z.array(z.string()).optional(),
-  // Array of outdoor features
-  indoorFeatures: z.array(z.string()).optional(),
-  // Array of indoor features
-  extractedKeywords: z.array(z.string()).optional(),
-  // Auto-extracted keywords from description
-  status: z.string().max(20).optional(),
-  uploadedBy: z.string().optional()
-});
-var searchPlanSchema = z.object({
-  keyword: z.string().optional(),
-  lotSize: z.string().optional(),
-  lotSizeMin: z.string().optional(),
-  lotSizeMax: z.string().optional(),
-  orientation: z.string().optional(),
-  siteType: z.string().optional(),
-  foundationType: z.string().optional(),
-  storeys: z.string().optional(),
-  councilArea: z.string().optional(),
-  search: z.string().optional(),
-  bedrooms: z.string().optional(),
-  houseType: z.string().optional(),
-  constructionType: z.string().optional(),
-  planType: z.string().optional(),
-  plotLength: z.string().optional(),
-  plotWidth: z.string().optional(),
-  coveredArea: z.string().optional(),
-  roadPosition: z.string().optional(),
-  builderName: z.string().optional(),
-  toilets: z.string().optional(),
-  livingAreas: z.string().optional(),
-  numberOfUnits: z.string().optional(),
-  jobAddress: z.string().optional(),
-  totalBuildingHeight: z.string().optional(),
-  roofPitch: z.string().optional(),
-  outdoorFeatures: z.union([z.string(), z.array(z.string())]).optional(),
-  indoorFeatures: z.union([z.string(), z.array(z.string())]).optional(),
-  limit: z.number().optional().default(20),
-  offset: z.number().optional().default(0),
-  sortBy: z.string().optional(),
-  sortOrder: z.enum(["asc", "desc"]).optional().default("desc")
-});
-var appUserSignupSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  name: z.string().min(1)
-});
-var appUserLoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1)
-});
-var appUserApprovalSchema = z.object({
-  userId: z.string(),
-  action: z.enum(["approve", "reject"]),
-  rejectionReason: z.string().optional()
-});
-
 // server/routes.ts
-import { z as z5 } from "zod";
 import multer2 from "multer";
 import path3 from "path";
 import fs2 from "fs";
@@ -590,20 +451,20 @@ var authenticateUser = async (req, res, next) => {
 };
 
 // server/src/routes/userRoutes.ts
-import { z as z2 } from "zod";
-var appUserSignupSchema2 = z2.object({
-  email: z2.string().email(),
-  password: z2.string().min(6),
-  name: z2.string().min(2)
+import { z } from "zod";
+var appUserSignupSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().min(2)
 });
-var appUserLoginSchema2 = z2.object({
-  email: z2.string().email(),
-  password: z2.string().min(6)
+var appUserLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6)
 });
 var router = Router();
 router.post("/signup", async (req, res) => {
   try {
-    const validatedData = appUserSignupSchema2.parse(req.body);
+    const validatedData = appUserSignupSchema.parse(req.body);
     const { email, password, name } = validatedData;
     const { data, error } = await supabase.auth.admin.createUser({
       email,
@@ -636,7 +497,7 @@ router.post("/signup", async (req, res) => {
 });
 router.post("/login", async (req, res) => {
   try {
-    const validatedData = appUserLoginSchema2.parse(req.body);
+    const validatedData = appUserLoginSchema.parse(req.body);
     const { email, password } = validatedData;
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -791,7 +652,7 @@ var authenticateAdmin = async (req, res, next) => {
 };
 
 // server/src/routes/adminUserRoutes.ts
-import { z as z3 } from "zod";
+import { z as z2 } from "zod";
 
 // server/src/services/emailService.ts
 import nodemailer from "nodemailer";
@@ -937,10 +798,10 @@ var EmailService = class {
 var emailService_default = new EmailService();
 
 // server/src/routes/adminUserRoutes.ts
-var appUserApprovalSchema2 = z3.object({
-  userId: z3.string(),
-  action: z3.enum(["approve", "reject"]),
-  rejectionReason: z3.string().optional()
+var appUserApprovalSchema = z2.object({
+  userId: z2.string(),
+  action: z2.enum(["approve", "reject"]),
+  rejectionReason: z2.string().optional()
 });
 var router2 = Router2();
 router2.get("/pending", authenticateAdmin, async (req, res) => {
@@ -1030,7 +891,7 @@ router2.get("/all", authenticateAdmin, async (req, res) => {
 });
 router2.post("/approve-reject", authenticateAdmin, async (req, res) => {
   try {
-    const validatedData = appUserApprovalSchema2.parse(req.body);
+    const validatedData = appUserApprovalSchema.parse(req.body);
     const { userId, action, rejectionReason } = validatedData;
     const { data: user, error: fetchError } = await supabase.from("app_users").select("*").eq("id", userId).single();
     if (fetchError || !user) {
@@ -1283,6 +1144,137 @@ import { z as z4 } from "zod";
 import multer from "multer";
 import path2 from "path";
 import fs from "fs";
+
+// server/src/schema.ts
+import { z as z3 } from "zod";
+var insertUserSchema = z3.object({
+  id: z3.string(),
+  email: z3.string().email().optional(),
+  firstName: z3.string().optional(),
+  lastName: z3.string().optional(),
+  profileImageUrl: z3.string().optional()
+});
+var insertPlanSchema = z3.object({
+  title: z3.string().max(255),
+  description: z3.string().optional(),
+  architect: z3.string().max(255).optional(),
+  // Architect or designer name
+  fileName: z3.string().max(255),
+  filePath: z3.string().max(500),
+  fileSize: z3.number(),
+  fileId: z3.string().optional(),
+  // GridFS file ID for large file storage
+  content: z3.string().optional(),
+  // Legacy base64 content for backward compatibility
+  file_url: z3.string().optional(),
+  // URL to the file in Supabase Storage
+  images: z3.array(z3.object({
+    path: z3.string(),
+    filename: z3.string(),
+    size: z3.number(),
+    fileId: z3.string().optional()
+    // GridFS file ID for image storage
+  })).optional(),
+  planType: z3.string().max(100),
+  building_type: z3.string().max(100).optional(),
+  // Type of building (Residential, Commercial, etc.)
+  storeys: z3.number(),
+  lotSize: z3.string().max(50).optional(),
+  orientation: z3.string().max(50).optional(),
+  siteType: z3.string().max(100).optional(),
+  foundationType: z3.string().max(100).optional(),
+  councilArea: z3.string().max(100).optional(),
+  // Additional plan details
+  plotLength: z3.number().optional(),
+  // Plot length in meters
+  plotWidth: z3.number().optional(),
+  // Plot width in meters
+  coveredArea: z3.number().optional(),
+  // Covered area in square meters
+  roadPosition: z3.string().max(50).optional(),
+  // Length Side, Width Side, Corner Plot
+  builderName: z3.string().max(255).optional(),
+  // Builder or designer name
+  jobAddress: z3.string().max(500).optional(),
+  // Job address or location
+  houseType: z3.string().max(50).optional(),
+  // Single Dwelling, Duplex, Townhouse, Unit
+  bedrooms: z3.number().min(0).optional().default(3),
+  // Number of bedrooms
+  toilets: z3.number().min(0).optional().default(2),
+  // Number of toilets/bathrooms
+  livingAreas: z3.number().min(0).optional().default(1),
+  // Number of living spaces
+  numberOfUnits: z3.number().optional(),
+  // Number of units
+  constructionType: z3.array(z3.string()).optional(),
+  // Array of construction types
+  lotSizeMin: z3.number().optional(),
+  // Minimum lot size in square meters
+  lotSizeMax: z3.number().optional(),
+  // Maximum lot size in square meters
+  totalBuildingHeight: z3.number().optional(),
+  // Total building height in meters
+  roofPitch: z3.number().optional(),
+  // Roof pitch in degrees
+  outdoorFeatures: z3.array(z3.string()).optional(),
+  // Array of outdoor features
+  indoorFeatures: z3.array(z3.string()).optional(),
+  // Array of indoor features
+  extractedKeywords: z3.array(z3.string()).optional(),
+  // Auto-extracted keywords from description
+  status: z3.string().max(20).optional(),
+  uploadedBy: z3.string().optional()
+});
+var searchPlanSchema = z3.object({
+  keyword: z3.string().optional(),
+  lotSize: z3.string().optional(),
+  lotSizeMin: z3.string().optional(),
+  lotSizeMax: z3.string().optional(),
+  orientation: z3.string().optional(),
+  siteType: z3.string().optional(),
+  foundationType: z3.string().optional(),
+  storeys: z3.string().optional(),
+  councilArea: z3.string().optional(),
+  search: z3.string().optional(),
+  bedrooms: z3.string().optional(),
+  houseType: z3.string().optional(),
+  constructionType: z3.string().optional(),
+  planType: z3.string().optional(),
+  plotLength: z3.string().optional(),
+  plotWidth: z3.string().optional(),
+  coveredArea: z3.string().optional(),
+  roadPosition: z3.string().optional(),
+  builderName: z3.string().optional(),
+  toilets: z3.string().optional(),
+  livingAreas: z3.string().optional(),
+  numberOfUnits: z3.string().optional(),
+  jobAddress: z3.string().optional(),
+  totalBuildingHeight: z3.string().optional(),
+  roofPitch: z3.string().optional(),
+  outdoorFeatures: z3.union([z3.string(), z3.array(z3.string())]).optional(),
+  indoorFeatures: z3.union([z3.string(), z3.array(z3.string())]).optional(),
+  limit: z3.number().optional().default(20),
+  offset: z3.number().optional().default(0),
+  sortBy: z3.string().optional(),
+  sortOrder: z3.enum(["asc", "desc"]).optional().default("desc")
+});
+var appUserSignupSchema2 = z3.object({
+  email: z3.string().email(),
+  password: z3.string().min(6),
+  name: z3.string().min(1)
+});
+var appUserLoginSchema2 = z3.object({
+  email: z3.string().email(),
+  password: z3.string().min(1)
+});
+var appUserApprovalSchema2 = z3.object({
+  userId: z3.string(),
+  action: z3.enum(["approve", "reject"]),
+  rejectionReason: z3.string().optional()
+});
+
+// server/src/routes/adminroutes.ts
 var adminLoginSchema = z4.object({
   email: z4.string().email(),
   password: z4.string().min(6)
@@ -1705,237 +1697,129 @@ var upload2 = multer2({
   }
 });
 async function registerRoutes(app2) {
-  app2.use("/uploads", express.static(path3.join(process.cwd(), "uploads")));
   app2.use("/api/users", userRoutes_default);
   app2.use("/api/admin/users", adminUserRoutes_default);
   app2.use("/api/admin", adminroutes_default);
-  app2.get("/api/plans", async (req, res) => {
-    const storage2 = getStorage();
-    try {
-      const filters = searchPlanSchema.parse(req.query);
-      const result = await storage2.searchPlans(filters);
-      res.json(result);
-    } catch (error) {
-      if (error instanceof z5.ZodError) {
-        return res.status(400).json({ message: "Invalid query parameters", details: error.errors });
-      }
-      res.status(500).json({ message: "Error searching plans" });
-    }
+  app2.get("/api/auth/user", async (req, res) => {
+    const mockUser = {
+      id: "admin",
+      email: "admin@example.com",
+      firstName: "Admin",
+      lastName: "User",
+      profileImageUrl: null,
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    };
+    res.json(mockUser);
   });
   app2.get("/api/plans/search", async (req, res) => {
-    const storage2 = getStorage();
-    try {
-      const filters = { ...req.query };
-      if (filters.limit) filters.limit = parseInt(filters.limit);
-      if (filters.offset) filters.offset = parseInt(filters.offset);
-      const validatedFilters = searchPlanSchema.parse(filters);
-      const result = await storage2.searchPlans(validatedFilters);
-      res.json(result);
-    } catch (error) {
-      if (error instanceof z5.ZodError) {
-        return res.status(400).json({ message: "Invalid query parameters", details: error.errors });
-      }
-      res.status(500).json({ message: "Error searching plans" });
-    }
-  });
-  app2.get("/api/plans/recent", async (req, res) => {
-    const storage2 = getStorage();
-    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
-    const plans = await storage2.getRecentPlans(limit);
-    res.json(plans);
-  });
-  app2.get("/api/plans/stats", async (req, res) => {
-    const storage2 = getStorage();
-    const stats = await storage2.getPlanStats();
-    res.json(stats);
-  });
-  app2.get("/api/plans/total-downloads", async (req, res) => {
     try {
       const storage2 = getStorage();
-      const stats = await storage2.getPlanStats();
-      res.json({ totalDownloads: stats.totalDownloads });
+      const filters = {
+        keyword: req.query.keyword,
+        lotSize: req.query.lotSize,
+        lotSizeMin: req.query.lotSizeMin,
+        lotSizeMax: req.query.lotSizeMax,
+        orientation: req.query.orientation,
+        siteType: req.query.siteType,
+        foundationType: req.query.foundationType,
+        storeys: req.query.storeys,
+        councilArea: req.query.councilArea,
+        search: req.query.search,
+        bedrooms: req.query.bedrooms,
+        houseType: req.query.houseType,
+        constructionType: req.query.constructionType,
+        planType: req.query.planType,
+        plotLength: req.query.plotLength,
+        plotWidth: req.query.plotWidth,
+        coveredArea: req.query.coveredArea,
+        roadPosition: req.query.roadPosition,
+        builderName: req.query.builderName,
+        jobAddress: req.query.jobAddress,
+        toilets: req.query.toilets,
+        livingAreas: req.query.livingAreas,
+        totalBuildingHeight: req.query.totalBuildingHeight,
+        roofPitch: req.query.roofPitch,
+        outdoorFeatures: req.query.outdoorFeatures,
+        indoorFeatures: req.query.indoorFeatures,
+        numberOfUnits: req.query.numberOfUnits,
+        limit: req.query.limit ? parseInt(req.query.limit) : 20,
+        offset: req.query.offset ? parseInt(req.query.offset) : 0,
+        sortBy: req.query.sortBy,
+        sortOrder: req.query.sortOrder
+      };
+      const plans = await storage2.searchPlans(filters);
+      res.json(plans);
     } catch (error) {
-      console.error("Error fetching total downloads:", error);
-      res.status(500).json({ message: "Error fetching total downloads" });
+      console.error("Error searching plans:", error);
+      res.status(500).json({ message: "Failed to search plans" });
     }
   });
   app2.get("/api/plans/:id", async (req, res) => {
-    const storage2 = getStorage();
-    const plan = await storage2.getPlan(req.params.id);
-    if (plan) {
-      res.json(plan);
-    } else {
-      res.status(404).json({ message: "Plan not found" });
-    }
-  });
-  app2.get("/api/plans/:id/images/:fileId", async (req, res) => {
     try {
       const storage2 = getStorage();
       const plan = await storage2.getPlan(req.params.id);
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
-      const image = plan.images?.find((img) => img.fileId === req.params.fileId);
-      if (!image) {
-        return res.status(404).json({ message: "Image not found" });
-      }
-      if (image.path && !image.path.startsWith("http") && !image.path.includes("\\") && !image.path.includes("/uploads/")) {
-        try {
-          const storage3 = getStorage();
-          const signedUrl = await storage3.getFileUrl(image.path);
-          return res.redirect(signedUrl);
-        } catch (error) {
-          console.error("Error getting signed URL for path:", image.path, error);
-          return res.status(404).json({ message: "Failed to get image URL" });
-        }
-      }
-      if (image.path && image.path.startsWith("http")) {
-        return res.redirect(image.path);
-      }
-      let filePath = "";
-      let fileExists = false;
-      if (image.path) {
-        if (path3.isAbsolute(image.path)) {
-          filePath = image.path;
-        } else {
-          filePath = path3.join(process.cwd(), image.path);
-        }
-        if (fs2.existsSync(filePath)) {
-          fileExists = true;
-        } else {
-          filePath = path3.join(process.cwd(), "uploads", path3.basename(image.path));
-          if (fs2.existsSync(filePath)) {
-            fileExists = true;
-          }
-        }
-      }
-      if (!fileExists || !filePath) {
-        return res.status(404).json({ message: "Image file not found" });
-      }
-      const fileExtension = path3.extname(filePath).toLowerCase();
-      let contentType = "image/jpeg";
-      if (fileExtension === ".png") contentType = "image/png";
-      else if (fileExtension === ".jpg" || fileExtension === ".jpeg") contentType = "image/jpeg";
-      else if (fileExtension === ".gif") contentType = "image/gif";
-      else if (fileExtension === ".webp") contentType = "image/webp";
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Cache-Control", "public, max-age=31536000");
-      res.sendFile(filePath);
+      res.json(plan);
     } catch (error) {
-      console.error("Error serving image:", error);
-      res.status(500).json({ message: "Failed to serve image" });
+      console.error("Error fetching plan:", error);
+      res.status(500).json({ message: "Failed to fetch plan" });
     }
-  });
-  app2.post("/api/plans", upload2.single("file"), async (req, res) => {
-    const storage2 = getStorage();
-    try {
-      const planData = insertPlanSchema.parse(req.body);
-      if (req.file) {
-        const fileContent = fs2.readFileSync(req.file.path);
-        planData.content = fileContent.toString("base64");
-        planData.fileName = req.file.originalname;
-        planData.fileSize = req.file.size;
-        fs2.unlinkSync(req.file.path);
-      }
-      const userId = req.user?.id || "default-user-id";
-      const newPlan = await storage2.createPlan(planData, userId);
-      res.status(201).json(newPlan);
-    } catch (error) {
-      if (error instanceof z5.ZodError) {
-        return res.status(400).json({ message: "Invalid plan data", details: error.errors });
-      }
-      res.status(500).json({ message: "Error creating plan" });
-    }
-  });
-  app2.put("/api/plans/:id", async (req, res) => {
-    const storage2 = getStorage();
-    try {
-      const updates = req.body;
-      const updatedPlan = await storage2.updatePlan(req.params.id, updates);
-      if (updatedPlan) {
-        res.json(updatedPlan);
-      } else {
-        res.status(404).json({ message: "Plan not found" });
-      }
-    } catch (error) {
-      res.status(500).json({ message: "Error updating plan" });
-    }
-  });
-  app2.delete("/api/plans/:id", async (req, res) => {
-    const storage2 = getStorage();
-    await storage2.deletePlan(req.params.id);
-    res.status(204).send();
   });
   app2.get("/api/plans/:id/download", async (req, res) => {
     try {
       const storage2 = getStorage();
-      const plan = await storage2.getPlan(req.params.id);
-      if (!plan) {
-        return res.status(404).json({ message: "Plan not found" });
+      const planId = req.params.id;
+      const plan = await storage2.getPlan(planId);
+      if (!plan || !plan.filePath) {
+        return res.status(404).json({ message: "Plan not found or missing file path" });
       }
       await storage2.incrementDownloadCount(plan.id.toString());
-      let filePath = "";
-      let fileExists = false;
-      if (plan.file_url) {
-        console.log("Using file_url:", plan.file_url);
-        try {
-          const signedUrl = await storage2.getFileUrl(plan.file_url);
-          const response = await fetch(signedUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch file: ${response.statusText}`);
-          }
-          const sanitizedTitle2 = plan.title ? plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, "").replace(/\s+/g, "_") : null;
-          const fileName2 = sanitizedTitle2 || plan.fileName || "plan.pdf";
-          const fileExtension2 = plan.fileName ? path3.extname(plan.fileName).toLowerCase() : ".pdf";
-          let contentType2 = "application/pdf";
-          if (fileExtension2 === ".png") contentType2 = "image/png";
-          else if (fileExtension2 === ".jpg" || fileExtension2 === ".jpeg") contentType2 = "image/jpeg";
-          else if (fileExtension2 === ".gif") contentType2 = "image/gif";
-          res.setHeader("Content-Type", contentType2);
-          res.setHeader("Content-Disposition", `attachment; filename="${fileName2}${fileExtension2}"`);
-          res.setHeader("Cache-Control", "no-cache");
-          const fileBuffer = await response.arrayBuffer();
-          return res.send(Buffer.from(fileBuffer));
-        } catch (error) {
-          console.error("Error fetching file from Supabase Storage:", error);
-        }
+      const { data: fileBlob, error: storageError } = await supabase.storage.from("plan-files").download(plan.filePath);
+      if (storageError) {
+        console.error(`Error downloading from Supabase:`, storageError);
+        return res.status(404).json({
+          message: "File not found in storage",
+          details: storageError.message
+        });
       }
-      if (plan.filePath) {
-        const originalPath = plan.filePath;
-        console.log("Original file path from DB:", originalPath);
-        if (path3.isAbsolute(originalPath)) {
-          filePath = originalPath;
-        } else {
-          filePath = path3.join(process.cwd(), originalPath);
-        }
-        console.log("Trying file path:", filePath);
-        if (fs2.existsSync(filePath)) {
-          fileExists = true;
-        } else {
-          filePath = path3.join(process.cwd(), "uploads", path3.basename(originalPath));
-          console.log("Trying uploads directory:", filePath);
-          if (fs2.existsSync(filePath)) {
-            fileExists = true;
-          }
-        }
-      }
-      if (!fileExists || !filePath) {
-        console.error("File not found at any attempted path");
-        return res.status(404).json({ message: "File not found" });
-      }
-      const sanitizedTitle = plan.title ? plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, "").replace(/\s+/g, "_") : null;
-      const fileName = sanitizedTitle || plan.fileName || "plan.pdf";
-      const fileExtension = path3.extname(filePath).toLowerCase();
-      let contentType = "application/pdf";
-      if (fileExtension === ".png") contentType = "image/png";
-      else if (fileExtension === ".jpg" || fileExtension === ".jpeg") contentType = "image/jpeg";
-      else if (fileExtension === ".gif") contentType = "image/gif";
+      const sanitizedTitle = plan.title ? plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, "").replace(/\s+/g, "_") : "plan";
+      const fileExtension = path3.extname(plan.filePath);
+      const fileName = `${sanitizedTitle}${fileExtension}`;
+      const contentType = fileBlob.type;
       res.setHeader("Content-Type", contentType);
-      res.setHeader("Content-Disposition", `attachment; filename="${fileName}${fileExtension}"`);
-      res.sendFile(filePath);
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      const fileBuffer = await fileBlob.arrayBuffer();
+      return res.send(Buffer.from(fileBuffer));
     } catch (error) {
-      console.error("Error downloading plan:", error);
-      res.status(500).json({ message: "Failed to download plan" });
+      console.error(`Error in download endpoint for plan ${req.params.id}:`, error);
+      res.status(500).json({
+        message: "Failed to download plan",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app2.get("/api/plans/recent", async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+      const plans = await storage2.getRecentPlans(limit);
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching recent plans:", error);
+      res.status(500).json({ message: "Failed to fetch recent plans" });
+    }
+  });
+  app2.get("/api/plans/stats", async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const stats = await storage2.getPlanStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching plan stats:", error);
+      res.status(500).json({ message: "Failed to fetch plan statistics" });
     }
   });
   const server = createServer(app2);
@@ -1943,7 +1827,7 @@ async function registerRoutes(app2) {
 }
 
 // server/vite.ts
-import express2 from "express";
+import express from "express";
 import fs3 from "fs";
 import path4 from "path";
 import { fileURLToPath as fileURLToPath3 } from "url";
@@ -2073,7 +1957,7 @@ function serveStatic(app2) {
     });
     return;
   }
-  app2.use(express2.static(distPath, {
+  app2.use(express.static(distPath, {
     maxAge: "1d",
     // Cache static assets for 1 day
     etag: true
@@ -2098,7 +1982,7 @@ function serveStatic(app2) {
 var __filename4 = fileURLToPath4(import.meta.url);
 var __dirname4 = path5.dirname(__filename4);
 dotenv3.config({ path: path5.join(__dirname4, "../.env") });
-var app = express3();
+var app = express2();
 app.use(compression({
   filter: (req, res) => {
     if (req.headers["x-no-compression"]) {
@@ -2113,8 +1997,8 @@ app.use(compression({
   chunkSize: 16 * 1024
   // 16KB chunks for better streaming
 }));
-app.use(express3.json({ limit: "200mb" }));
-app.use(express3.urlencoded({ limit: "200mb", extended: false }));
+app.use(express2.json({ limit: "200mb" }));
+app.use(express2.urlencoded({ limit: "200mb", extended: false }));
 app.use(cookieParser());
 var normalizeOrigin = (origin) => {
   if (!origin) return origin;
