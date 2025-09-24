@@ -1867,6 +1867,28 @@ async function registerRoutes(app2) {
       });
     }
   });
+  app2.get("/api/plans/:planId/images/:imageId", async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const { planId, imageId } = req.params;
+      const plan = await storage2.getPlan(planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+      const image = plan.images?.find((img) => img.fileId === imageId);
+      if (!image || !image.path) {
+        return res.status(404).json({ message: "Image not found" });
+      }
+      const signedUrl = await storage2.getFileUrl(image.path);
+      res.redirect(signedUrl);
+    } catch (error) {
+      console.error(`Error in image endpoint for plan ${req.params.planId}, image ${req.params.imageId}:`, error);
+      res.status(500).json({
+        message: "Failed to fetch image",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
   const server = createServer(app2);
   return server;
 }
