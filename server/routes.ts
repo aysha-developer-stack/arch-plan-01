@@ -217,6 +217,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get plan image endpoint
+  app.get("/api/plans/:planId/images/:imageId", async (req: Request, res: Response) => {
+    try {
+      const storage = getStorage();
+      const { planId, imageId } = req.params;
+      
+      // 1. Get the plan's data from the database
+      const plan = await storage.getPlan(planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+
+      // 2. Find the image with the matching fileId in the plan's images array
+      const image = plan.images?.find((img: any) => img.fileId === imageId);
+      if (!image || !image.path) {
+        return res.status(404).json({ message: "Image not found" });
+      }
+
+      // 3. Get the image file from Supabase Storage
+      const { data: imageBlob, error: storageError } = await supabase.storage
+        .from('plan-files')
+        .download(image.path);
+
+      if (storageError) {
+        console.error(`Error downloading image from Supabase:`, storageError);
+        return res.status(404).json({ 
+          message: "Image not found in storage",
+          details: storageError.message 
+        });
+      }
+
+      // 4. Set appropriate headers for image display
+      const contentType = imageBlob.type || 'image/jpeg'; // Default to JPEG if type is unknown
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+      
+      // 5. Send the image to the client
+      const imageBuffer = await imageBlob.arrayBuffer();
+      return res.send(Buffer.from(imageBuffer));
+      
+    } catch (error) {
+      console.error(`Error in image endpoint for plan ${req.params.planId}, image ${req.params.imageId}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch image",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   const server = createServer(app);
   return server;
 }
