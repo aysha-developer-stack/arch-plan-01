@@ -63,7 +63,7 @@ router.post('/login', async (req: Request, res: Response) => {
     res.cookie('supabase-auth-token', session.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // true for production (HTTPS), false for development (HTTP)
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
       maxAge: session.expires_in * 1000,
       path: '/',
       domain: undefined
