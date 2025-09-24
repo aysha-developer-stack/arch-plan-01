@@ -113,10 +113,71 @@ var SupabaseStorage = class {
         `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`
       );
     }
+    if (filters.search) {
+      query = query.or(
+        `title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,builderName.ilike.%${filters.search}%`
+      );
+    }
+    if (filters.lotSize) {
+      query = query.eq("lotSize", filters.lotSize);
+    }
+    if (filters.orientation) {
+      query = query.eq("orientation", filters.orientation);
+    }
+    if (filters.siteType) {
+      query = query.eq("siteType", filters.siteType);
+    }
+    if (filters.foundationType) {
+      query = query.eq("foundationType", filters.foundationType);
+    }
+    if (filters.storeys) {
+      query = query.eq("storeys", parseInt(filters.storeys));
+    }
+    if (filters.councilArea) {
+      query = query.eq("councilArea", filters.councilArea);
+    }
+    if (filters.bedrooms) {
+      query = query.eq("bedrooms", parseInt(filters.bedrooms));
+    }
+    if (filters.houseType) {
+      query = query.eq("houseType", filters.houseType);
+    }
+    if (filters.planType) {
+      query = query.eq("planType", filters.planType);
+    }
+    if (filters.builderName) {
+      query = query.ilike("builderName", `%${filters.builderName}%`);
+    }
+    if (filters.jobAddress) {
+      query = query.ilike("jobAddress", `%${filters.jobAddress}%`);
+    }
+    if (filters.toilets) {
+      query = query.eq("toilets", parseInt(filters.toilets));
+    }
+    if (filters.livingAreas) {
+      query = query.eq("livingAreas", parseInt(filters.livingAreas));
+    }
+    if (filters.numberOfUnits) {
+      query = query.eq("numberOfUnits", parseInt(filters.numberOfUnits));
+    }
+    if (filters.outdoorFeatures) {
+      const features = Array.isArray(filters.outdoorFeatures) ? filters.outdoorFeatures : [filters.outdoorFeatures];
+      if (features.length > 0) {
+        query = query.contains("outdoorFeatures", features);
+      }
+    }
+    if (filters.indoorFeatures) {
+      const features = Array.isArray(filters.indoorFeatures) ? filters.indoorFeatures : [filters.indoorFeatures];
+      if (features.length > 0) {
+        query = query.contains("indoorFeatures", features);
+      }
+    }
     if (filters.sortBy) {
       query = query.order(filters.sortBy, {
         ascending: filters.sortOrder === "asc"
       });
+    } else {
+      query = query.order("created_at", { ascending: false });
     }
     if (filters.limit) {
       query = query.limit(filters.limit);
@@ -440,8 +501,8 @@ var searchPlanSchema = z.object({
   jobAddress: z.string().optional(),
   totalBuildingHeight: z.string().optional(),
   roofPitch: z.string().optional(),
-  outdoorFeatures: z.string().optional(),
-  indoorFeatures: z.string().optional(),
+  outdoorFeatures: z.union([z.string(), z.array(z.string())]).optional(),
+  indoorFeatures: z.union([z.string(), z.array(z.string())]).optional(),
   limit: z.number().optional().default(20),
   offset: z.number().optional().default(0),
   sortBy: z.string().optional(),
@@ -474,7 +535,13 @@ import { Router } from "express";
 
 // server/src/middleware/userAuthMiddleware.ts
 var authenticateUser = async (req, res, next) => {
-  const token = req.cookies?.["supabase-auth-token"];
+  let token = req.cookies?.["supabase-auth-token"];
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    }
+  }
   if (!token) {
     return res.status(401).json({
       success: false,
@@ -1704,17 +1771,17 @@ async function registerRoutes(app2) {
       if (!image) {
         return res.status(404).json({ message: "Image not found" });
       }
-      if (image.path && (image.path.startsWith("http") || image.path.includes("supabase"))) {
-        if (!image.path.startsWith("http")) {
-          try {
-            const storage3 = getStorage();
-            const signedUrl = await storage3.getFileUrl(image.path);
-            return res.redirect(signedUrl);
-          } catch (error) {
-            console.error("Error getting signed URL:", error);
-            return res.status(404).json({ message: "Failed to get image URL" });
-          }
+      if (image.path && !image.path.startsWith("http") && !image.path.includes("\\") && !image.path.includes("/uploads/")) {
+        try {
+          const storage3 = getStorage();
+          const signedUrl = await storage3.getFileUrl(image.path);
+          return res.redirect(signedUrl);
+        } catch (error) {
+          console.error("Error getting signed URL for path:", image.path, error);
+          return res.status(404).json({ message: "Failed to get image URL" });
         }
+      }
+      if (image.path && image.path.startsWith("http")) {
         return res.redirect(image.path);
       }
       let filePath = "";
