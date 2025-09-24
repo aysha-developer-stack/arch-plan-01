@@ -1878,7 +1878,27 @@ async function registerRoutes(app2) {
       let fileExists = false;
       if (plan.file_url) {
         console.log("Using file_url:", plan.file_url);
-        return res.redirect(plan.file_url);
+        try {
+          const signedUrl = await storage2.getFileUrl(plan.file_url);
+          const response = await fetch(signedUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch file: ${response.statusText}`);
+          }
+          const sanitizedTitle2 = plan.title ? plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, "").replace(/\s+/g, "_") : null;
+          const fileName2 = sanitizedTitle2 || plan.fileName || "plan.pdf";
+          const fileExtension2 = plan.fileName ? path3.extname(plan.fileName).toLowerCase() : ".pdf";
+          let contentType2 = "application/pdf";
+          if (fileExtension2 === ".png") contentType2 = "image/png";
+          else if (fileExtension2 === ".jpg" || fileExtension2 === ".jpeg") contentType2 = "image/jpeg";
+          else if (fileExtension2 === ".gif") contentType2 = "image/gif";
+          res.setHeader("Content-Type", contentType2);
+          res.setHeader("Content-Disposition", `attachment; filename="${fileName2}${fileExtension2}"`);
+          res.setHeader("Cache-Control", "no-cache");
+          const fileBuffer = await response.arrayBuffer();
+          return res.send(Buffer.from(fileBuffer));
+        } catch (error) {
+          console.error("Error fetching file from Supabase Storage:", error);
+        }
       }
       if (plan.filePath) {
         const originalPath = plan.filePath;

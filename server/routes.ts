@@ -271,7 +271,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Strategy 1: Use file_url if available (Supabase Storage)
       if (plan.file_url) {
         console.log("Using file_url:", plan.file_url);
-        return res.redirect(plan.file_url);
+        try {
+          // Get signed URL from Supabase Storage
+          const signedUrl = await storage.getFileUrl(plan.file_url);
+          
+          // Fetch the file from Supabase Storage
+          const response = await fetch(signedUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch file: ${response.statusText}`);
+          }
+          
+          // Use plan title as filename, sanitized for file system compatibility
+          const sanitizedTitle = plan.title
+            ? plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, '').replace(/\s+/g, '_')
+            : null;
+          const fileName = sanitizedTitle || plan.fileName || 'plan.pdf';
+          
+          // Determine content type based on file extension
+          const fileExtension = plan.fileName ? path.extname(plan.fileName).toLowerCase() : '.pdf';
+          let contentType = "application/pdf";
+          if (fileExtension === ".png") contentType = "image/png";
+          else if (fileExtension === ".jpg" || fileExtension === ".jpeg") contentType = "image/jpeg";
+          else if (fileExtension === ".gif") contentType = "image/gif";
+
+          // Set proper headers for download
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Content-Disposition", `attachment; filename="${fileName}${fileExtension}"`);
+          res.setHeader("Cache-Control", "no-cache");
+          
+          // Stream the file to the client
+          const fileBuffer = await response.arrayBuffer();
+          return res.send(Buffer.from(fileBuffer));
+        } catch (error) {
+          console.error("Error fetching file from Supabase Storage:", error);
+          // Fall through to local file strategies
+        }
       }
 
       // Strategy 2: Try the stored filePath
