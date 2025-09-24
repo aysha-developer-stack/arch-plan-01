@@ -99,6 +99,10 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
   // Per-user download count state
   const [userDownloads, setUserDownloads] = useState<number | null>(null);
 
+  // Pagination state for manage plans
+  const [plansCurrentPage, setPlansCurrentPage] = useState(1);
+  const [plansPerPage] = useState(25);
+
   useEffect(() => {
     const fetchUserDownloads = async () => {
       try {
@@ -170,7 +174,7 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     retry: false,
   });
 
-  // Fetch admin plans
+  // Fetch admin plans with pagination
   const { data: plansResponse, isLoading: plansLoading } = useQuery<{
     success: boolean;
     data: IPlan[];
@@ -181,11 +185,75 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
       pages: number;
     };
   }>({
-    queryKey: ["/api/admin/plans"],
+    queryKey: ["/api/admin/plans", plansCurrentPage, plansPerPage],
+    queryFn: async () => {
+      const response = await apiClient.get(`/api/admin/plans?page=${plansCurrentPage}&limit=${plansPerPage}`);
+      return response.data;
+    },
     retry: false,
   });
 
   const plans = plansResponse?.data || [];
+  const plansPagination = plansResponse?.pagination;
+
+  // Handle page change for plans
+  const handlePlansPageChange = (page: number) => {
+    setPlansCurrentPage(page);
+  };
+
+  // Render pagination controls for plans
+  const renderPlansPaginationControls = () => {
+    if (!plansPagination || plansPagination.pages <= 1) return null;
+
+    const { page, pages, total } = plansPagination;
+    const startItem = (page - 1) * plansPerPage + 1;
+    const endItem = Math.min(page * plansPerPage, total);
+
+    return (
+      <div className="flex items-center justify-between px-2 py-4">
+        <div className="text-sm text-slate-600">
+          Showing {startItem} to {endItem} of {total} plans
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePlansPageChange(1)}
+            disabled={page === 1}
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePlansPageChange(page - 1)}
+            disabled={page === 1}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm font-medium">
+            Page {page} of {pages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePlansPageChange(page + 1)}
+            disabled={page === pages}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePlansPageChange(pages)}
+            disabled={page === pages}
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   // Upload plan mutation
   const uploadMutation = useMutation({
@@ -2218,6 +2286,7 @@ return (
                     </Table>
                   </div>
                 )}
+                {renderPlansPaginationControls()}
               </CardContent>
             </Card>
           </TabsContent>

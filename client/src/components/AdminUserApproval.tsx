@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { apiClient } from '../lib/axios';
-import { CheckCircle, XCircle, Clock, Users, AlertCircle, Loader2, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Users, AlertCircle, Loader2, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -37,12 +37,18 @@ export const AdminUserApproval: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const usersPerPage = 25;
 
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      const response = await apiClient.get(`/api/admin/users?status=${filter}`);
+      const response = await apiClient.get(`/api/admin/users?status=${filter}&page=${currentPage}&limit=${usersPerPage}`);
       setUsers(response.data.data);
+      setTotalUsers(response.data.total || response.data.data.length);
     } catch (error) {
       console.error('Error fetching users:', error);
       setMessage({ type: 'error', text: 'Failed to fetch users' });
@@ -61,9 +67,15 @@ export const AdminUserApproval: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-    fetchStats();
+    setCurrentPage(1); // Reset to first page when filter changes
   }, [filter]);
+
+  useEffect(() => {
+    fetchUsers();
+    if (currentPage === 1) {
+      fetchStats();
+    }
+  }, [filter, currentPage]);
 
   const handleApprove = async (userId: string) => {
     try {
@@ -130,6 +142,87 @@ export const AdminUserApproval: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const totalPages = Math.ceil(totalUsers / usersPerPage);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const renderPaginationControls = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between mt-6 px-4 py-3 bg-slate-50 rounded-lg">
+        <div className="text-sm text-slate-600">
+          Showing {((currentPage - 1) * usersPerPage) + 1} to {Math.min(currentPage * usersPerPage, totalUsers)} of {totalUsers} users
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          
+          {/* Page numbers */}
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            
+            return (
+              <Button
+                key={pageNum}
+                variant={currentPage === pageNum ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(pageNum)}
+                className="min-w-[40px]"
+              >
+                {pageNum}
+              </Button>
+            );
+          })}
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -230,101 +323,106 @@ export const AdminUserApproval: React.FC = () => {
               No users found
             </div>
           ) : (
-            <div className="space-y-4">
-              {users.map((user) => (
-                <div key={user._id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div>
-                        <h3 className="font-medium">
-                          {user.firstName} {user.lastName}
-                        </h3>
-                        <p className="text-sm text-gray-500">{user.email}</p>
-                        <p className="text-xs text-gray-400">
-                          Joined: {formatDate(user.createdAt)} • Downloads: {user.downloadCount}
-                        </p>
+            <>
+              <div className="space-y-4">
+                {users.map((user) => (
+                  <div key={user._id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3">
+                        <div>
+                          <h3 className="font-medium">
+                            {user.firstName} {user.lastName}
+                          </h3>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                          <p className="text-xs text-gray-400">
+                            Joined: {formatDate(user.createdAt)} • Downloads: {user.downloadCount}
+                          </p>
+                        </div>
+                        {getStatusBadge(user.status)}
                       </div>
-                      {getStatusBadge(user.status)}
+                      {user.rejectionReason && (
+                        <div className="mt-2 p-2 bg-red-50 rounded text-sm">
+                          <strong>Rejection Reason:</strong> {user.rejectionReason}
+                        </div>
+                      )}
                     </div>
-                    {user.rejectionReason && (
-                      <div className="mt-2 p-2 bg-red-50 rounded text-sm">
-                        <strong>Rejection Reason:</strong> {user.rejectionReason}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex space-x-2">
-                    {user.status === 'pending' && (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(user.id)}
-                          disabled={isActionLoading}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => setSelectedUser(user)}
-                              disabled={isActionLoading}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Reject User</DialogTitle>
-                              <DialogDescription>
-                                Please provide a reason for rejecting {user.firstName} {user.lastName}'s account.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-2">
-                              <Label htmlFor="rejection-reason">Rejection Reason</Label>
-                              <Textarea
-                                id="rejection-reason"
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                placeholder="Enter the reason for rejection..."
-                                rows={3}
-                              />
-                            </div>
-                            <DialogFooter>
+                    <div className="flex space-x-2">
+                      {user.status === 'pending' && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprove(user.id)}
+                            disabled={isActionLoading}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
                               <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedUser(null);
-                                  setRejectionReason('');
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                              <Button
+                                size="sm"
                                 variant="destructive"
-                                onClick={handleReject}
-                                disabled={isActionLoading || !rejectionReason.trim()}
+                                onClick={() => setSelectedUser(user)}
+                                disabled={isActionLoading}
                               >
-                                {isActionLoading ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                                    Rejecting...
-                                  </>
-                                ) : (
-                                  'Reject User'
-                                )}
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Reject
                               </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </>
-                    )}
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Reject User</DialogTitle>
+                                <DialogDescription>
+                                  Please provide a reason for rejecting {user.firstName} {user.lastName}'s account.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-2">
+                                <Label htmlFor="rejection-reason">Rejection Reason</Label>
+                                <Textarea
+                                  id="rejection-reason"
+                                  value={rejectionReason}
+                                  onChange={(e) => setRejectionReason(e.target.value)}
+                                  placeholder="Enter the reason for rejection..."
+                                  rows={3}
+                                />
+                              </div>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedUser(null);
+                                    setRejectionReason('');
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={handleReject}
+                                  disabled={isActionLoading || !rejectionReason.trim()}
+                                >
+                                  {isActionLoading ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                      Rejecting...
+                                    </>
+                                  ) : (
+                                    'Reject User'
+                                  )}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              
+              {/* Pagination Controls */}
+              {renderPaginationControls()}
+            </>
           )}
         </CardContent>
       </Card>
