@@ -272,9 +272,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (plan.file_url) {
         console.log("Using file_url:", plan.file_url);
         try {
-          // Check if file_url is already a signed URL or just a filename
-          let signedUrl = plan.file_url;
-          if (!plan.file_url.includes('supabase.co')) {
+          // Always generate a fresh signed URL to avoid expiration issues
+          let signedUrl: string;
+          if (plan.file_url.includes('supabase.co')) {
+            // Extract the file path from the existing signed URL
+            const urlParts = plan.file_url.split('/object/sign/')[1];
+            const filePath = urlParts ? urlParts.split('?')[0] : plan.file_url;
+            signedUrl = await storage.getFileUrl(filePath);
+          } else {
             // It's just a filename, get signed URL from Supabase Storage
             signedUrl = await storage.getFileUrl(plan.file_url);
           }
