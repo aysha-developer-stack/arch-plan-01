@@ -17,10 +17,15 @@ class EmailService {
     console.log('🌐 Client URL:', config.CLIENT_URL);
     
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // true for 465, false for other ports
       auth: {
         user: config.EMAIL_USER,
         pass: config.EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
       },
       debug: process.env.NODE_ENV === 'production', // Enable debug in production
       logger: process.env.NODE_ENV === 'production'  // Enable logger in production
