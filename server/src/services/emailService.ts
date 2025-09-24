@@ -11,17 +11,29 @@ class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    console.log('🔧 Initializing EmailService...');
+    console.log('📧 Email User:', config.EMAIL_USER ? '✅ Set' : '❌ Missing');
+    console.log('🔑 Email Password:', config.EMAIL_PASSWORD ? '✅ Set' : '❌ Missing');
+    console.log('🌐 Client URL:', config.CLIENT_URL);
+    
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: config.EMAIL_USER,
         pass: config.EMAIL_PASSWORD
-      }
+      },
+      debug: process.env.NODE_ENV === 'production', // Enable debug in production
+      logger: process.env.NODE_ENV === 'production'  // Enable logger in production
     });
   }
 
   async sendEmail(options: EmailOptions): Promise<void> {
     try {
+      console.log('📤 Attempting to send email...');
+      console.log('📧 To:', options.to);
+      console.log('📋 Subject:', options.subject);
+      console.log('🔧 From:', `"ArchPlan" <${config.EMAIL_USER}>`);
+      
       const mailOptions = {
         from: `"ArchPlan" <${config.EMAIL_USER}>`,
         to: options.to,
@@ -30,14 +42,29 @@ class EmailService {
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', result.messageId);
+      console.log('✅ Email sent successfully!');
+      console.log('📧 Message ID:', result.messageId);
+      console.log('📧 Response:', result.response);
     } catch (error) {
-      console.error('Error sending email:', error);
-      throw new Error('Failed to send email');
+      console.error('❌ Error sending email:');
+      console.error('Error type:', (error as any).constructor?.name);
+      console.error('Error message:', (error as any).message);
+      console.error('Error code:', (error as any).code);
+      console.error('Error command:', (error as any).command);
+      
+      if ((error as any).response) {
+        console.error('SMTP Response:', (error as any).response);
+      }
+      
+      throw new Error(`Failed to send email: ${(error as any).message || 'Unknown error'}`);
     }
   }
 
   async sendApprovalEmail(userEmail: string, userName: string): Promise<void> {
+    console.log('🎉 Sending approval email...');
+    console.log('👤 User:', userName);
+    console.log('📧 Email:', userEmail);
+    
     const subject = 'Account Approved - Welcome to ArchPlan!';
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

@@ -4,7 +4,10 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '../.env') });
+
+// Load environment variables from both locations
+dotenv.config({ path: path.join(__dirname, '../.env') }); // Root .env
+dotenv.config({ path: path.join(__dirname, '.env') }); // Server .env
 
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from 'cookie-parser';
@@ -13,13 +16,14 @@ import type { RequestHandler } from 'express';
 import compression from 'compression';
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
+import emailService from "./src/services/emailService.js";
 
 const app = express();
 
 // Middleware
 // Configure compression with optimized settings for PDF downloads
 app.use(compression({
-  filter: (req, res) => {
+  filter: (req: Request, res: Response) => {
     // Don't compress responses with this request header
     if (req.headers['x-no-compression']) {
       return false;
@@ -256,6 +260,16 @@ const startServer = async () => {
         console.log(`🚀 Server running on port ${PORT} (bound to 0.0.0.0 for Railway)`);
         console.log(`🌐 Server should be accessible at: https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'your-app.railway.app'}`);
         console.log(`🔍 Railway Debug: Listening on 0.0.0.0:${PORT} as required by Railway proxy`);
+        
+        // Initialize email service to trigger constructor logs
+        console.log('📧 Initializing email service...');
+        try {
+          // This will trigger the constructor and show email configuration
+          const testEmailService = emailService;
+          console.log('✅ Email service initialized successfully');
+        } catch (error) {
+          console.error('❌ Email service initialization failed:', error);
+        }
         
         // Add a simple health check log
         setTimeout(() => {

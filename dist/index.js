@@ -1,7 +1,7 @@
 // server/index.ts
 import dotenv3 from "dotenv";
-import path5 from "path";
-import { fileURLToPath as fileURLToPath4 } from "url";
+import path6 from "path";
+import { fileURLToPath as fileURLToPath5 } from "url";
 import express2 from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -387,9 +387,9 @@ function getStorage() {
 
 // server/routes.ts
 import multer2 from "multer";
-import path3 from "path";
+import path4 from "path";
 import fs2 from "fs";
-import { fileURLToPath as fileURLToPath2 } from "url";
+import { fileURLToPath as fileURLToPath3 } from "url";
 
 // server/src/routes/userRoutes.ts
 import { Router } from "express";
@@ -659,7 +659,12 @@ import nodemailer from "nodemailer";
 
 // server/src/config.ts
 import dotenv2 from "dotenv";
-dotenv2.config();
+import path2 from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
+var __filename2 = fileURLToPath2(import.meta.url);
+var __dirname2 = path2.dirname(__filename2);
+dotenv2.config({ path: path2.join(__dirname2, "../../.env") });
+dotenv2.config({ path: path2.join(__dirname2, "../.env") });
 var config = {
   EMAIL_USER: process.env.EMAIL_USER || "",
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || "",
@@ -673,16 +678,28 @@ var config_default = config;
 var EmailService = class {
   transporter;
   constructor() {
+    console.log("\u{1F527} Initializing EmailService...");
+    console.log("\u{1F4E7} Email User:", config_default.EMAIL_USER ? "\u2705 Set" : "\u274C Missing");
+    console.log("\u{1F511} Email Password:", config_default.EMAIL_PASSWORD ? "\u2705 Set" : "\u274C Missing");
+    console.log("\u{1F310} Client URL:", config_default.CLIENT_URL);
     this.transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: config_default.EMAIL_USER,
         pass: config_default.EMAIL_PASSWORD
-      }
+      },
+      debug: process.env.NODE_ENV === "production",
+      // Enable debug in production
+      logger: process.env.NODE_ENV === "production"
+      // Enable logger in production
     });
   }
   async sendEmail(options) {
     try {
+      console.log("\u{1F4E4} Attempting to send email...");
+      console.log("\u{1F4E7} To:", options.to);
+      console.log("\u{1F4CB} Subject:", options.subject);
+      console.log("\u{1F527} From:", `"ArchPlan" <${config_default.EMAIL_USER}>`);
       const mailOptions = {
         from: `"ArchPlan" <${config_default.EMAIL_USER}>`,
         to: options.to,
@@ -690,13 +707,25 @@ var EmailService = class {
         html: options.html
       };
       const result = await this.transporter.sendMail(mailOptions);
-      console.log("Email sent successfully:", result.messageId);
+      console.log("\u2705 Email sent successfully!");
+      console.log("\u{1F4E7} Message ID:", result.messageId);
+      console.log("\u{1F4E7} Response:", result.response);
     } catch (error) {
-      console.error("Error sending email:", error);
-      throw new Error("Failed to send email");
+      console.error("\u274C Error sending email:");
+      console.error("Error type:", error.constructor?.name);
+      console.error("Error message:", error.message);
+      console.error("Error code:", error.code);
+      console.error("Error command:", error.command);
+      if (error.response) {
+        console.error("SMTP Response:", error.response);
+      }
+      throw new Error(`Failed to send email: ${error.message || "Unknown error"}`);
     }
   }
   async sendApprovalEmail(userEmail, userName) {
+    console.log("\u{1F389} Sending approval email...");
+    console.log("\u{1F464} User:", userName);
+    console.log("\u{1F4E7} Email:", userEmail);
     const subject = "Account Approved - Welcome to ArchPlan!";
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -1142,7 +1171,7 @@ async function deleteAdmin(id) {
 // server/src/routes/adminroutes.ts
 import { z as z4 } from "zod";
 import multer from "multer";
-import path2 from "path";
+import path3 from "path";
 import fs from "fs";
 
 // server/src/schema.ts
@@ -1288,7 +1317,7 @@ var router3 = Router3();
 var upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      const uploadDir = path2.join(process.cwd(), "uploads");
+      const uploadDir = path3.join(process.cwd(), "uploads");
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
@@ -1296,7 +1325,7 @@ var upload = multer({
     },
     filename: (req, file, cb) => {
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path2.extname(file.originalname));
+      cb(null, uniqueSuffix + path3.extname(file.originalname));
     }
   }),
   fileFilter: (req, file, cb) => {
@@ -1494,7 +1523,7 @@ router3.post("/plans", authenticateAdmin, upload.fields([
       planData.content = fileContent.toString("base64");
       planData.fileName = file.originalname;
       planData.fileSize = file.size;
-      planData.filePath = path2.relative(process.cwd(), file.path);
+      planData.filePath = path3.relative(process.cwd(), file.path);
       fs.unlinkSync(file.path);
     }
     if (files?.images && files.images.length > 0) {
@@ -1503,7 +1532,7 @@ router3.post("/plans", authenticateAdmin, upload.fields([
         try {
           const fileContent = fs.readFileSync(imageFile.path);
           const supabaseFilePath = await storage2.uploadFile(fileContent, imageFile.originalname);
-          const fileId = path2.basename(imageFile.filename, path2.extname(imageFile.filename));
+          const fileId = path3.basename(imageFile.filename, path3.extname(imageFile.filename));
           imageObjects.push({
             path: supabaseFilePath,
             filename: imageFile.originalname,
@@ -1513,8 +1542,8 @@ router3.post("/plans", authenticateAdmin, upload.fields([
           fs.unlinkSync(imageFile.path);
         } catch (error) {
           console.error("Error uploading image to Supabase Storage:", error);
-          const relativePath = path2.relative(process.cwd(), imageFile.path);
-          const fileId = path2.basename(imageFile.filename, path2.extname(imageFile.filename));
+          const relativePath = path3.relative(process.cwd(), imageFile.path);
+          const fileId = path3.basename(imageFile.filename, path3.extname(imageFile.filename));
           imageObjects.push({
             path: relativePath,
             filename: imageFile.originalname,
@@ -1668,12 +1697,12 @@ router3.get("/stats", authenticateAdmin, async (req, res) => {
 var adminroutes_default = router3;
 
 // server/routes.ts
-var __filename2 = fileURLToPath2(import.meta.url);
-var __dirname2 = path3.dirname(__filename2);
+var __filename3 = fileURLToPath3(import.meta.url);
+var __dirname3 = path4.dirname(__filename3);
 var upload2 = multer2({
   storage: multer2.diskStorage({
     destination: (req, file, cb) => {
-      const uploadDir = path3.join(process.cwd(), "uploads");
+      const uploadDir = path4.join(process.cwd(), "uploads");
       if (!fs2.existsSync(uploadDir)) {
         fs2.mkdirSync(uploadDir, { recursive: true });
       }
@@ -1681,7 +1710,7 @@ var upload2 = multer2({
     },
     filename: (req, file, cb) => {
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path3.extname(file.originalname));
+      cb(null, uniqueSuffix + path4.extname(file.originalname));
     }
   }),
   fileFilter: (req, file, cb) => {
@@ -1786,7 +1815,7 @@ async function registerRoutes(app2) {
         });
       }
       const sanitizedTitle = plan.title ? plan.title.replace(/[^a-zA-Z0-9\s\-_]/g, "").replace(/\s+/g, "_") : "plan";
-      const fileExtension = path3.extname(plan.filePath);
+      const fileExtension = path4.extname(plan.filePath);
       const fileName = `${sanitizedTitle}${fileExtension}`;
       const contentType = fileBlob.type;
       res.setHeader("Content-Type", contentType);
@@ -1822,6 +1851,16 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch plan statistics" });
     }
   });
+  app2.get("/api/plans/total-downloads", async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const stats = await storage2.getPlanStats();
+      res.json({ totalDownloads: stats.totalDownloads || 0 });
+    } catch (error) {
+      console.error("Error fetching total downloads:", error);
+      res.status(500).json({ message: "Failed to fetch total downloads" });
+    }
+  });
   const server = createServer(app2);
   return server;
 }
@@ -1829,12 +1868,12 @@ async function registerRoutes(app2) {
 // server/vite.ts
 import express from "express";
 import fs3 from "fs";
-import path4 from "path";
-import { fileURLToPath as fileURLToPath3 } from "url";
+import path5 from "path";
+import { fileURLToPath as fileURLToPath4 } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 import { nanoid } from "nanoid";
-var __filename3 = fileURLToPath3(import.meta.url);
-var __dirname3 = path4.dirname(__filename3);
+var __filename4 = fileURLToPath4(import.meta.url);
+var __dirname4 = path5.dirname(__filename4);
 var viteLogger = createLogger();
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
@@ -1858,12 +1897,12 @@ async function setupVite(app2, server) {
         jsxRuntime: "automatic"
       })
     ],
-    root: path4.join(__dirname3, "..", "client"),
+    root: path5.join(__dirname4, "..", "client"),
     resolve: {
       alias: {
-        "@": path4.join(__dirname3, "..", "client", "src"),
-        "@shared": path4.join(__dirname3, "..", "shared"),
-        "@assets": path4.join(__dirname3, "..", "attached_assets")
+        "@": path5.join(__dirname4, "..", "client", "src"),
+        "@shared": path5.join(__dirname4, "..", "shared"),
+        "@assets": path5.join(__dirname4, "..", "attached_assets")
       }
     },
     build: {
@@ -1895,8 +1934,8 @@ async function setupVite(app2, server) {
     }
     console.log(`\u{1F4C4} Vite middleware: Serving SPA for ${url}`);
     try {
-      const clientTemplate = path4.resolve(
-        __dirname3,
+      const clientTemplate = path5.resolve(
+        __dirname4,
         "..",
         "client",
         "index.html"
@@ -1916,17 +1955,17 @@ async function setupVite(app2, server) {
 }
 function serveStatic(app2) {
   const possiblePaths = [
-    path4.join(__dirname3, "..", "dist", "public"),
+    path5.join(__dirname4, "..", "dist", "public"),
     // From server/dist to dist/public
-    path4.join(__dirname3, "public"),
+    path5.join(__dirname4, "public"),
     // Direct public folder
-    path4.join(__dirname3, "..", "public")
+    path5.join(__dirname4, "..", "public")
     // Parent public folder
   ];
   let distPath = "";
   let indexHtmlPath = "";
   for (const testPath of possiblePaths) {
-    const indexPath = path4.join(testPath, "index.html");
+    const indexPath = path5.join(testPath, "index.html");
     if (fs3.existsSync(indexPath)) {
       distPath = testPath;
       indexHtmlPath = indexPath;
@@ -1979,9 +2018,10 @@ function serveStatic(app2) {
 }
 
 // server/index.ts
-var __filename4 = fileURLToPath4(import.meta.url);
-var __dirname4 = path5.dirname(__filename4);
-dotenv3.config({ path: path5.join(__dirname4, "../.env") });
+var __filename5 = fileURLToPath5(import.meta.url);
+var __dirname5 = path6.dirname(__filename5);
+dotenv3.config({ path: path6.join(__dirname5, "../.env") });
+dotenv3.config({ path: path6.join(__dirname5, ".env") });
 var app = express2();
 app.use(compression({
   filter: (req, res) => {
@@ -2106,7 +2146,7 @@ app.get("/ping", (req, res) => {
 });
 app.use((req, res, next) => {
   const start = Date.now();
-  const path6 = req.path;
+  const path7 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -2115,8 +2155,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path6.startsWith("/api")) {
-      let logLine = `${req.method} ${path6} ${res.statusCode} in ${duration}ms`;
+    if (path7.startsWith("/api")) {
+      let logLine = `${req.method} ${path7} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -2165,6 +2205,13 @@ var startServer = async () => {
         console.log(`\u{1F680} Server running on port ${PORT} (bound to 0.0.0.0 for Railway)`);
         console.log(`\u{1F310} Server should be accessible at: https://${process.env.RAILWAY_PUBLIC_DOMAIN || "your-app.railway.app"}`);
         console.log(`\u{1F50D} Railway Debug: Listening on 0.0.0.0:${PORT} as required by Railway proxy`);
+        console.log("\u{1F4E7} Initializing email service...");
+        try {
+          const testEmailService = emailService_default;
+          console.log("\u2705 Email service initialized successfully");
+        } catch (error) {
+          console.error("\u274C Email service initialization failed:", error);
+        }
         setTimeout(() => {
           console.log(`\u{1F493} Server health check: Still running after 5 seconds`);
         }, 5e3);
