@@ -1,0 +1,61 @@
+import { useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import AdminInterface from "@/components/AdminInterface";
+import Header from "@/components/Header";
+import { toUserType } from "@/lib/type-utils";
+import type { UserType } from "@/types/user";
+
+export default function Admin() {
+  const { toast } = useToast();
+  const { isAuthenticated, isLoading, user } = useAuth() as { 
+    isAuthenticated: boolean; 
+    isLoading: boolean; 
+    user: UserType | undefined 
+  };
+  
+  const handleTabChange = (tab: string) => {
+    if (tab === 'search') {
+      window.location.href = '/';
+    } else if (tab === 'admin') {
+      // Already on admin page
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Header 
+        user={user as any}
+        activeTab="admin" 
+        onTabChange={handleTabChange} 
+      />
+      <AdminInterface />
+    </div>
+  );
+}

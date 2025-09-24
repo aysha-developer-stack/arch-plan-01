@@ -1,0 +1,39 @@
+{
+  "name": "arch-plan-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "tsx watch index.ts",
+    "build": "tsc",
+    "migrate:keywords": "tsx src/scripts/migrateKeywords.ts",
+    "migrate:keywords:dry-run": "tsx src/scripts/migrateKeywords.ts --dry-run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "@types/nodemailer": "^7.0.1",
+    "axios-cookiejar-support": "^6.0.4",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.6",
+    "tough-cookie": "^5.1.2",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.3",
+    "@types/cors": "^2.8.13",
+    "@types/express": "^4.17.17",
+    "@types/jsonwebtoken": "^9.0.2",
+    "@types/multer": "^1.4.7",
+    "@types/node": "^20.5.0",
+    "tsx": "^3.12.7",
+    "typescript": "^5.1.6"
+  }
+}

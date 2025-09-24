@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Nunito:wght@300;400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ✅ Root variables */
+:root {
+  --primary-color: #4f46e5;
+  --secondary-color: #9333ea;
+  --accent-color: #f59e0b;
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --text-color: #f3f4f6;
+  --bg-gradient: linear-gradient(135deg, #1e293b, #0f172a);
+
+  --background: hsl(210, 20%, 98%);
+  --foreground: hsl(222.2, 84%, 4.9%);
+  --muted: hsl(210, 40%, 96%);
+  --muted-foreground: hsl(215.4, 16.3%, 46.9%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(222.2, 84%, 4.9%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(222.2, 84%, 4.9%);
+  --border: hsl(214.3, 31.8%, 91.4%);
+  --input: hsl(214.3, 31.8%, 91.4%);
+  --primary: hsl(221.2, 83.2%, 53.3%);
+  --primary-foreground: hsl(210, 40%, 98%);
+  --secondary: hsl(210, 40%, 96%);
+  --secondary-foreground: hsl(222.2, 84%, 4.9%);
+  --accent: hsl(158.1, 64.4%, 51.6%);
+  --accent-foreground: hsl(210, 40%, 98%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(221.2, 83.2%, 53.3%);
+  --radius: 0.75rem;
+
+  /* Glassmorphism variables */
+  --glass-primary: #2563EB;
+  --glass-primary-dark: #1E4ED8;
+  --glass-white: #ffffff;
+  --glass-white-70: rgba(255,255,255,.7);
+  --glass-white-55: rgba(255,255,255,.55);
+  --glass-line: rgba(255,255,255,.65);
+}
+
+.dark {
+  --background: hsl(222.2, 84%, 4.9%);
+  --foreground: hsl(210, 40%, 98%);
+  --muted: hsl(217.2, 32.6%, 17.5%);
+  --muted-foreground: hsl(215, 20.2%, 65.1%);
+  --popover: hsl(222.2, 84%, 4.9%);
+  --popover-foreground: hsl(210, 40%, 98%);
+  --card: hsl(222.2, 84%, 4.9%);
+  --card-foreground: hsl(210, 40%, 98%);
+  --border: hsl(217.2, 32.6%, 17.5%);
+  --input: hsl(217.2, 32.6%, 17.5%);
+  --primary: hsl(217.2, 91.2%, 59.8%);
+  --primary-foreground: hsl(222.2, 84%, 4.9%);
+  --secondary: hsl(217.2, 32.6%, 17.5%);
+  --secondary-foreground: hsl(210, 40%, 98%);
+  --accent: hsl(158.1, 64.4%, 51.6%);
+  --accent-foreground: hsl(222.2, 84%, 4.9%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+  --ring: hsl(217.2, 91.2%, 59.8%);
+  --radius: 0.75rem;
+}
+
+/* ✅ Body defaults */
+body {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* ✅ Glassmorphism Components */
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+  transition: all 0.3s ease;
+}
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.glass-button {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 0.75rem;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+  color: var(--text-color);
+  transition: all 0.3s ease;
+}
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.font-montserrat { font-family: 'Montserrat', sans-serif; }
+.font-nunito { font-family: 'Nunito', sans-serif; }
