@@ -280,16 +280,8 @@ export class SupabaseStorage implements IStorage {
       return null;
     }
     
-    // If the plan has a file_url, get a signed URL for it
-    if (data && data.file_url) {
-      try {
-        const fileUrl = await this.getFileUrl(data.file_url);
-        data.file_url = fileUrl;
-      } catch (err) {
-        console.error('Error getting signed URL for plan file:', err);
-      }
-    }
-    
+    // Return the plan data as-is, without converting file_url to signed URL
+    // The download route will handle signed URL generation when needed
     return data as PlanType;
   }
 
