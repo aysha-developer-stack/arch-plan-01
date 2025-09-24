@@ -683,10 +683,16 @@ var EmailService = class {
     console.log("\u{1F511} Email Password:", config_default.EMAIL_PASSWORD ? "\u2705 Set" : "\u274C Missing");
     console.log("\u{1F310} Client URL:", config_default.CLIENT_URL);
     this.transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      // true for 465, false for other ports
       auth: {
         user: config_default.EMAIL_USER,
         pass: config_default.EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
       },
       debug: process.env.NODE_ENV === "production",
       // Enable debug in production
@@ -1784,6 +1790,37 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to search plans" });
     }
   });
+  app2.get("/api/plans/recent", async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+      const plans = await storage2.getRecentPlans(limit);
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching recent plans:", error);
+      res.status(500).json({ message: "Failed to fetch recent plans" });
+    }
+  });
+  app2.get("/api/plans/stats", async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const stats = await storage2.getPlanStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching plan stats:", error);
+      res.status(500).json({ message: "Failed to fetch plan statistics" });
+    }
+  });
+  app2.get("/api/plans/total-downloads", async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const stats = await storage2.getPlanStats();
+      res.json({ totalDownloads: stats.totalDownloads || 0 });
+    } catch (error) {
+      console.error("Error fetching total downloads:", error);
+      res.status(500).json({ message: "Failed to fetch total downloads" });
+    }
+  });
   app2.get("/api/plans/:id", async (req, res) => {
     try {
       const storage2 = getStorage();
@@ -1828,37 +1865,6 @@ async function registerRoutes(app2) {
         message: "Failed to download plan",
         details: error instanceof Error ? error.message : "Unknown error"
       });
-    }
-  });
-  app2.get("/api/plans/recent", async (req, res) => {
-    try {
-      const storage2 = getStorage();
-      const limit = req.query.limit ? parseInt(req.query.limit) : 10;
-      const plans = await storage2.getRecentPlans(limit);
-      res.json(plans);
-    } catch (error) {
-      console.error("Error fetching recent plans:", error);
-      res.status(500).json({ message: "Failed to fetch recent plans" });
-    }
-  });
-  app2.get("/api/plans/stats", async (req, res) => {
-    try {
-      const storage2 = getStorage();
-      const stats = await storage2.getPlanStats();
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching plan stats:", error);
-      res.status(500).json({ message: "Failed to fetch plan statistics" });
-    }
-  });
-  app2.get("/api/plans/total-downloads", async (req, res) => {
-    try {
-      const storage2 = getStorage();
-      const stats = await storage2.getPlanStats();
-      res.json({ totalDownloads: stats.totalDownloads || 0 });
-    } catch (error) {
-      console.error("Error fetching total downloads:", error);
-      res.status(500).json({ message: "Failed to fetch total downloads" });
     }
   });
   const server = createServer(app2);

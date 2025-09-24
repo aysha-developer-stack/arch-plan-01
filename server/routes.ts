@@ -113,7 +113,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get single plan endpoint
+  // Get recent plans endpoint (must be before /:id route)
+  app.get("/api/plans/recent", async (req: Request, res: Response) => {
+    try {
+      const storage = getStorage();
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const plans = await storage.getRecentPlans(limit);
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching recent plans:", error);
+      res.status(500).json({ message: "Failed to fetch recent plans" });
+    }
+  });
+
+  // Get plan statistics endpoint (must be before /:id route)
+  app.get("/api/plans/stats", async (req: Request, res: Response) => {
+    try {
+      const storage = getStorage();
+      const stats = await storage.getPlanStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching plan stats:", error);
+      res.status(500).json({ message: "Failed to fetch plan statistics" });
+    }
+  });
+
+  // Get total downloads endpoint (must be before /:id route)
+  app.get("/api/plans/total-downloads", async (req: Request, res: Response) => {
+    try {
+      const storage = getStorage();
+      const stats = await storage.getPlanStats();
+      res.json({ totalDownloads: stats.totalDownloads || 0 });
+    } catch (error) {
+      console.error("Error fetching total downloads:", error);
+      res.status(500).json({ message: "Failed to fetch total downloads" });
+    }
+  });
+
+  // Get single plan endpoint (must be after specific routes)
   app.get("/api/plans/:id", async (req: Request, res: Response) => {
     try {
       const storage = getStorage();
@@ -177,43 +214,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to download plan",
         details: error instanceof Error ? error.message : "Unknown error"
       });
-    }
-  });
-
-  // Get recent plans endpoint
-  app.get("/api/plans/recent", async (req: Request, res: Response) => {
-    try {
-      const storage = getStorage();
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const plans = await storage.getRecentPlans(limit);
-      res.json(plans);
-    } catch (error) {
-      console.error("Error fetching recent plans:", error);
-      res.status(500).json({ message: "Failed to fetch recent plans" });
-    }
-  });
-
-  // Get plan statistics endpoint
-  app.get("/api/plans/stats", async (req: Request, res: Response) => {
-    try {
-      const storage = getStorage();
-      const stats = await storage.getPlanStats();
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching plan stats:", error);
-      res.status(500).json({ message: "Failed to fetch plan statistics" });
-    }
-  });
-
-  // Get total downloads endpoint (for dashboard)
-  app.get("/api/plans/total-downloads", async (req: Request, res: Response) => {
-    try {
-      const storage = getStorage();
-      const stats = await storage.getPlanStats();
-      res.json({ totalDownloads: stats.totalDownloads || 0 });
-    } catch (error) {
-      console.error("Error fetching total downloads:", error);
-      res.status(500).json({ message: "Failed to fetch total downloads" });
     }
   });
 
