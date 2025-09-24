@@ -1323,8 +1323,10 @@ router3.post("/login", async (req, res) => {
     res.cookie("supabase-auth-token", session.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: session.expires_in * 1e3
+      sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
+      maxAge: session.expires_in * 1e3,
+      path: "/",
+      domain: process.env.NODE_ENV === "production" ? void 0 : void 0
     });
     res.status(200).json({
       success: true,
