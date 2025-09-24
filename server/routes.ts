@@ -276,9 +276,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let signedUrl: string;
           if (plan.file_url.includes('supabase.co')) {
             // Extract the file path from the existing signed URL
+            // URL format: https://xxx.supabase.co/storage/v1/object/sign/plan-files/filename.pdf?token=...
             const urlParts = plan.file_url.split('/object/sign/')[1];
-            const filePath = urlParts ? urlParts.split('?')[0] : plan.file_url;
-            signedUrl = await storage.getFileUrl(filePath);
+            let filePath = urlParts ? urlParts.split('?')[0] : plan.file_url;
+            
+            // Remove 'plan-files/' prefix if present, as getFileUrl expects just the filename
+            if (filePath.startsWith('plan-files/')) {
+              filePath = filePath.replace('plan-files/', '');
+            }
+            
+            console.log("Extracted file path:", filePath);
+            signedUrl = await storage.getFileUrl(`plans/${filePath}`);
           } else {
             // It's just a filename, get signed URL from Supabase Storage
             signedUrl = await storage.getFileUrl(plan.file_url);
