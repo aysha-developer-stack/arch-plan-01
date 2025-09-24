@@ -62,7 +62,7 @@ router.post('/login', async (req: Request, res: Response) => {
     // Set the session token in a cookie
     res.cookie('supabase-auth-token', session.access_token, {
       httpOnly: true,
-      secure: false, // Always false for development testing
+      secure: process.env.NODE_ENV === 'production', // true for production (HTTPS), false for development (HTTP)
       sameSite: 'lax',
       maxAge: session.expires_in * 1000,
       path: '/',

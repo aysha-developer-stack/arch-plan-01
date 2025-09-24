@@ -1325,8 +1325,8 @@ router3.post("/login", async (req, res) => {
     const { admin, session } = await authenticateAdmin2(email, password);
     res.cookie("supabase-auth-token", session.access_token, {
       httpOnly: true,
-      secure: false,
-      // Always false for development testing
+      secure: process.env.NODE_ENV === "production",
+      // true for production (HTTPS), false for development (HTTP)
       sameSite: "lax",
       maxAge: session.expires_in * 1e3,
       path: "/",
