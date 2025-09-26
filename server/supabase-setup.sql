@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS plans (
   file_url TEXT,
   fileName TEXT,
   file_size INTEGER,
+  images JSONB DEFAULT '[]'::jsonb,
   download_count INTEGER DEFAULT 0,
   view_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
