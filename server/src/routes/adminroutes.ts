@@ -538,9 +538,7 @@ const upload = multer({
       cb(null, uniqueSuffix + path.extname(file.originalname));
     },
   }),
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
-  },
+  // Remove all limits for unlimited uploads
 });
 
 // Admin login route
@@ -746,10 +744,7 @@ router.post(
   '/plans',
   authenticateAdmin,
   // Use upload.fields to explicitly expect specific fields
-  upload.fields([
-    { name: 'file', maxCount: 1 },
-    { name: 'images', maxCount: 900 },
-  ]),
+  upload.any(), // Accept unlimited files of any field name
   async (req: Request, res: Response) => {
     try {
       const storage = getStorage();
