@@ -61,7 +61,6 @@ async function setupDatabase() {
         description: 'A test plan to verify database functionality',
         architect: 'Test Architect',
         year: 2024,
-        location: 'Test Location',
         building_type: 'Residential',
         keywords: ['test', 'sample'],
         download_count: 0,

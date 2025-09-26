@@ -30,11 +30,10 @@ CREATE TABLE IF NOT EXISTS plans (
   description TEXT,
   architect TEXT NULL,
 
-  location TEXT NULL,
   building_type TEXT,
   keywords TEXT[],
   file_url TEXT,
-  file_name TEXT,
+  fileName TEXT,
   file_size INTEGER,
   download_count INTEGER DEFAULT 0,
   view_count INTEGER DEFAULT 0,
@@ -47,8 +46,6 @@ CREATE TABLE IF NOT EXISTS plans (
 CREATE INDEX IF NOT EXISTS idx_plans_keywords ON plans USING GIN (keywords);
 CREATE INDEX IF NOT EXISTS idx_plans_building_type ON plans (building_type);
 CREATE INDEX IF NOT EXISTS idx_plans_architect ON plans (architect);
-
-CREATE INDEX IF NOT EXISTS idx_plans_location ON plans (location);
 
 -- Drop existing functions if they exist to avoid conflicts during recreation
 DROP FUNCTION IF EXISTS get_plan_stats();
