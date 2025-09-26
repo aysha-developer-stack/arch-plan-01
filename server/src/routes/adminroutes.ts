@@ -772,7 +772,7 @@ router.post(
         // Upload to Supabase Storage
         const fileContent = fs.readFileSync(pdfFile.path);
         const { data, error } = await supabase.storage
-          .from('arch-plan-live') // Use your actual bucket name here
+          .from('plan-files') // Use your actual bucket name here
           .upload(`plans/${pdfFile.filename}`, fileContent, {
             contentType: pdfFile.mimetype,
           });
@@ -780,7 +780,7 @@ router.post(
         if (error) throw error;
         // Get the public URL
         const { data: publicUrlData } = supabase.storage
-          .from('arch-plan-live') // Use your actual bucket name here
+          .from('plan-files') // Use your actual bucket name here
           .getPublicUrl(data.path);
 
         pdfUrl = publicUrlData.publicUrl;
@@ -804,7 +804,7 @@ router.post(
         // Upload to Supabase Storage
         const fileContent = fs.readFileSync(imageFile.path);
         const { data, error } = await supabase.storage
-          .from('arch-plan-live') // Use your actual bucket name here
+          .from('plan-files') // Use your actual bucket name here
           .upload(`images/${imageFile.filename}`, fileContent, {
             contentType: imageFile.mimetype,
           });
@@ -812,7 +812,7 @@ router.post(
         if (error) throw error;
         // Get the public URL
         const { data: publicUrlData } = supabase.storage
-          .from('arch-plan-live') // Use your actual bucket name here
+          .from('plan-files') // Use your actual bucket name here
           .getPublicUrl(data.path);
 
         imageUrls.push({
