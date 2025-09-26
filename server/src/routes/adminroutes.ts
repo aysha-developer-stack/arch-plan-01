@@ -748,7 +748,7 @@ router.post(
   // Use upload.fields to explicitly expect specific fields
   upload.fields([
     { name: 'file', maxCount: 1 },
-    { name: 'images', maxCount: 200 },
+    { name: 'images', maxCount: 900 },
   ]),
   async (req: Request, res: Response) => {
     try {
