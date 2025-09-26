@@ -41,6 +41,7 @@ const upload = multer({
   }),
   // Remove fileFilter entirely to avoid the MulterError
   // We'll validate file types after upload in the route handler
+  // Force deployment: fileFilter removed to fix MulterError issue
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit
   },
