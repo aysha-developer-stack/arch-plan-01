@@ -39,21 +39,8 @@ const upload = multer({
       cb(null, uniqueSuffix + path.extname(file.originalname));
     },
   }),
-  fileFilter: (req, file, cb) => {
-    // Check if this is actually a file upload (has mimetype) or just a text field
-    if (!file || !file.mimetype || file.mimetype === undefined) {
-      // This is a text field, not a file - accept it
-      cb(null, true);
-      return;
-    }
-    
-    // This is a file upload - validate the file type
-    if (file.mimetype === "application/pdf" || file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only PDF and image files are allowed"));
-    }
-  },
+  // Remove fileFilter entirely to avoid the MulterError
+  // We'll validate file types after upload in the route handler
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit
   },
@@ -265,6 +252,20 @@ router.post('/plans', authenticateAdmin, upload.any(), async (req: Request, res:
   try {
     const storage = getStorage();
     const files = req.files as Express.Multer.File[];
+    
+    // Validate file types after upload (since we removed fileFilter)
+    if (files && files.length > 0) {
+      for (const file of files) {
+        if (file.mimetype && !file.mimetype.startsWith('application/pdf') && !file.mimetype.startsWith('image/')) {
+          // Clean up invalid files
+          fs.unlinkSync(file.path);
+          return res.status(400).json({
+            success: false,
+            message: "Only PDF and image files are allowed"
+          });
+        }
+      }
+    }
     
     // Parse the plan data from the request body
     const planData: any = { ...req.body };
