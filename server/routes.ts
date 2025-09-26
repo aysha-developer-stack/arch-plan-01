@@ -190,17 +190,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/plans", upload.single('file'), async (req, res) => {
     const storage = getStorage();
     try {
-      // Validate file type after upload (since we removed fileFilter)
-      if (req.file) {
-        if (!req.file.mimetype.startsWith('application/pdf') && !req.file.mimetype.startsWith('image/')) {
-          // Clean up invalid file
-          fs.unlinkSync(req.file.path);
-          return res.status(400).json({
-            message: "Only PDF and image files are allowed"
-          });
-        }
-      }
-      
       const planData = insertPlanSchema.parse(req.body);
       if (req.file) {
         const fileContent = fs.readFileSync(req.file.path);
@@ -217,15 +206,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newPlan = await storage.createPlan(planData, userId);
       res.status(201).json(newPlan);
     } catch (error) {
-      // Clean up uploaded file on error
-      if (req.file) {
-        try {
-          fs.unlinkSync(req.file.path);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-      }
-      
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid plan data", details: error.errors });
       }
