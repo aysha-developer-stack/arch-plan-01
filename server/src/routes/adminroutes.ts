@@ -538,7 +538,9 @@ const upload = multer({
       cb(null, uniqueSuffix + path.extname(file.originalname));
     },
   }),
-  // Remove all limits for unlimited uploads
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+  },
 });
 
 // Admin login route
@@ -743,17 +745,17 @@ router.get('/plans', authenticateAdmin, async (req: Request, res: Response) => {
 router.post(
   '/plans',
   authenticateAdmin,
-  // Use upload.fields to explicitly expect specific fields
-  upload.any(), // Accept unlimited files of any field name
+  // Use upload.any() to accept all fields without restrictions
+  upload.any(),
   async (req: Request, res: Response) => {
     try {
       const storage = getStorage();
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const files = req.files as Express.Multer.File[];
       const planData: any = { ...req.body };
 
       // --- 1. Handle the main PDF file upload to Supabase ---
       let pdfUrl: string | undefined = undefined; // Change type to string | undefined
-      const pdfFile = files.file?.[0];
+      const pdfFile = files.find(file => file.fieldname === 'file');
       if (pdfFile) {
         // Validate file type
         if (!pdfFile.mimetype.startsWith('application/pdf')) {
@@ -784,7 +786,7 @@ router.post(
       }
 
       // --- 2. Handle image files upload to Supabase ---
-      const imageFiles = files.images || [];
+      const imageFiles = files.filter(file => file.fieldname === 'images');
       const imageUrls = [];
       for (const imageFile of imageFiles) {
         // Validate file type
