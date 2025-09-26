@@ -33,7 +33,13 @@ const upload = multer({
       cb(null, uniqueSuffix + path.extname(file.originalname));
     },
   }),
-  // Remove fileFilter to fix MulterError - validate after upload instead
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "application/pdf" || file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF and image files are allowed"));
+    }
+  },
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit
   },
