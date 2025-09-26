@@ -90,7 +90,7 @@ export class SupabaseStorage implements IStorage {
       if (!bucketExists) {
         const { error: createError } = await supabase.storage.createBucket(this.BUCKET_NAME, {
           public: false,
-          fileSizeLimit: 50 * 1024 * 1024, // 50MB - reduced from 100MB
+          fileSizeLimit: 100 * 1024 * 1024, // 100MB - matching Multer configuration
           allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/zip']
         });
         
