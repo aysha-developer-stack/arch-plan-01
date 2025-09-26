@@ -253,34 +253,32 @@ router.get('/plans', authenticateAdmin, async (req: Request, res: Response) => {
 });
 
 // Upload plan (admin only)
-router.post('/plans', authenticateAdmin, upload.fields([
-  { name: 'file', maxCount: 1 },
-  { name: 'images', maxCount: 10 }
-]), async (req: Request, res: Response) => {
+router.post('/plans', authenticateAdmin, upload.any(), async (req: Request, res: Response) => {
   try {
     const storage = getStorage();
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const files = req.files as Express.Multer.File[];
     
     // Parse the plan data from the request body
     const planData: any = { ...req.body };
     
     // Handle the main PDF file
-    if (files?.file && files.file[0]) {
-      const file = files.file[0];
-      const fileContent = fs.readFileSync(file.path);
+    const pdfFile = files?.find(file => file.fieldname === 'file');
+    if (pdfFile) {
+      const fileContent = fs.readFileSync(pdfFile.path);
       planData.content = fileContent.toString("base64");
-      planData.fileName = file.originalname;
-      planData.fileSize = file.size;
-      planData.filePath = path.relative(process.cwd(), file.path);
+      planData.fileName = pdfFile.originalname;
+      planData.fileSize = pdfFile.size;
+      planData.filePath = path.relative(process.cwd(), pdfFile.path);
       
       // Clean up the uploaded file after reading
-      fs.unlinkSync(file.path);
+      fs.unlinkSync(pdfFile.path);
     }
     
     // Handle image files
-    if (files?.images && files.images.length > 0) {
+    const imageFiles = files?.filter(file => file.fieldname === 'images');
+    if (imageFiles && imageFiles.length > 0) {
       const imageObjects = [];
-      for (const imageFile of files.images) {
+      for (const imageFile of imageFiles) {
         const relativePath = path.relative(process.cwd(), imageFile.path);
         // Generate a unique fileId based on the filename without extension
         const fileId = path.basename(imageFile.filename, path.extname(imageFile.filename));
@@ -372,16 +370,18 @@ router.post('/plans', authenticateAdmin, upload.fields([
     console.error('Error uploading plan:', error);
     
     // Clean up any uploaded files on error
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    if (files?.file && files.file[0]) {
+    const files = req.files as Express.Multer.File[];
+    const pdfFile = files?.find(file => file.fieldname === 'file');
+    if (pdfFile) {
       try {
-        fs.unlinkSync(files.file[0].path);
+        fs.unlinkSync(pdfFile.path);
       } catch (e) {
         // Ignore cleanup errors
       }
     }
-    if (files?.images) {
-      files.images.forEach(file => {
+    const imageFiles = files?.filter(file => file.fieldname === 'images');
+    if (imageFiles) {
+      imageFiles.forEach(file => {
         try {
           fs.unlinkSync(file.path);
         } catch (e) {
