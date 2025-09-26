@@ -40,10 +40,16 @@ const upload = multer({
     },
   }),
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf" || file.mimetype.startsWith("image/")) {
-      cb(null, true);
+    // Only apply file type validation to actual file uploads
+    if (file && file.mimetype) {
+      if (file.mimetype === "application/pdf" || file.mimetype.startsWith("image/")) {
+        cb(null, true);
+      } else {
+        cb(new Error("Only PDF and image files are allowed"));
+      }
     } else {
-      cb(new Error("Only PDF and image files are allowed"));
+      // Accept non-file fields (text fields)
+      cb(null, true);
     }
   },
   limits: {
