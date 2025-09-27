@@ -747,20 +747,22 @@ router.get('/plans', authenticateAdmin, async (req: Request, res: Response) => {
 router.post(
   '/plans',
   authenticateAdmin,
-  // Use upload.fields to explicitly expect specific fields - unlimited images allowed
-  upload.fields([
-    { name: 'file', maxCount: 1 },
-    { name: 'images' }, // Remove maxCount to allow unlimited images
-  ]),
+  // Use upload.any() to accept any field names (file, images, and form data)
+  upload.any(),
   async (req: Request, res: Response) => {
     try {
       const storage = getStorage();
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const files = req.files as Express.Multer.File[];
       const planData: any = { ...req.body };
 
+      // Debug logging
+      console.log('Received files:', files?.length || 0);
+      console.log('File fieldnames:', files?.map(f => f.fieldname) || []);
+      console.log('Form data keys:', Object.keys(planData));
+
       // --- 1. Handle the main PDF file upload to Supabase ---
-      let pdfUrl: string | undefined = undefined; // Change type to string | undefined
-      const pdfFile = files.file?.[0];
+      let pdfUrl: string | undefined = undefined;
+      const pdfFile = files?.find(file => file.fieldname === 'file');
       if (pdfFile) {
         // Validate file type
         if (!pdfFile.mimetype.startsWith('application/pdf')) {
@@ -791,7 +793,7 @@ router.post(
       }
 
       // --- 2. Handle image files upload to Supabase ---
-      const imageFiles = files.images || [];
+      const imageFiles = files?.filter(file => file.fieldname === 'images') || [];
       const imageUrls = [];
       for (const imageFile of imageFiles) {
         // Validate file type
@@ -896,9 +898,8 @@ router.post(
     } catch (error: any) {
       console.error('Error uploading plan:', error);
 
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      const allFiles = [...(files.file || []), ...(files.images || [])];
-      for (const file of allFiles) {
+      const files = req.files as Express.Multer.File[];
+      for (const file of files || []) {
         try {
           fs.unlinkSync(file.path);
         } catch (e) {
