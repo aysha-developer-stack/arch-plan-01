@@ -188,10 +188,9 @@ export class SupabaseStorage implements IStorage {
       if (outdoorFeaturesList.length > 0) {
         // For each feature, the plan must contain it (AND logic between features)
         outdoorFeaturesList.forEach(feature => {
-          // Use contains operator with proper PostgreSQL array format for Supabase
-          // For PostgREST, we need to use the raw syntax with curly braces
-          console.log('🔍 Adding outdoor feature filter with PostgREST syntax:', `{"${feature}"}`);
-          query = query.filter('outdoorFeatures', 'cs', `{"${feature}"}`);
+          // Use the @> operator for PostgreSQL array contains
+          console.log('🔍 Adding outdoor feature filter with @> operator:', `["${feature}"]`);
+          query = query.filter('outdoorFeatures', '@>', `["${feature}"]`);
           console.log('🔍 Added outdoor feature filter:', feature);
         });
       }
@@ -204,10 +203,9 @@ export class SupabaseStorage implements IStorage {
       if (indoorFeaturesList.length > 0) {
         // For each feature, the plan must contain it (AND logic between features)
         indoorFeaturesList.forEach(feature => {
-          // Use contains operator with proper PostgreSQL array format for Supabase
-          // For PostgREST, we need to use the raw syntax with curly braces
-          console.log('🔍 Adding indoor feature filter with PostgREST syntax:', `{"${feature}"}`);
-          query = query.filter('indoorFeatures', 'cs', `{"${feature}"}`);
+          // Use the @> operator for PostgreSQL array contains
+          console.log('🔍 Adding indoor feature filter with @> operator:', `["${feature}"]`);
+          query = query.filter('indoorFeatures', '@>', `["${feature}"]`);
           console.log('🔍 Added indoor feature filter:', feature);
         });
       }
