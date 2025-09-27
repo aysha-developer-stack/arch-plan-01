@@ -763,6 +763,8 @@ router.post(
       // --- 1. Handle the main PDF file upload to Supabase ---
       let pdfUrl: string | undefined = undefined;
       const pdfFile = files?.find(file => file.fieldname === 'file');
+      console.log('PDF file found:', !!pdfFile, pdfFile?.originalname);
+      
       if (pdfFile) {
         // Validate file type
         if (!pdfFile.mimetype.startsWith('application/pdf')) {
@@ -789,7 +791,18 @@ router.post(
 
         pdfUrl = publicUrlData.publicUrl;
 
+        // Set required fields for Zod validation
+        planData.fileName = pdfFile.originalname;
+        planData.filePath = data.path; // Supabase storage path
+        planData.fileSize = pdfFile.size;
+
         fs.unlinkSync(pdfFile.path); // Clean up temporary file
+      } else {
+        // No PDF file provided - set default values for required fields
+        console.log('No PDF file provided, using defaults');
+        planData.fileName = 'no-file.pdf';
+        planData.filePath = '';
+        planData.fileSize = 0;
       }
 
       // --- 2. Handle image files upload to Supabase ---

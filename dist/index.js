@@ -1431,6 +1431,7 @@ router3.post(
       console.log("Form data keys:", Object.keys(planData));
       let pdfUrl = void 0;
       const pdfFile = files?.find((file) => file.fieldname === "file");
+      console.log("PDF file found:", !!pdfFile, pdfFile?.originalname);
       if (pdfFile) {
         if (!pdfFile.mimetype.startsWith("application/pdf")) {
           fs.unlinkSync(pdfFile.path);
@@ -1446,7 +1447,15 @@ router3.post(
         if (error) throw error;
         const { data: publicUrlData } = supabase.storage.from("plan-files").getPublicUrl(data.path);
         pdfUrl = publicUrlData.publicUrl;
+        planData.fileName = pdfFile.originalname;
+        planData.filePath = data.path;
+        planData.fileSize = pdfFile.size;
         fs.unlinkSync(pdfFile.path);
+      } else {
+        console.log("No PDF file provided, using defaults");
+        planData.fileName = "no-file.pdf";
+        planData.filePath = "";
+        planData.fileSize = 0;
       }
       const imageFiles = files?.filter((file) => file.fieldname === "images") || [];
       const imageUrls = [];
