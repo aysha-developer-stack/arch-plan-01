@@ -773,15 +773,18 @@ export class SupabaseStorage implements IStorage {
     }
 
     // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
-    // Corrected logic to fix the malformed array literal error
+    // Using PostgreSQL-compatible syntax for array operations
     // Outdoor Features (AND logic)
 if (filters.outdoorFeatures) {
     const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
     
     if (outdoorFeaturesArray.length > 0) {
-        // Use the contains method. Supabase handles the rest.
-        // This query will return plans that have ALL selected features.
-        query = query.contains('outdoorFeatures', outdoorFeaturesArray);
+        // Apply AND logic by chaining multiple conditions
+        for (const feature of outdoorFeaturesArray) {
+            // Use PostgreSQL @> operator for array containment with proper filter arguments
+            query = query.filter('outdoorFeatures', '@>', `[${JSON.stringify(feature)}]`);
+        }
+        console.log('🔍 Filtering by outdoor features (AND logic):', outdoorFeaturesArray);
     }
 }
 
@@ -790,9 +793,12 @@ if (filters.indoorFeatures) {
     const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
     
     if (indoorFeaturesArray.length > 0) {
-        // Use the contains method. Supabase handles the rest.
-        // This query will return plans that have ALL selected features.
-        query = query.contains('indoorFeatures', indoorFeaturesArray);
+        // Apply AND logic by chaining multiple conditions
+        for (const feature of indoorFeaturesArray) {
+            // Use PostgreSQL @> operator for array containment with proper filter arguments
+            query = query.filter('indoorFeatures', '@>', `[${JSON.stringify(feature)}]`);
+        }
+        console.log('🔍 Filtering by indoor features (AND logic):', indoorFeaturesArray);
     }
 }
 
