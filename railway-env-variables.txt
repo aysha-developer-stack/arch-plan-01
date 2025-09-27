@@ -1,0 +1,48 @@
+# Railway Environment Variables Configuration
+# Copy and paste these variables into your Railway project's Variables section
+
+# === REQUIRED VARIABLES ===
+
+# Application Configuration
+NODE_ENV=production
+PORT=3000
+
+# Supabase Configuration (CRITICAL - Your app will crash without these)
+SUPABASE_URL=https://zxevebnmhikhdszwtiqk.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4ZXZlYm5taGlraGRzend0aXFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxMzI1NzMsImV4cCI6MjA3MzcwODU3M30.KmZTbmb-NdfD0_BqD12CdApwHlMW5WMKlw0oyx_MmQU
+
+# ⚠️  MISSING - GET FROM SUPABASE DASHBOARD ⚠️
+# Go to Supabase Dashboard > Settings > API > Copy the "service_role" key
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY_HERE
+
+# ⚠️  MISSING - GET FROM SUPABASE DASHBOARD ⚠️
+# Go to Supabase Dashboard > Settings > Database > Copy "Connection string"
+# Format: postgresql://postgres:[YOUR_PASSWORD]@db.zxevebnmhikhdszwtiqk.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@db.zxevebnmhikhdszwtiqk.supabase.co:5432/postgres
+
+# CORS and Client Configuration
+CLIENT_URL=https://arch-plan-01-production.up.railway.app
+CORS_ORIGIN=https://arch-plan-01-production.up.railway.app
+
+# === OPTIONAL VARIABLES ===
+
+# Email Configuration (only if using email features)
+# EMAIL_USER=your_email@gmail.com
+# EMAIL_PASSWORD=your_app_password
+
+# === INSTRUCTIONS ===
+
+# 1. Go to your Railway project dashboard
+# 2. Click on your service
+# 3. Go to "Variables" tab
+# 4. Add each variable above (except the commented ones unless you need email)
+# 5. Replace YOUR_SERVICE_ROLE_KEY_HERE with actual key from Supabase
+# 6. Replace YOUR_PASSWORD with your actual database password
+# 7. Save and redeploy
+
+# === CRITICAL MISSING VARIABLES ===
+# Your deployment is failing because these are missing:
+# - SUPABASE_SERVICE_ROLE_KEY
+# - DATABASE_URL
+# 
+# Without these, your server crashes on startup when trying to connect to the database.

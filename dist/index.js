@@ -67,8 +67,8 @@ var SupabaseStorage = class {
       if (!bucketExists) {
         const { error: createError } = await supabase.storage.createBucket(this.BUCKET_NAME, {
           public: false,
-          fileSizeLimit: 100 * 1024 * 1024,
-          // 100MB - matching Multer configuration
+          fileSizeLimit: 50 * 1024 * 1024,
+          // 50MB - reduced from 100MB to avoid 413 errors
           allowedMimeTypes: ["application/pdf", "image/jpeg", "image/png", "image/gif", "application/zip"]
         });
         if (createError) {
@@ -123,38 +123,43 @@ var SupabaseStorage = class {
       console.log("\u2705 Search results (no filters):", { plansFound: data2?.length || 0, totalCount: count2 || 0 });
       return { plans: data2 || [], total: count2 || 0 };
     }
-    const allSearchConditions = [];
     if (filters.keyword) {
       console.log("\u{1F50D} Adding keyword filter:", filters.keyword);
-      allSearchConditions.push(`title.ilike.%${filters.keyword}%`);
-      allSearchConditions.push(`description.ilike.%${filters.keyword}%`);
+      const keywordConditions = [
+        `title.ilike.%${filters.keyword}%`,
+        `description.ilike.%${filters.keyword}%`
+      ];
+      query = query.or(keywordConditions.join(","));
     }
     if (filters.outdoorFeatures) {
-      console.log("\u{1F50D} Processing outdoor features:", filters.outdoorFeatures);
-      const outdoorFeaturesList = filters.outdoorFeatures.split(",").map((f) => f.trim());
-      if (outdoorFeaturesList.length > 0) {
-        const outdoorConditions = outdoorFeaturesList.map(
-          (feature) => `outdoorFeatures.cs.["${feature}"]`
-        );
-        allSearchConditions.push(...outdoorConditions);
-        console.log("\u{1F50D} Added outdoor conditions:", outdoorConditions);
+      const outdoorFeaturesArray = filters.outdoorFeatures.split(",").map((f) => f.trim());
+      if (outdoorFeaturesArray.length > 0) {
+        console.log("\u{1F50D} Processing outdoor features:", filters.outdoorFeatures);
+        const outdoorConditions = [];
+        for (const feature of outdoorFeaturesArray) {
+          outdoorConditions.push(`outdoorFeatures::text ILIKE '%${feature}%'`);
+        }
+        if (outdoorConditions.length > 0) {
+          query = query.or(outdoorConditions.join(","));
+          console.log("\u{1F50D} Added outdoor conditions:", outdoorConditions);
+          console.log("\u{1F50D} Combined search conditions (OR logic):", outdoorConditions.join(","));
+        }
       }
     }
     if (filters.indoorFeatures) {
-      console.log("\u{1F50D} Processing indoor features:", filters.indoorFeatures);
-      const indoorFeaturesList = filters.indoorFeatures.split(",").map((f) => f.trim());
-      if (indoorFeaturesList.length > 0) {
-        const indoorConditions = indoorFeaturesList.map(
-          (feature) => `indoorFeatures.cs.["${feature}"]`
-        );
-        allSearchConditions.push(...indoorConditions);
-        console.log("\u{1F50D} Added indoor conditions:", indoorConditions);
+      const indoorFeaturesArray = filters.indoorFeatures.split(",").map((f) => f.trim());
+      if (indoorFeaturesArray.length > 0) {
+        console.log("\u{1F50D} Processing indoor features:", filters.indoorFeatures);
+        const indoorConditions = [];
+        for (const feature of indoorFeaturesArray) {
+          indoorConditions.push(`indoorFeatures::text ILIKE '%${feature}%'`);
+        }
+        if (indoorConditions.length > 0) {
+          query = query.or(indoorConditions.join(","));
+          console.log("\u{1F50D} Added indoor conditions:", indoorConditions);
+          console.log("\u{1F50D} Combined search conditions (OR logic):", indoorConditions.join(","));
+        }
       }
-    }
-    if (allSearchConditions.length > 0) {
-      const combinedConditions = allSearchConditions.join(",");
-      console.log("\u{1F50D} Combined search conditions (OR logic):", combinedConditions);
-      query = query.or(combinedConditions);
     }
     if (filters.planType) {
       query = query.eq("building_type", filters.planType);
@@ -204,6 +209,19 @@ var SupabaseStorage = class {
     }
     if (filters.offset) {
       query = query.range(filters.offset, filters.offset + (filters.limit || 0) - 1);
+    }
+    console.log("\u{1F50D} Final query configuration:", {
+      filters: JSON.stringify(filters),
+      hasFilters,
+      outdoorFeatures: filters.outdoorFeatures,
+      indoorFeatures: filters.indoorFeatures
+    });
+    console.log("\u{1F50D} Query filters being applied:");
+    if (filters.outdoorFeatures) {
+      console.log("  - Outdoor features filter:", `{${filters.outdoorFeatures.split(",").map((f) => `'${f.trim()}'`).join(",")}}`);
+    }
+    if (filters.indoorFeatures) {
+      console.log("  - Indoor features filter:", `{${filters.indoorFeatures.split(",").map((f) => `'${f.trim()}'`).join(",")}}`);
     }
     console.log("\u{1F50D} Executing query...");
     const { data, error, count } = await query;
@@ -1760,14 +1778,12 @@ async function registerRoutes(app2) {
       if (filters.limit) filters.limit = parseInt(filters.limit);
       if (filters.offset) filters.offset = parseInt(filters.offset);
       if (filters.outdoorFeatures) {
-        if (Array.isArray(filters.outdoorFeatures)) {
-          filters.outdoorFeatures = filters.outdoorFeatures.join(",");
-        }
+        const features = Array.isArray(filters.outdoorFeatures) ? filters.outdoorFeatures : [filters.outdoorFeatures];
+        filters.outdoorFeatures = features.map((f) => f.trim()).join(",");
       }
       if (filters.indoorFeatures) {
-        if (Array.isArray(filters.indoorFeatures)) {
-          filters.indoorFeatures = filters.indoorFeatures.join(",");
-        }
+        const features = Array.isArray(filters.indoorFeatures) ? filters.indoorFeatures : [filters.indoorFeatures];
+        filters.indoorFeatures = features.map((f) => f.trim()).join(",");
       }
       const validatedFilters = searchPlanSchema.parse(filters);
       const result = await storage2.searchPlans(validatedFilters);

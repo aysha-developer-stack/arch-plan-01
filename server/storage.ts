@@ -772,21 +772,20 @@ export class SupabaseStorage implements IStorage {
       query = query.or(keywordConditions.join(','));
     }
 
-    // Handle outdoor features - use PostgreSQL array overlap operator
+    // Handle outdoor features - use direct SQL for array filtering
     if (filters.outdoorFeatures) {
         const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
         
         if (outdoorFeaturesArray.length > 0) {
             console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
             
-            // Use PostgreSQL array overlap operator for reliable array filtering
-            // This creates a proper PostgreSQL array syntax
+            // Use direct SQL for array filtering with proper PostgreSQL syntax
             const outdoorConditions = [];
             
-            // Create individual conditions for each feature
+            // Create individual conditions for each feature using direct SQL
             for (const feature of outdoorFeaturesArray) {
-                // Use the overlaps operator with proper array syntax
-                outdoorConditions.push(`outdoorFeatures.cs.ARRAY['${feature}']`);
+                // Use direct SQL with proper array syntax
+                outdoorConditions.push(`outdoorFeatures::text ILIKE '%${feature}%'`);
             }
             
             if (outdoorConditions.length > 0) {
@@ -797,21 +796,20 @@ export class SupabaseStorage implements IStorage {
         }
     }
 
-    // Indoor Features - use PostgreSQL array overlap operator
+    // Indoor Features - use direct SQL for array filtering
     if (filters.indoorFeatures) {
         const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
         
         if (indoorFeaturesArray.length > 0) {
             console.log('🔍 Processing indoor features:', filters.indoorFeatures);
             
-            // Use PostgreSQL array overlap operator for reliable array filtering
-            // This creates a proper PostgreSQL array syntax
+            // Use direct SQL for array filtering with proper PostgreSQL syntax
             const indoorConditions = [];
             
-            // Create individual conditions for each feature
+            // Create individual conditions for each feature using direct SQL
             for (const feature of indoorFeaturesArray) {
-                // Use the overlaps operator with proper array syntax
-                indoorConditions.push(`indoorFeatures.cs.ARRAY['${feature}']`);
+                // Use direct SQL with proper array syntax
+                indoorConditions.push(`indoorFeatures::text ILIKE '%${feature}%'`);
             }
             
             if (indoorConditions.length > 0) {
