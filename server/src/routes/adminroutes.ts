@@ -525,24 +525,24 @@ const router = Router();
 
 // Configure multer for file uploads
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadDir = path.join(process.cwd(), "uploads");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
-    },
-  }),
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
-  },
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(process.cwd(), "uploads");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  }),
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+    files: 900 // Add this to explicitly set the limit for the number of files
+  },
 });
-
 // Admin login route
 router.post('/login', async (req: Request, res: Response) => {
   try {
@@ -745,17 +745,20 @@ router.get('/plans', authenticateAdmin, async (req: Request, res: Response) => {
 router.post(
   '/plans',
   authenticateAdmin,
-  // Use upload.any() to accept all fields without restrictions
-  upload.any(),
+  // Use upload.fields to explicitly expect specific fields
+  upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'images', maxCount: 900 },
+  ]),
   async (req: Request, res: Response) => {
     try {
       const storage = getStorage();
-      const files = req.files as Express.Multer.File[];
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       const planData: any = { ...req.body };
 
       // --- 1. Handle the main PDF file upload to Supabase ---
       let pdfUrl: string | undefined = undefined; // Change type to string | undefined
-      const pdfFile = files.find(file => file.fieldname === 'file');
+      const pdfFile = files.file?.[0];
       if (pdfFile) {
         // Validate file type
         if (!pdfFile.mimetype.startsWith('application/pdf')) {
@@ -786,7 +789,7 @@ router.post(
       }
 
       // --- 2. Handle image files upload to Supabase ---
-      const imageFiles = files.filter(file => file.fieldname === 'images');
+      const imageFiles = files.images || [];
       const imageUrls = [];
       for (const imageFile of imageFiles) {
         // Validate file type
