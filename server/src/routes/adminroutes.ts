@@ -520,28 +520,31 @@ const adminCreateSchema = z.object({
   password: z.string().min(6),
   name: z.string().min(2)
 });
-
 const router = Router();
 
 // Configure multer for file uploads
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadDir = path.join(process.cwd(), "uploads");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
-    },
-  }),
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
-    files: 900 // Add this to explicitly set the limit for the number of files
-  },
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(process.cwd(), "uploads");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  }),
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit per file
+    files: undefined, // Remove file count limit to allow unlimited files
+    fields: undefined, // Remove field count limit
+    fieldSize: undefined, // Remove field size limit
+    fieldNameSize: undefined, // Remove field name size limit
+    parts: undefined // Remove parts limit
+  },
 });
 // Admin login route
 router.post('/login', async (req: Request, res: Response) => {
@@ -740,15 +743,14 @@ router.get('/plans', authenticateAdmin, async (req: Request, res: Response) => {
     });
   }
 });
-
 // Upload plan (admin only)
 router.post(
   '/plans',
   authenticateAdmin,
-  // Use upload.fields to explicitly expect specific fields
+  // Use upload.fields to explicitly expect specific fields - unlimited images allowed
   upload.fields([
     { name: 'file', maxCount: 1 },
-    { name: 'images', maxCount: 900 },
+    { name: 'images' }, // Remove maxCount to allow unlimited images
   ]),
   async (req: Request, res: Response) => {
     try {
