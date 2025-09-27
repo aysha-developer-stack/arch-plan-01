@@ -107,18 +107,28 @@ var SupabaseStorage = class {
     }
   }
   async searchPlans(filters) {
+    console.log("\u{1F50D} Search filters received:", JSON.stringify(filters, null, 2));
     let query = supabase.from("plans").select("*", { count: "exact" });
+    const hasFilters = Object.values(filters).some(
+      (value) => value !== void 0 && value !== null && value !== "" && (!Array.isArray(value) || value.length > 0)
+    );
+    if (!hasFilters) {
+      console.log("\u{1F50D} No filters applied, returning all plans");
+    }
     if (filters.keyword) {
+      console.log("\u{1F50D} Adding keyword filter:", filters.keyword);
       query = query.or(
         `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`
       );
     }
     if (filters.outdoorFeatures) {
+      console.log("\u{1F50D} Processing outdoor features:", filters.outdoorFeatures);
       const outdoorFeaturesList = filters.outdoorFeatures.split(",").map((f) => f.trim());
       if (outdoorFeaturesList.length > 0) {
         const outdoorConditions = outdoorFeaturesList.map(
           (feature) => `outdoorFeatures.cs.["${feature}"]`
         ).join(",");
+        console.log("\u{1F50D} Outdoor conditions:", outdoorConditions);
         query = query.or(outdoorConditions);
       }
     }
@@ -180,11 +190,14 @@ var SupabaseStorage = class {
     if (filters.offset) {
       query = query.range(filters.offset, filters.offset + (filters.limit || 0) - 1);
     }
+    console.log("\u{1F50D} Executing query...");
     const { data, error, count } = await query;
     if (error) {
-      console.error("Error searching plans:", error);
+      console.error("\u274C Error searching plans:", error);
       return { plans: [], total: 0 };
     }
+    console.log("\u2705 Search results:", { plansFound: data?.length || 0, totalCount: count || 0 });
+    console.log("\u{1F50D} First few plans:", data?.slice(0, 2)?.map((p) => ({ id: p.id, title: p.title, outdoorFeatures: p.outdoorFeatures })));
     return { plans: data || [], total: count || 0 };
   }
   async getPlan(id, excludeContent = false) {

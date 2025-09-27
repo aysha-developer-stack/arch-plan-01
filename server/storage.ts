@@ -147,9 +147,21 @@ export class SupabaseStorage implements IStorage {
   async searchPlans(
     filters: PlanFilters
   ): Promise<{ plans: PlanType[]; total: number }> {
+    console.log('🔍 Search filters received:', JSON.stringify(filters, null, 2));
     let query = supabase.from("plans").select("*", { count: "exact" });
+    
+    // If no filters are applied, return all plans for testing
+    const hasFilters = Object.values(filters).some(value => 
+      value !== undefined && value !== null && value !== '' && 
+      (!Array.isArray(value) || value.length > 0)
+    );
+    
+    if (!hasFilters) {
+      console.log('🔍 No filters applied, returning all plans');
+    }
 
     if (filters.keyword) {
+      console.log('🔍 Adding keyword filter:', filters.keyword);
       query = query.or(
         `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`
       );
@@ -157,12 +169,14 @@ export class SupabaseStorage implements IStorage {
 
     // Filter by outdoor features (OR logic for multiple features)
     if (filters.outdoorFeatures) {
+      console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
       const outdoorFeaturesList = filters.outdoorFeatures.split(',').map(f => f.trim());
       if (outdoorFeaturesList.length > 0) {
         // Use OR logic: plan should have at least one of the selected features
         const outdoorConditions = outdoorFeaturesList.map(feature => 
           `outdoorFeatures.cs.["${feature}"]`
         ).join(',');
+        console.log('🔍 Outdoor conditions:', outdoorConditions);
         query = query.or(outdoorConditions);
       }
     }
@@ -246,12 +260,16 @@ export class SupabaseStorage implements IStorage {
       query = query.range(filters.offset, filters.offset + (filters.limit || 0) - 1);
     }
 
+    console.log('🔍 Executing query...');
     const { data, error, count } = await query;
 
     if (error) {
-      console.error("Error searching plans:", error);
+      console.error("❌ Error searching plans:", error);
       return { plans: [], total: 0 };
     }
+
+    console.log('✅ Search results:', { plansFound: data?.length || 0, totalCount: count || 0 });
+    console.log('🔍 First few plans:', data?.slice(0, 2)?.map(p => ({ id: p.id, title: p.title, outdoorFeatures: p.outdoorFeatures })));
 
     return { plans: (data as PlanType[]) || [], total: count || 0 };
   }
