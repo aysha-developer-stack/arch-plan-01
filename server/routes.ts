@@ -80,6 +80,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (filters.limit) filters.limit = parseInt(filters.limit as string);
       if (filters.offset) filters.offset = parseInt(filters.offset as string);
       
+      // Handle array parameters for features - convert arrays to comma-separated strings
+      if (filters.outdoorFeatures) {
+        if (Array.isArray(filters.outdoorFeatures)) {
+          filters.outdoorFeatures = filters.outdoorFeatures.join(',');
+        }
+      }
+      
+      if (filters.indoorFeatures) {
+        if (Array.isArray(filters.indoorFeatures)) {
+          filters.indoorFeatures = filters.indoorFeatures.join(',');
+        }
+      }
+      
       // Validate with schema after conversion
       const validatedFilters = searchPlanSchema.parse(filters);
       const result = await storage.searchPlans(validatedFilters);

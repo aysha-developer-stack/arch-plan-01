@@ -113,6 +113,62 @@ var SupabaseStorage = class {
         `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`
       );
     }
+    if (filters.outdoorFeatures) {
+      const outdoorFeaturesList = filters.outdoorFeatures.split(",").map((f) => f.trim());
+      if (outdoorFeaturesList.length > 0) {
+        const outdoorConditions = outdoorFeaturesList.map(
+          (feature) => `outdoorFeatures.cs.["${feature}"]`
+        ).join(",");
+        query = query.or(outdoorConditions);
+      }
+    }
+    if (filters.indoorFeatures) {
+      const indoorFeaturesList = filters.indoorFeatures.split(",").map((f) => f.trim());
+      if (indoorFeaturesList.length > 0) {
+        const indoorConditions = indoorFeaturesList.map(
+          (feature) => `indoorFeatures.cs.["${feature}"]`
+        ).join(",");
+        query = query.or(indoorConditions);
+      }
+    }
+    if (filters.planType) {
+      query = query.eq("building_type", filters.planType);
+    }
+    if (filters.storeys) {
+      query = query.eq("storeys", parseInt(filters.storeys));
+    }
+    if (filters.bedrooms) {
+      query = query.eq("bedrooms", parseInt(filters.bedrooms));
+    }
+    if (filters.toilets) {
+      query = query.eq("toilets", parseInt(filters.toilets));
+    }
+    if (filters.livingAreas) {
+      query = query.eq("livingAreas", parseInt(filters.livingAreas));
+    }
+    if (filters.orientation) {
+      query = query.eq("orientation", filters.orientation);
+    }
+    if (filters.siteType) {
+      query = query.eq("siteType", filters.siteType);
+    }
+    if (filters.foundationType) {
+      query = query.eq("foundationType", filters.foundationType);
+    }
+    if (filters.councilArea) {
+      query = query.eq("councilArea", filters.councilArea);
+    }
+    if (filters.houseType) {
+      query = query.eq("houseType", filters.houseType);
+    }
+    if (filters.roadPosition) {
+      query = query.eq("roadPosition", filters.roadPosition);
+    }
+    if (filters.lotSizeMin && filters.lotSizeMax) {
+      const minSize = parseFloat(filters.lotSizeMin);
+      const maxSize = parseFloat(filters.lotSizeMax);
+      query = query.gte("lotSizeMin", minSize).lte("lotSizeMax", maxSize);
+    }
     if (filters.sortBy) {
       query = query.order(filters.sortBy, {
         ascending: filters.sortOrder === "asc"
@@ -1675,6 +1731,16 @@ async function registerRoutes(app2) {
       const filters = { ...req.query };
       if (filters.limit) filters.limit = parseInt(filters.limit);
       if (filters.offset) filters.offset = parseInt(filters.offset);
+      if (filters.outdoorFeatures) {
+        if (Array.isArray(filters.outdoorFeatures)) {
+          filters.outdoorFeatures = filters.outdoorFeatures.join(",");
+        }
+      }
+      if (filters.indoorFeatures) {
+        if (Array.isArray(filters.indoorFeatures)) {
+          filters.indoorFeatures = filters.indoorFeatures.join(",");
+        }
+      }
       const validatedFilters = searchPlanSchema.parse(filters);
       const result = await storage2.searchPlans(validatedFilters);
       res.json(result);

@@ -155,7 +155,82 @@ export class SupabaseStorage implements IStorage {
       );
     }
 
-    // Add other filters here based on the filters object
+    // Filter by outdoor features (OR logic for multiple features)
+    if (filters.outdoorFeatures) {
+      const outdoorFeaturesList = filters.outdoorFeatures.split(',').map(f => f.trim());
+      if (outdoorFeaturesList.length > 0) {
+        // Use OR logic: plan should have at least one of the selected features
+        const outdoorConditions = outdoorFeaturesList.map(feature => 
+          `outdoorFeatures.cs.["${feature}"]`
+        ).join(',');
+        query = query.or(outdoorConditions);
+      }
+    }
+
+    // Filter by indoor features (OR logic for multiple features)
+    if (filters.indoorFeatures) {
+      const indoorFeaturesList = filters.indoorFeatures.split(',').map(f => f.trim());
+      if (indoorFeaturesList.length > 0) {
+        // Use OR logic: plan should have at least one of the selected features
+        const indoorConditions = indoorFeaturesList.map(feature => 
+          `indoorFeatures.cs.["${feature}"]`
+        ).join(',');
+        query = query.or(indoorConditions);
+      }
+    }
+
+    // Filter by other fields
+    if (filters.planType) {
+      query = query.eq('building_type', filters.planType);
+    }
+
+    if (filters.storeys) {
+      query = query.eq('storeys', parseInt(filters.storeys));
+    }
+
+    if (filters.bedrooms) {
+      query = query.eq('bedrooms', parseInt(filters.bedrooms));
+    }
+
+    if (filters.toilets) {
+      query = query.eq('toilets', parseInt(filters.toilets));
+    }
+
+    if (filters.livingAreas) {
+      query = query.eq('livingAreas', parseInt(filters.livingAreas));
+    }
+
+    if (filters.orientation) {
+      query = query.eq('orientation', filters.orientation);
+    }
+
+    if (filters.siteType) {
+      query = query.eq('siteType', filters.siteType);
+    }
+
+    if (filters.foundationType) {
+      query = query.eq('foundationType', filters.foundationType);
+    }
+
+    if (filters.councilArea) {
+      query = query.eq('councilArea', filters.councilArea);
+    }
+
+    if (filters.houseType) {
+      query = query.eq('houseType', filters.houseType);
+    }
+
+    if (filters.roadPosition) {
+      query = query.eq('roadPosition', filters.roadPosition);
+    }
+
+    // Lot size range filtering
+    if (filters.lotSizeMin && filters.lotSizeMax) {
+      const minSize = parseFloat(filters.lotSizeMin);
+      const maxSize = parseFloat(filters.lotSizeMax);
+      // Use lotSizeMin and lotSizeMax fields for range filtering
+      query = query.gte('lotSizeMin', minSize).lte('lotSizeMax', maxSize);
+    }
 
     if (filters.sortBy) {
       query = query.order(filters.sortBy, {
