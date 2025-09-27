@@ -75,24 +75,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Parse query parameters manually to handle string-to-number conversion
       const filters: any = { ...req.query };
-      
+
       // Convert string parameters to numbers where needed
       if (filters.limit) filters.limit = parseInt(filters.limit as string);
       if (filters.offset) filters.offset = parseInt(filters.offset as string);
-      
+
       // Handle array parameters for features - convert arrays to comma-separated strings
       if (filters.outdoorFeatures) {
         if (Array.isArray(filters.outdoorFeatures)) {
           filters.outdoorFeatures = filters.outdoorFeatures.join(',');
         }
       }
-      
+
       if (filters.indoorFeatures) {
         if (Array.isArray(filters.indoorFeatures)) {
           filters.indoorFeatures = filters.indoorFeatures.join(',');
         }
       }
-      
+
       // Validate with schema after conversion
       const validatedFilters = searchPlanSchema.parse(filters);
       const result = await storage.searchPlans(validatedFilters);
@@ -145,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const storage = getStorage();
       const plan = await storage.getPlan(req.params.id);
-      
+
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
@@ -173,7 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Try relative to current working directory
           filePath = path.join(process.cwd(), image.path);
         }
-        
+
         if (fs.existsSync(filePath)) {
           fileExists = true;
         } else {
@@ -217,11 +217,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         planData.fileSize = req.file.size;
         fs.unlinkSync(req.file.path); // Clean up uploaded file
       }
-      
+
       // Get user ID from request (assuming it's set by authentication middleware)
       // For now, using a default user ID if not authenticated
       const userId = (req as any).user?.id || "default-user-id";
-      
+
       const newPlan = await storage.createPlan(planData, userId);
       res.status(201).json(newPlan);
     } catch (error) {
@@ -278,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (plan.filePath) {
         const originalPath = plan.filePath;
         console.log("Original file path from DB:", originalPath);
-        
+
         // Try absolute path first
         if (path.isAbsolute(originalPath)) {
           filePath = originalPath;
@@ -286,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Try relative to current working directory
           filePath = path.join(process.cwd(), originalPath);
         }
-        
+
         console.log("Trying file path:", filePath);
         if (fs.existsSync(filePath)) {
           fileExists = true;
@@ -326,7 +326,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to download plan" });
     }
   });
-
 
   const server = createServer(app);
   return server;
