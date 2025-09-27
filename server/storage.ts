@@ -772,31 +772,53 @@ export class SupabaseStorage implements IStorage {
       query = query.or(keywordConditions.join(','));
     }
 
-    // Handle outdoor features - use PostgreSQL ANY operator for reliable array filtering
+    // Handle outdoor features - use PostgreSQL array overlap operator
     if (filters.outdoorFeatures) {
         const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
         
         if (outdoorFeaturesArray.length > 0) {
             console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
             
-            // Use PostgreSQL ANY operator for reliable array filtering
-            // This creates: outdoorFeatures @> ANY(ARRAY['feature1', 'feature2'])
-            query = query.contains('outdoorFeatures', outdoorFeaturesArray);
-            console.log('🔍 Added outdoor feature filter with contains method:', outdoorFeaturesArray);
+            // Use PostgreSQL array overlap operator for reliable array filtering
+            // This creates a proper PostgreSQL array syntax
+            const outdoorConditions = [];
+            
+            // Create individual conditions for each feature
+            for (const feature of outdoorFeaturesArray) {
+                // Use the overlaps operator with proper array syntax
+                outdoorConditions.push(`outdoorFeatures.cs.ARRAY['${feature}']`);
+            }
+            
+            if (outdoorConditions.length > 0) {
+                query = query.or(outdoorConditions.join(','));
+                console.log('🔍 Added outdoor conditions:', outdoorConditions);
+                console.log('🔍 Combined search conditions (OR logic):', outdoorConditions.join(','));
+            }
         }
     }
 
-    // Indoor Features - use PostgreSQL ANY operator for reliable array filtering
+    // Indoor Features - use PostgreSQL array overlap operator
     if (filters.indoorFeatures) {
         const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
         
         if (indoorFeaturesArray.length > 0) {
             console.log('🔍 Processing indoor features:', filters.indoorFeatures);
             
-            // Use PostgreSQL ANY operator for reliable array filtering
-            // This creates: indoorFeatures @> ANY(ARRAY['feature1', 'feature2'])
-            query = query.contains('indoorFeatures', indoorFeaturesArray);
-            console.log('🔍 Added indoor feature filter with contains method:', indoorFeaturesArray);
+            // Use PostgreSQL array overlap operator for reliable array filtering
+            // This creates a proper PostgreSQL array syntax
+            const indoorConditions = [];
+            
+            // Create individual conditions for each feature
+            for (const feature of indoorFeaturesArray) {
+                // Use the overlaps operator with proper array syntax
+                indoorConditions.push(`indoorFeatures.cs.ARRAY['${feature}']`);
+            }
+            
+            if (indoorConditions.length > 0) {
+                query = query.or(indoorConditions.join(','));
+                console.log('🔍 Added indoor conditions:', indoorConditions);
+                console.log('🔍 Combined search conditions (OR logic):', indoorConditions.join(','));
+            }
         }
     }
 
