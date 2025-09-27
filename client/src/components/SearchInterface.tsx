@@ -104,9 +104,9 @@ export default function SearchInterface() {
       const params = new URLSearchParams();
       Object.entries(debouncedFilters).forEach(([key, value]) => {
         if (Array.isArray(value)) {
-          // Handle array values
+          // Handle array values - join them as comma-separated string
           if (value.length > 0) {
-            value.forEach(item => params.append(key, item));
+            params.append(key, value.join(','));
           }
         } else if (value && typeof value === 'string' && value.trim() !== "") {
           // Handle string values
