@@ -67,8 +67,8 @@ var SupabaseStorage = class {
       if (!bucketExists) {
         const { error: createError } = await supabase.storage.createBucket(this.BUCKET_NAME, {
           public: false,
-          fileSizeLimit: 50 * 1024 * 1024,
-          // 50MB - reduced from 100MB
+          fileSizeLimit: 100 * 1024 * 1024,
+          // 100MB - matching Multer configuration
           allowedMimeTypes: ["application/pdf", "image/jpeg", "image/png", "image/gif", "application/zip"]
         });
         if (createError) {
@@ -1236,16 +1236,19 @@ var upload = multer({
       cb(null, uniqueSuffix + path2.extname(file.originalname));
     }
   }),
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf" || file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only PDF and image files are allowed"));
-    }
-  },
   limits: {
-    fileSize: 100 * 1024 * 1024
-    // 100MB limit
+    fileSize: 100 * 1024 * 1024,
+    // 100MB limit per file
+    files: void 0,
+    // Remove file count limit to allow unlimited files
+    fields: void 0,
+    // Remove field count limit
+    fieldSize: void 0,
+    // Remove field size limit
+    fieldNameSize: void 0,
+    // Remove field name size limit
+    parts: void 0
+    // Remove parts limit
   }
 });
 router3.post("/login", async (req, res) => {
@@ -1413,117 +1416,143 @@ router3.get("/plans", authenticateAdmin, async (req, res) => {
     });
   }
 });
-router3.post("/plans", authenticateAdmin, upload.fields([
-  { name: "file", maxCount: 1 },
-  { name: "images", maxCount: 10 }
-]), async (req, res) => {
-  try {
-    const storage2 = getStorage();
-    const files = req.files;
-    const planData = { ...req.body };
-    if (files?.file && files.file[0]) {
-      const file = files.file[0];
-      const fileContent = fs.readFileSync(file.path);
-      planData.content = fileContent.toString("base64");
-      planData.fileName = file.originalname;
-      planData.fileSize = file.size;
-      planData.filePath = path2.relative(process.cwd(), file.path);
-      fs.unlinkSync(file.path);
-    }
-    if (files?.images && files.images.length > 0) {
-      const imageObjects = [];
-      for (const imageFile of files.images) {
-        const relativePath = path2.relative(process.cwd(), imageFile.path);
-        const fileId = path2.basename(imageFile.filename, path2.extname(imageFile.filename));
-        imageObjects.push({
-          path: relativePath,
+router3.post(
+  "/plans",
+  authenticateAdmin,
+  // Use upload.any() to accept any field names (file, images, and form data)
+  upload.any(),
+  async (req, res) => {
+    try {
+      const storage2 = getStorage();
+      const files = req.files;
+      const planData = { ...req.body };
+      console.log("Received files:", files?.length || 0);
+      console.log("File fieldnames:", files?.map((f) => f.fieldname) || []);
+      console.log("Form data keys:", Object.keys(planData));
+      let pdfUrl = void 0;
+      const pdfFile = files?.find((file) => file.fieldname === "file");
+      if (pdfFile) {
+        if (!pdfFile.mimetype.startsWith("application/pdf")) {
+          fs.unlinkSync(pdfFile.path);
+          return res.status(400).json({
+            success: false,
+            message: "Only PDF files are allowed for the 'file' field."
+          });
+        }
+        const fileContent = fs.readFileSync(pdfFile.path);
+        const { data, error } = await supabase.storage.from("plan-files").upload(`plans/${pdfFile.filename}`, fileContent, {
+          contentType: pdfFile.mimetype
+        });
+        if (error) throw error;
+        const { data: publicUrlData } = supabase.storage.from("plan-files").getPublicUrl(data.path);
+        pdfUrl = publicUrlData.publicUrl;
+        fs.unlinkSync(pdfFile.path);
+      }
+      const imageFiles = files?.filter((file) => file.fieldname === "images") || [];
+      const imageUrls = [];
+      for (const imageFile of imageFiles) {
+        if (!imageFile.mimetype.startsWith("image/")) {
+          fs.unlinkSync(imageFile.path);
+          return res.status(400).json({
+            success: false,
+            message: "Only image files are allowed for the 'images' field."
+          });
+        }
+        const fileContent = fs.readFileSync(imageFile.path);
+        const { data, error } = await supabase.storage.from("plan-files").upload(`images/${imageFile.filename}`, fileContent, {
+          contentType: imageFile.mimetype
+        });
+        if (error) throw error;
+        const { data: publicUrlData } = supabase.storage.from("plan-files").getPublicUrl(data.path);
+        imageUrls.push({
+          path: publicUrlData.publicUrl,
           filename: imageFile.originalname,
           size: imageFile.size,
-          fileId
+          fileId: path2.basename(imageFile.filename, path2.extname(imageFile.filename))
         });
+        fs.unlinkSync(imageFile.path);
       }
-      planData.images = imageObjects;
-    }
-    if (planData.outdoorFeatures && typeof planData.outdoorFeatures === "string") {
-      try {
-        planData.outdoorFeatures = JSON.parse(planData.outdoorFeatures);
-      } catch (e) {
-        planData.outdoorFeatures = [];
+      if (planData.outdoorFeatures && typeof planData.outdoorFeatures === "string") {
+        try {
+          planData.outdoorFeatures = JSON.parse(planData.outdoorFeatures);
+        } catch (e) {
+          planData.outdoorFeatures = [];
+        }
       }
-    }
-    if (planData.indoorFeatures && typeof planData.indoorFeatures === "string") {
-      try {
-        planData.indoorFeatures = JSON.parse(planData.indoorFeatures);
-      } catch (e) {
-        planData.indoorFeatures = [];
+      if (planData.indoorFeatures && typeof planData.indoorFeatures === "string") {
+        try {
+          planData.indoorFeatures = JSON.parse(planData.indoorFeatures);
+        } catch (e) {
+          planData.indoorFeatures = [];
+        }
       }
-    }
-    if (planData.constructionType && typeof planData.constructionType === "string") {
-      planData.constructionType = [planData.constructionType];
-    }
-    if (planData.storeys) planData.storeys = parseInt(planData.storeys);
-    if (planData.bedrooms) planData.bedrooms = parseInt(planData.bedrooms);
-    if (planData.toilets) planData.toilets = parseInt(planData.toilets);
-    if (planData.livingAreas) planData.livingAreas = parseInt(planData.livingAreas);
-    if (planData.numberOfUnits) planData.numberOfUnits = parseInt(planData.numberOfUnits);
-    if (planData.totalBuildingHeight) planData.totalBuildingHeight = parseFloat(planData.totalBuildingHeight);
-    if (planData.roofPitch) planData.roofPitch = parseFloat(planData.roofPitch);
-    if (planData.plotLength) planData.plotLength = parseFloat(planData.plotLength);
-    if (planData.plotWidth) planData.plotWidth = parseFloat(planData.plotWidth);
-    if (planData.coveredArea) planData.coveredArea = parseFloat(planData.coveredArea);
-    if (planData.lotSizeMin) planData.lotSizeMin = parseFloat(planData.lotSizeMin);
-    if (planData.lotSizeMax) planData.lotSizeMax = parseFloat(planData.lotSizeMax);
-    planData.status = "active";
-    planData.downloadCount = 0;
-    planData.uploadedBy = req.adminId;
-    if (planData.builderName) {
-      planData.architect = planData.builderName;
-    }
-    if (planData.planType) {
-      planData.building_type = planData.planType;
-    } else {
-      planData.building_type = "Residential";
-    }
-    if (!planData.building_type) {
-      planData.building_type = "Residential";
-    }
-    const validatedData = insertPlanSchema.parse(planData);
-    const newPlan = await storage2.createPlan(validatedData, req.adminId);
-    res.status(201).json({
-      success: true,
-      message: "Plan uploaded successfully",
-      data: newPlan
-    });
-  } catch (error) {
-    console.error("Error uploading plan:", error);
-    const files = req.files;
-    if (files?.file && files.file[0]) {
-      try {
-        fs.unlinkSync(files.file[0].path);
-      } catch (e) {
+      if (planData.constructionType && typeof planData.constructionType === "string") {
+        planData.constructionType = [planData.constructionType];
       }
-    }
-    if (files?.images) {
-      files.images.forEach((file) => {
+      if (planData.storeys) planData.storeys = parseInt(planData.storeys);
+      if (planData.bedrooms) planData.bedrooms = parseInt(planData.bedrooms);
+      if (planData.toilets) planData.toilets = parseInt(planData.toilets);
+      if (planData.livingAreas) planData.livingAreas = parseInt(planData.livingAreas);
+      if (planData.numberOfUnits) planData.numberOfUnits = parseInt(planData.numberOfUnits);
+      if (planData.totalBuildingHeight) planData.totalBuildingHeight = parseFloat(planData.totalBuildingHeight);
+      if (planData.roofPitch) planData.roofPitch = parseFloat(planData.roofPitch);
+      if (planData.plotLength) planData.plotLength = parseFloat(planData.plotLength);
+      if (planData.plotWidth) planData.plotWidth = parseFloat(planData.plotWidth);
+      if (planData.coveredArea) planData.coveredArea = parseFloat(planData.coveredArea);
+      if (planData.lotSizeMin) planData.lotSizeMin = parseFloat(planData.lotSizeMin);
+      if (planData.lotSizeMax) planData.lotSizeMax = parseFloat(planData.lotSizeMax);
+      planData.status = "active";
+      planData.downloadCount = 0;
+      planData.uploadedBy = req.adminId;
+      if (planData.builderName) {
+        planData.architect = planData.builderName;
+      }
+      if (planData.planType) {
+        planData.building_type = planData.planType;
+      } else {
+        planData.building_type = "Residential";
+      }
+      if (!planData.building_type) {
+        planData.building_type = "Residential";
+      }
+      const validatedData = insertPlanSchema.parse(planData);
+      validatedData.file_url = pdfUrl;
+      validatedData.images = imageUrls;
+      const newPlan = await storage2.createPlan(validatedData, req.adminId);
+      res.status(201).json({
+        success: true,
+        message: "Plan uploaded successfully",
+        data: newPlan
+      });
+    } catch (error) {
+      console.error("Error uploading plan:", error);
+      const files = req.files;
+      for (const file of files || []) {
         try {
           fs.unlinkSync(file.path);
         } catch (e) {
         }
-      });
-    }
-    if (error instanceof z4.ZodError) {
-      return res.status(400).json({
+      }
+      if (error instanceof z4.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid plan data",
+          errors: error.errors
+        });
+      }
+      if (error.message && error.message.includes("StorageApiError")) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload files to storage. Check your Supabase bucket policies."
+        });
+      }
+      res.status(500).json({
         success: false,
-        message: "Invalid plan data",
-        errors: error.errors
+        message: error.message || "Failed to upload plan"
       });
     }
-    res.status(500).json({
-      success: false,
-      message: error.message || "Failed to upload plan"
-    });
   }
-});
+);
 router3.delete("/plans/:id", authenticateAdmin, async (req, res) => {
   try {
     const storage2 = getStorage();
@@ -1563,11 +1592,9 @@ router3.get("/stats", authenticateAdmin, async (req, res) => {
       throw adminCountError;
     }
     const stats = {
-      // Flatten the plan stats to match frontend expectations
       totalPlans: planStats.totalPlans,
       totalDownloads: planStats.totalDownloads,
       recentUploads: planStats.recentUploads,
-      // Keep the nested structure for users and admins
       users: userStats[0] || {
         total_users: 0,
         pending_users: 0,
