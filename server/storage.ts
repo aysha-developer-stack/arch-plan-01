@@ -781,8 +781,8 @@ if (filters.outdoorFeatures) {
     if (outdoorFeaturesArray.length > 0) {
         // Apply AND logic by chaining multiple conditions
         for (const feature of outdoorFeaturesArray) {
-            // Use PostgreSQL @> operator for array containment with proper filter arguments
-            query = query.filter('outdoorFeatures', '@>', `[${JSON.stringify(feature)}]`);
+            // Use PostgreSQL = ANY() syntax for array filtering
+            query = query.filter(`'${feature}' = ANY("outdoorFeatures")`, 'is', 'true');
         }
         console.log('🔍 Filtering by outdoor features (AND logic):', outdoorFeaturesArray);
     }
@@ -795,8 +795,8 @@ if (filters.indoorFeatures) {
     if (indoorFeaturesArray.length > 0) {
         // Apply AND logic by chaining multiple conditions
         for (const feature of indoorFeaturesArray) {
-            // Use PostgreSQL @> operator for array containment with proper filter arguments
-            query = query.filter('indoorFeatures', '@>', `[${JSON.stringify(feature)}]`);
+            // Use PostgreSQL = ANY() syntax for array filtering
+            query = query.filter(`'${feature}' = ANY("indoorFeatures")`, 'is', 'true');
         }
         console.log('🔍 Filtering by indoor features (AND logic):', indoorFeaturesArray);
     }
