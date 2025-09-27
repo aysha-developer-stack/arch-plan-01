@@ -781,9 +781,8 @@ export class SupabaseStorage implements IStorage {
             
             // Use PostgreSQL ANY operator for reliable array filtering
             // This creates: outdoorFeatures @> ANY(ARRAY['feature1', 'feature2'])
-            const featuresList = outdoorFeaturesArray.map(f => `'${f}'`).join(',');
-            query = query.filter('outdoorFeatures', 'cs', `{${featuresList}}`);
-            console.log('🔍 Added outdoor feature filter with cs operator:', `{${featuresList}}`);
+            query = query.contains('outdoorFeatures', outdoorFeaturesArray);
+            console.log('🔍 Added outdoor feature filter with contains method:', outdoorFeaturesArray);
         }
     }
 
@@ -796,9 +795,8 @@ export class SupabaseStorage implements IStorage {
             
             // Use PostgreSQL ANY operator for reliable array filtering
             // This creates: indoorFeatures @> ANY(ARRAY['feature1', 'feature2'])
-            const featuresList = indoorFeaturesArray.map(f => `'${f}'`).join(',');
-            query = query.filter('indoorFeatures', 'cs', `{${featuresList}}`);
-            console.log('🔍 Added indoor feature filter with cs operator:', `{${featuresList}}`);
+            query = query.contains('indoorFeatures', indoorFeaturesArray);
+            console.log('🔍 Added indoor feature filter with contains method:', indoorFeaturesArray);
         }
     }
 
