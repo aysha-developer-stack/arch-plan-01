@@ -184,45 +184,28 @@ export class SupabaseStorage implements IStorage {
     // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
     if (filters.outdoorFeatures) {
       console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
-      const outdoorFeaturesString = filters.outdoorFeatures;
-      const outdoorFeaturesArray = outdoorFeaturesString.split(',').map(f => f.trim());
+      const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
+      
       if (outdoorFeaturesArray.length > 0) {
-        // For each feature, the plan must contain it (AND logic between features)
-        outdoorFeaturesArray.forEach(feature => {
-          // Use contains method with JavaScript array - Supabase handles the PostgreSQL conversion
-          console.log('🔍 Adding outdoor feature filter with contains method:', [feature]);
-          query = query.contains('outdoorFeatures', [feature]);
-          console.log('🔍 Added outdoor feature filter:', feature);
-        });
+        // Use a single .contains() call with the entire JavaScript array
+        // Supabase will automatically convert this to the correct PostgreSQL `@>` operator
+        query = query.contains('outdoorFeatures', outdoorFeaturesArray);
+        console.log('🔍 Added outdoor feature filter with contains method:', outdoorFeaturesArray);
       }
     }
 
     // Handle indoor features (AND logic - plan must have ALL selected indoor features)
-  // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
-if (filters.outdoorFeatures) {
-    console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
-    const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
-    
-    // Check if the array contains any features before querying
-    if (outdoorFeaturesArray.length > 0) {
-        // Use a single .contains() call with the entire array
-        console.log('🔍 Adding outdoor feature filter with contains method:', outdoorFeaturesArray);
-        query = query.contains('outdoorFeatures', outdoorFeaturesArray);
-    }
-}
-
-// Handle indoor features (AND logic - plan must have ALL selected indoor features)
-if (filters.indoorFeatures) {
-    console.log('🔍 Processing indoor features:', filters.indoorFeatures);
-    const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
-    
-    // Check if the array contains any features before querying
-    if (indoorFeaturesArray.length > 0) {
-        // Use a single .contains() call with the entire array
-        console.log('🔍 Adding indoor feature filter with contains method:', indoorFeaturesArray);
+    if (filters.indoorFeatures) {
+      console.log('🔍 Processing indoor features:', filters.indoorFeatures);
+      const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
+      
+      if (indoorFeaturesArray.length > 0) {
+        // Use a single .contains() call with the entire JavaScript array
+        // Supabase will automatically convert this to the correct PostgreSQL `@>` operator
         query = query.contains('indoorFeatures', indoorFeaturesArray);
+        console.log('🔍 Added indoor feature filter with contains method:', indoorFeaturesArray);
+      }
     }
-}
     // Filter by other fields
     if (filters.planType) {
       query = query.eq('building_type', filters.planType);
