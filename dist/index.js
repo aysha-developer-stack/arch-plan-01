@@ -114,6 +114,14 @@ var SupabaseStorage = class {
     );
     if (!hasFilters) {
       console.log("\u{1F50D} No filters applied, returning all plans");
+      console.log("\u{1F50D} Executing query...");
+      const { data: data2, error: error2, count: count2 } = await query;
+      if (error2) {
+        console.error("\u274C Error searching plans:", error2);
+        return { plans: [], total: 0 };
+      }
+      console.log("\u2705 Search results (no filters):", { plansFound: data2?.length || 0, totalCount: count2 || 0 });
+      return { plans: data2 || [], total: count2 || 0 };
     }
     if (filters.keyword) {
       console.log("\u{1F50D} Adding keyword filter:", filters.keyword);
@@ -133,11 +141,13 @@ var SupabaseStorage = class {
       }
     }
     if (filters.indoorFeatures) {
+      console.log("\u{1F50D} Processing indoor features:", filters.indoorFeatures);
       const indoorFeaturesList = filters.indoorFeatures.split(",").map((f) => f.trim());
       if (indoorFeaturesList.length > 0) {
         const indoorConditions = indoorFeaturesList.map(
           (feature) => `indoorFeatures.cs.["${feature}"]`
         ).join(",");
+        console.log("\u{1F50D} Indoor conditions:", indoorConditions);
         query = query.or(indoorConditions);
       }
     }

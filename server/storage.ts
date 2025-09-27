@@ -158,6 +158,17 @@ export class SupabaseStorage implements IStorage {
     
     if (!hasFilters) {
       console.log('🔍 No filters applied, returning all plans');
+      // Skip all filtering and return all plans for testing
+      console.log('🔍 Executing query...');
+      const { data, error, count } = await query;
+
+      if (error) {
+        console.error("❌ Error searching plans:", error);
+        return { plans: [], total: 0 };
+      }
+
+      console.log('✅ Search results (no filters):', { plansFound: data?.length || 0, totalCount: count || 0 });
+      return { plans: (data as PlanType[]) || [], total: count || 0 };
     }
 
     if (filters.keyword) {
@@ -173,6 +184,7 @@ export class SupabaseStorage implements IStorage {
       const outdoorFeaturesList = filters.outdoorFeatures.split(',').map(f => f.trim());
       if (outdoorFeaturesList.length > 0) {
         // Use OR logic: plan should have at least one of the selected features
+        // For JSONB arrays, we need to check if the array contains ANY of the features
         const outdoorConditions = outdoorFeaturesList.map(feature => 
           `outdoorFeatures.cs.["${feature}"]`
         ).join(',');
@@ -181,14 +193,16 @@ export class SupabaseStorage implements IStorage {
       }
     }
 
-    // Filter by indoor features (OR logic for multiple features)
+    // Filter by indoor features (OR logic for multiple features)  
     if (filters.indoorFeatures) {
+      console.log('🔍 Processing indoor features:', filters.indoorFeatures);
       const indoorFeaturesList = filters.indoorFeatures.split(',').map(f => f.trim());
       if (indoorFeaturesList.length > 0) {
         // Use OR logic: plan should have at least one of the selected features
         const indoorConditions = indoorFeaturesList.map(feature => 
           `indoorFeatures.cs.["${feature}"]`
         ).join(',');
+        console.log('🔍 Indoor conditions:', indoorConditions);
         query = query.or(indoorConditions);
       }
     }
