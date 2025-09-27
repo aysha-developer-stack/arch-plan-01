@@ -188,7 +188,8 @@ export class SupabaseStorage implements IStorage {
       if (outdoorFeaturesList.length > 0) {
         // For each feature, the plan must contain it (AND logic between features)
         outdoorFeaturesList.forEach(feature => {
-          query = query.contains('outdoorFeatures', [feature]);
+          // Use contains operator with proper array syntax for PostgreSQL
+          query = query.contains('outdoorFeatures', `{${feature}}`);
           console.log('🔍 Added outdoor feature filter:', feature);
         });
       }
@@ -201,7 +202,8 @@ export class SupabaseStorage implements IStorage {
       if (indoorFeaturesList.length > 0) {
         // For each feature, the plan must contain it (AND logic between features)
         indoorFeaturesList.forEach(feature => {
-          query = query.contains('indoorFeatures', [feature]);
+          // Use contains operator with proper array syntax for PostgreSQL
+          query = query.contains('indoorFeatures', `{${feature}}`);
           console.log('🔍 Added indoor feature filter:', feature);
         });
       }
