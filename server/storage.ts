@@ -184,33 +184,45 @@ export class SupabaseStorage implements IStorage {
     // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
     if (filters.outdoorFeatures) {
       console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
-      const outdoorFeaturesList = filters.outdoorFeatures.split(',').map(f => f.trim());
-      if (outdoorFeaturesList.length > 0) {
+      const outdoorFeaturesString = filters.outdoorFeatures;
+      const outdoorFeaturesArray = outdoorFeaturesString.split(',').map(f => f.trim());
+      if (outdoorFeaturesArray.length > 0) {
         // For each feature, the plan must contain it (AND logic between features)
-        outdoorFeaturesList.forEach(feature => {
-          // Use the @> operator for PostgreSQL array contains
-          console.log('🔍 Adding outdoor feature filter with @> operator:', `['${feature}']`);
-          query = query.filter('outdoorFeatures', '@>', `['${feature}']`);
+        outdoorFeaturesArray.forEach(feature => {
+          // Use contains method with JavaScript array - Supabase handles the PostgreSQL conversion
+          console.log('🔍 Adding outdoor feature filter with contains method:', [feature]);
+          query = query.contains('outdoorFeatures', [feature]);
           console.log('🔍 Added outdoor feature filter:', feature);
         });
       }
     }
 
     // Handle indoor features (AND logic - plan must have ALL selected indoor features)
-    if (filters.indoorFeatures) {
-      console.log('🔍 Processing indoor features:', filters.indoorFeatures);
-      const indoorFeaturesList = filters.indoorFeatures.split(',').map(f => f.trim());
-      if (indoorFeaturesList.length > 0) {
-        // For each feature, the plan must contain it (AND logic between features)
-        indoorFeaturesList.forEach(feature => {
-          // Use the @> operator for PostgreSQL array contains
-          console.log('🔍 Adding indoor feature filter with @> operator:', `['${feature}']`);
-          query = query.filter('indoorFeatures', '@>', `['${feature}']`);
-          console.log('🔍 Added indoor feature filter:', feature);
-        });
-      }
+  // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
+if (filters.outdoorFeatures) {
+    console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
+    const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
+    
+    // Check if the array contains any features before querying
+    if (outdoorFeaturesArray.length > 0) {
+        // Use a single .contains() call with the entire array
+        console.log('🔍 Adding outdoor feature filter with contains method:', outdoorFeaturesArray);
+        query = query.contains('outdoorFeatures', outdoorFeaturesArray);
     }
+}
 
+// Handle indoor features (AND logic - plan must have ALL selected indoor features)
+if (filters.indoorFeatures) {
+    console.log('🔍 Processing indoor features:', filters.indoorFeatures);
+    const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
+    
+    // Check if the array contains any features before querying
+    if (indoorFeaturesArray.length > 0) {
+        // Use a single .contains() call with the entire array
+        console.log('🔍 Adding indoor feature filter with contains method:', indoorFeaturesArray);
+        query = query.contains('indoorFeatures', indoorFeaturesArray);
+    }
+}
     // Filter by other fields
     if (filters.planType) {
       query = query.eq('building_type', filters.planType);
