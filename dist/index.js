@@ -123,11 +123,11 @@ var SupabaseStorage = class {
       console.log("\u2705 Search results (no filters):", { plansFound: data2?.length || 0, totalCount: count2 || 0 });
       return { plans: data2 || [], total: count2 || 0 };
     }
+    const allSearchConditions = [];
     if (filters.keyword) {
       console.log("\u{1F50D} Adding keyword filter:", filters.keyword);
-      query = query.or(
-        `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`
-      );
+      allSearchConditions.push(`title.ilike.%${filters.keyword}%`);
+      allSearchConditions.push(`description.ilike.%${filters.keyword}%`);
     }
     if (filters.outdoorFeatures) {
       console.log("\u{1F50D} Processing outdoor features:", filters.outdoorFeatures);
@@ -135,9 +135,9 @@ var SupabaseStorage = class {
       if (outdoorFeaturesList.length > 0) {
         const outdoorConditions = outdoorFeaturesList.map(
           (feature) => `outdoorFeatures.cs.["${feature}"]`
-        ).join(",");
-        console.log("\u{1F50D} Outdoor conditions:", outdoorConditions);
-        query = query.or(outdoorConditions);
+        );
+        allSearchConditions.push(...outdoorConditions);
+        console.log("\u{1F50D} Added outdoor conditions:", outdoorConditions);
       }
     }
     if (filters.indoorFeatures) {
@@ -146,10 +146,15 @@ var SupabaseStorage = class {
       if (indoorFeaturesList.length > 0) {
         const indoorConditions = indoorFeaturesList.map(
           (feature) => `indoorFeatures.cs.["${feature}"]`
-        ).join(",");
-        console.log("\u{1F50D} Indoor conditions:", indoorConditions);
-        query = query.or(indoorConditions);
+        );
+        allSearchConditions.push(...indoorConditions);
+        console.log("\u{1F50D} Added indoor conditions:", indoorConditions);
       }
+    }
+    if (allSearchConditions.length > 0) {
+      const combinedConditions = allSearchConditions.join(",");
+      console.log("\u{1F50D} Combined search conditions (OR logic):", combinedConditions);
+      query = query.or(combinedConditions);
     }
     if (filters.planType) {
       query = query.eq("building_type", filters.planType);

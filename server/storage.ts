@@ -171,40 +171,47 @@ export class SupabaseStorage implements IStorage {
       return { plans: (data as PlanType[]) || [], total: count || 0 };
     }
 
+    // Collect all search conditions for OR logic
+    const allSearchConditions = [];
+
+    // Add keyword conditions
     if (filters.keyword) {
       console.log('🔍 Adding keyword filter:', filters.keyword);
-      query = query.or(
-        `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`
-      );
+      allSearchConditions.push(`title.ilike.%${filters.keyword}%`);
+      allSearchConditions.push(`description.ilike.%${filters.keyword}%`);
     }
 
-    // Filter by outdoor features (OR logic for multiple features)
+    // Add outdoor feature conditions
     if (filters.outdoorFeatures) {
       console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
       const outdoorFeaturesList = filters.outdoorFeatures.split(',').map(f => f.trim());
       if (outdoorFeaturesList.length > 0) {
-        // Use OR logic: plan should have at least one of the selected features
-        // For JSONB arrays, we need to check if the array contains ANY of the features
         const outdoorConditions = outdoorFeaturesList.map(feature => 
           `outdoorFeatures.cs.["${feature}"]`
-        ).join(',');
-        console.log('🔍 Outdoor conditions:', outdoorConditions);
-        query = query.or(outdoorConditions);
+        );
+        allSearchConditions.push(...outdoorConditions);
+        console.log('🔍 Added outdoor conditions:', outdoorConditions);
       }
     }
 
-    // Filter by indoor features (OR logic for multiple features)  
+    // Add indoor feature conditions  
     if (filters.indoorFeatures) {
       console.log('🔍 Processing indoor features:', filters.indoorFeatures);
       const indoorFeaturesList = filters.indoorFeatures.split(',').map(f => f.trim());
       if (indoorFeaturesList.length > 0) {
-        // Use OR logic: plan should have at least one of the selected features
         const indoorConditions = indoorFeaturesList.map(feature => 
           `indoorFeatures.cs.["${feature}"]`
-        ).join(',');
-        console.log('🔍 Indoor conditions:', indoorConditions);
-        query = query.or(indoorConditions);
+        );
+        allSearchConditions.push(...indoorConditions);
+        console.log('🔍 Added indoor conditions:', indoorConditions);
       }
+    }
+
+    // Apply OR logic across ALL search conditions (keywords + features)
+    if (allSearchConditions.length > 0) {
+      const combinedConditions = allSearchConditions.join(',');
+      console.log('🔍 Combined search conditions (OR logic):', combinedConditions);
+      query = query.or(combinedConditions);
     }
 
     // Filter by other fields
