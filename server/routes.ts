@@ -80,17 +80,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (filters.limit) filters.limit = parseInt(filters.limit as string);
       if (filters.offset) filters.offset = parseInt(filters.offset as string);
 
-      // Handle array parameters for features - convert arrays to comma-separated strings
+      // Handle array parameters for features
       if (filters.outdoorFeatures) {
-        if (Array.isArray(filters.outdoorFeatures)) {
-          filters.outdoorFeatures = filters.outdoorFeatures.join(',');
-        }
+        // Convert to array if it's a single string
+        const features = Array.isArray(filters.outdoorFeatures) 
+          ? filters.outdoorFeatures 
+          : [filters.outdoorFeatures];
+        // Join with proper quoting for PostgreSQL array
+        filters.outdoorFeatures = features.map((f: string) => f.trim()).join(',');
       }
 
       if (filters.indoorFeatures) {
-        if (Array.isArray(filters.indoorFeatures)) {
-          filters.indoorFeatures = filters.indoorFeatures.join(',');
-        }
+        // Convert to array if it's a single string
+        const features = Array.isArray(filters.indoorFeatures)
+          ? filters.indoorFeatures
+          : [filters.indoorFeatures];
+        // Join with proper quoting for PostgreSQL array
+        filters.indoorFeatures = features.map((f: string) => f.trim()).join(',');
       }
 
       // Validate with schema after conversion
