@@ -187,10 +187,11 @@ export class SupabaseStorage implements IStorage {
       const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
       
       if (outdoorFeaturesArray.length > 0) {
-        // Use a single .contains() call with the entire JavaScript array
-        // Supabase will automatically convert this to the correct PostgreSQL `@>` operator
-        query = query.contains('outdoorFeatures', outdoorFeaturesArray);
-        console.log('🔍 Added outdoor feature filter with contains method:', outdoorFeaturesArray);
+        // Use the cs (contains) operator with proper PostgreSQL array syntax
+        // Format: column.cs.{value1,value2,value3}
+        const arrayString = `{${outdoorFeaturesArray.join(',')}}`;
+        query = query.filter('outdoorFeatures', 'cs', arrayString);
+        console.log('🔍 Added outdoor feature filter with cs operator:', arrayString);
       }
     }
 
@@ -200,10 +201,11 @@ export class SupabaseStorage implements IStorage {
       const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
       
       if (indoorFeaturesArray.length > 0) {
-        // Use a single .contains() call with the entire JavaScript array
-        // Supabase will automatically convert this to the correct PostgreSQL `@>` operator
-        query = query.contains('indoorFeatures', indoorFeaturesArray);
-        console.log('🔍 Added indoor feature filter with contains method:', indoorFeaturesArray);
+        // Use the cs (contains) operator with proper PostgreSQL array syntax
+        // Format: column.cs.{value1,value2,value3}
+        const arrayString = `{${indoorFeaturesArray.join(',')}}`;
+        query = query.filter('indoorFeatures', 'cs', arrayString);
+        console.log('🔍 Added indoor feature filter with cs operator:', arrayString);
       }
     }
     // Filter by other fields
