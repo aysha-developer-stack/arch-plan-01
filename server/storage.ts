@@ -774,29 +774,27 @@ export class SupabaseStorage implements IStorage {
 
     // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
     // Corrected logic to fix the malformed array literal error
-    if (filters.outdoorFeatures) {
-        console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
-        const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
-        
-        if (outdoorFeaturesArray.length > 0) {
-            // Use the contains method. Supabase handles the rest.
-            query = query.contains('outdoorFeatures', outdoorFeaturesArray);
-            console.log('🔍 Added outdoor feature filter with contains method:', outdoorFeaturesArray);
-        }
+    // Outdoor Features (AND logic)
+if (filters.outdoorFeatures) {
+    const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
+    
+    if (outdoorFeaturesArray.length > 0) {
+        // Use the contains method. Supabase handles the rest.
+        // This query will return plans that have ALL selected features.
+        query = query.contains('outdoorFeatures', outdoorFeaturesArray);
     }
+}
 
-    // Handle indoor features (AND logic - plan must have ALL selected indoor features)
-    // Corrected logic to fix the malformed array literal error
-    if (filters.indoorFeatures) {
-        console.log('🔍 Processing indoor features:', filters.indoorFeatures);
-        const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
-        
-        if (indoorFeaturesArray.length > 0) {
-            // Use the contains method. Supabase handles the rest.
-            query = query.contains('indoorFeatures', indoorFeaturesArray);
-            console.log('🔍 Added indoor feature filter with contains method:', indoorFeaturesArray);
-        }
+// Indoor Features (AND logic)
+if (filters.indoorFeatures) {
+    const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
+    
+    if (indoorFeaturesArray.length > 0) {
+        // Use the contains method. Supabase handles the rest.
+        // This query will return plans that have ALL selected features.
+        query = query.contains('indoorFeatures', indoorFeaturesArray);
     }
+}
 
     // Filter by other fields
     if (filters.planType) {
