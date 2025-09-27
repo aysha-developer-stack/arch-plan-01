@@ -773,34 +773,26 @@ export class SupabaseStorage implements IStorage {
     }
 
     // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
-    // Using PostgreSQL-compatible syntax for array operations
-    // Outdoor Features (AND logic)
-if (filters.outdoorFeatures) {
-    const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
-    
-    if (outdoorFeaturesArray.length > 0) {
-        // Apply AND logic by chaining multiple conditions
-        for (const feature of outdoorFeaturesArray) {
-            // Use PostgreSQL = ANY() syntax for array filtering
-            query = query.filter(`'${feature}' = ANY("outdoorFeatures")`, 'is', 'true');
+    if (filters.outdoorFeatures) {
+        const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
+        
+        if (outdoorFeaturesArray.length > 0) {
+            // Create a proper PostgreSQL array literal
+            const arrayLiteral = `{${outdoorFeaturesArray.map(f => `"${f}"`).join(',')}}`;
+            query = query.filter('outdoorFeatures', 'cs', arrayLiteral);
         }
-        console.log('🔍 Filtering by outdoor features (AND logic):', outdoorFeaturesArray);
     }
-}
 
-// Indoor Features (AND logic)
-if (filters.indoorFeatures) {
-    const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
-    
-    if (indoorFeaturesArray.length > 0) {
-        // Apply AND logic by chaining multiple conditions
-        for (const feature of indoorFeaturesArray) {
-            // Use PostgreSQL = ANY() syntax for array filtering
-            query = query.filter(`'${feature}' = ANY("indoorFeatures")`, 'is', 'true');
+    // Indoor Features (AND logic)
+    if (filters.indoorFeatures) {
+        const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
+        
+        if (indoorFeaturesArray.length > 0) {
+            // Create a proper PostgreSQL array literal
+            const arrayLiteral = `{${indoorFeaturesArray.map(f => `"${f}"`).join(',')}}`;
+            query = query.filter('indoorFeatures', 'cs', arrayLiteral);
         }
-        console.log('🔍 Filtering by indoor features (AND logic):', indoorFeaturesArray);
     }
-}
 
     // Filter by other fields
     if (filters.planType) {
