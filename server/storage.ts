@@ -772,25 +772,33 @@ export class SupabaseStorage implements IStorage {
       query = query.or(keywordConditions.join(','));
     }
 
-    // Handle outdoor features (AND logic - plan must have ALL selected outdoor features)
+    // Handle outdoor features - use PostgreSQL ANY operator for reliable array filtering
     if (filters.outdoorFeatures) {
         const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
         
         if (outdoorFeaturesArray.length > 0) {
-            // Create a proper PostgreSQL array literal
-            const arrayLiteral = `{${outdoorFeaturesArray.map(f => `"${f}"`).join(',')}}`;
-            query = query.filter('outdoorFeatures', 'cs', arrayLiteral);
+            console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
+            
+            // Use PostgreSQL ANY operator for reliable array filtering
+            // This creates: outdoorFeatures @> ANY(ARRAY['feature1', 'feature2'])
+            const featuresList = outdoorFeaturesArray.map(f => `'${f}'`).join(',');
+            query = query.filter('outdoorFeatures', 'cs', `{${featuresList}}`);
+            console.log('🔍 Added outdoor feature filter with cs operator:', `{${featuresList}}`);
         }
     }
 
-    // Indoor Features (AND logic)
+    // Indoor Features - use PostgreSQL ANY operator for reliable array filtering
     if (filters.indoorFeatures) {
         const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
         
         if (indoorFeaturesArray.length > 0) {
-            // Create a proper PostgreSQL array literal
-            const arrayLiteral = `{${indoorFeaturesArray.map(f => `"${f}"`).join(',')}}`;
-            query = query.filter('indoorFeatures', 'cs', arrayLiteral);
+            console.log('🔍 Processing indoor features:', filters.indoorFeatures);
+            
+            // Use PostgreSQL ANY operator for reliable array filtering
+            // This creates: indoorFeatures @> ANY(ARRAY['feature1', 'feature2'])
+            const featuresList = indoorFeaturesArray.map(f => `'${f}'`).join(',');
+            query = query.filter('indoorFeatures', 'cs', `{${featuresList}}`);
+            console.log('🔍 Added indoor feature filter with cs operator:', `{${featuresList}}`);
         }
     }
 
@@ -859,6 +867,23 @@ export class SupabaseStorage implements IStorage {
 
     if (filters.offset) {
       query = query.range(filters.offset, filters.offset + (filters.limit || 0) - 1);
+    }
+
+    // Log the final query state
+    console.log('🔍 Final query configuration:', {
+      filters: JSON.stringify(filters),
+      hasFilters,
+      outdoorFeatures: filters.outdoorFeatures,
+      indoorFeatures: filters.indoorFeatures
+    });
+
+    // Add more detailed logging before execution
+    console.log('🔍 Query filters being applied:');
+    if (filters.outdoorFeatures) {
+      console.log('  - Outdoor features filter:', `{${filters.outdoorFeatures.split(',').map(f => `'${f.trim()}'`).join(',')}}`);
+    }
+    if (filters.indoorFeatures) {
+      console.log('  - Indoor features filter:', `{${filters.indoorFeatures.split(',').map(f => `'${f.trim()}'`).join(',')}}`);
     }
 
     console.log('🔍 Executing query...');
