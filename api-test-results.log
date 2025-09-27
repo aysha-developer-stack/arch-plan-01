@@ -1,0 +1,5 @@
+🔍 Testing database features via API endpoint...
+
+❌ Error calling API: request to http://localhost:3000/api/test-db-features failed, reason: 
+
+✅ Test completed
