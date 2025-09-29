@@ -1177,7 +1177,9 @@ export default function SearchInterface() {
                 'Play area / Playground',
                 'Rumpus area (outdoor)',
                 'Greenhouse / Veggie patch',
-                'Clothesline (Hills Hoist)'
+                'Outdoor kitchen',
+                'Pool house',
+                'Tennis court'
               ].slice(0, showAllOutdoorFeatures ? undefined : 6).map((feature) => (
                 <div key={feature} className="flex items-center space-x-2">
                   <Checkbox
@@ -1241,7 +1243,9 @@ export default function SearchInterface() {
                 'Media room / Theatre room',
                 'Laundry (internal)',
                 'Smart home system',
-                'Storage room'
+                'Wine cellar',
+                'Library / Reading room',
+                'Guest bedroom'
               ].slice(0, showAllIndoorFeatures ? undefined : 6).map((feature) => (
                 <div key={feature} className="flex items-center space-x-2">
                   <Checkbox

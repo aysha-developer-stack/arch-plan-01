@@ -772,34 +772,50 @@ export class SupabaseStorage implements IStorage {
       query = query.or(keywordConditions.join(','));
     }
 
-    // Handle outdoor features - use AND logic for array filtering
+    // Handle outdoor features - use direct SQL for array filtering
     if (filters.outdoorFeatures) {
         const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
         
         if (outdoorFeaturesArray.length > 0) {
-            console.log('🔍 Processing outdoor features with AND logic:', filters.outdoorFeatures);
+            console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
             
-            // Apply each feature as a separate filter condition (AND logic)
+            // Use direct SQL for array filtering with proper PostgreSQL syntax
+            const outdoorConditions = [];
+            
+            // Create individual conditions for each feature using direct SQL
             for (const feature of outdoorFeaturesArray) {
-                // Each filter call creates an AND condition
-                query = query.filter('outdoorFeatures', 'cs', `["${feature}"]`);
-                console.log('🔍 Added outdoor feature condition (AND):', feature);
+                // Use direct SQL with proper array syntax
+                outdoorConditions.push(`outdoorFeatures::text ILIKE '%${feature}%'`);
+            }
+            
+            if (outdoorConditions.length > 0) {
+                query = query.or(outdoorConditions.join(','));
+                console.log('🔍 Added outdoor conditions:', outdoorConditions);
+                console.log('🔍 Combined search conditions (OR logic):', outdoorConditions.join(','));
             }
         }
     }
 
-    // Indoor Features - use AND logic for array filtering
+    // Indoor Features - use direct SQL for array filtering
     if (filters.indoorFeatures) {
         const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
         
         if (indoorFeaturesArray.length > 0) {
-            console.log('🔍 Processing indoor features with AND logic:', filters.indoorFeatures);
+            console.log('🔍 Processing indoor features:', filters.indoorFeatures);
             
-            // Apply each feature as a separate filter condition (AND logic)
+            // Use direct SQL for array filtering with proper PostgreSQL syntax
+            const indoorConditions = [];
+            
+            // Create individual conditions for each feature using direct SQL
             for (const feature of indoorFeaturesArray) {
-                // Each filter call creates an AND condition
-                query = query.filter('indoorFeatures', 'cs', `["${feature}"]`);
-                console.log('🔍 Added indoor feature condition (AND):', feature);
+                // Use direct SQL with proper array syntax
+                indoorConditions.push(`indoorFeatures::text ILIKE '%${feature}%'`);
+            }
+            
+            if (indoorConditions.length > 0) {
+                query = query.or(indoorConditions.join(','));
+                console.log('🔍 Added indoor conditions:', indoorConditions);
+                console.log('🔍 Combined search conditions (OR logic):', indoorConditions.join(','));
             }
         }
     }
@@ -882,10 +898,10 @@ export class SupabaseStorage implements IStorage {
     // Add more detailed logging before execution
     console.log('🔍 Query filters being applied:');
     if (filters.outdoorFeatures) {
-      console.log('  - Outdoor features filter (AND logic):', `{${filters.outdoorFeatures.split(',').map(f => `'${f.trim()}'`).join(',')}}`);
+      console.log('  - Outdoor features filter:', `{${filters.outdoorFeatures.split(',').map(f => `'${f.trim()}'`).join(',')}}`);
     }
     if (filters.indoorFeatures) {
-      console.log('  - Indoor features filter (AND logic):', `{${filters.indoorFeatures.split(',').map(f => `'${f.trim()}'`).join(',')}}`);
+      console.log('  - Indoor features filter:', `{${filters.indoorFeatures.split(',').map(f => `'${f.trim()}'`).join(',')}}`);
     }
 
     console.log('🔍 Executing query...');
