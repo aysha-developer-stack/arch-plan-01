@@ -772,31 +772,31 @@ export class SupabaseStorage implements IStorage {
       query = query.or(keywordConditions.join(','));
     }
 
-    // Handle outdoor features - use AND logic for filtering
+    // Handle outdoor features - use AND logic for filtering with array operators
     if (filters.outdoorFeatures) {
         const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
         
         if (outdoorFeaturesArray.length > 0) {
             console.log('🔍 Processing outdoor features (AND logic):', filters.outdoorFeatures);
             
-            // Apply each feature as a separate filter condition (AND logic)
+            // Apply each feature as a separate filter condition (AND logic) using array overlaps operator
             for (const feature of outdoorFeaturesArray) {
-                query = query.ilike('outdoorFeatures', `%${feature}%`);
+                query = query.overlaps('outdoorFeatures', [feature]);
                 console.log('🔍 Added outdoor feature filter:', feature);
             }
         }
     }
 
-    // Indoor Features - use AND logic for filtering
+    // Indoor Features - use AND logic for filtering with array operators
     if (filters.indoorFeatures) {
         const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
         
         if (indoorFeaturesArray.length > 0) {
             console.log('🔍 Processing indoor features (AND logic):', filters.indoorFeatures);
             
-            // Apply each feature as a separate filter condition (AND logic)
+            // Apply each feature as a separate filter condition (AND logic) using array overlaps operator
             for (const feature of indoorFeaturesArray) {
-                query = query.ilike('indoorFeatures', `%${feature}%`);
+                query = query.overlaps('indoorFeatures', [feature]);
                 console.log('🔍 Added indoor feature filter:', feature);
             }
         }
