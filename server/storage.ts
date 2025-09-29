@@ -772,50 +772,32 @@ export class SupabaseStorage implements IStorage {
       query = query.or(keywordConditions.join(','));
     }
 
-    // Handle outdoor features - use direct SQL for array filtering
+    // Handle outdoor features - use AND logic for filtering
     if (filters.outdoorFeatures) {
         const outdoorFeaturesArray = filters.outdoorFeatures.split(',').map(f => f.trim());
         
         if (outdoorFeaturesArray.length > 0) {
-            console.log('🔍 Processing outdoor features:', filters.outdoorFeatures);
+            console.log('🔍 Processing outdoor features (AND logic):', filters.outdoorFeatures);
             
-            // Use direct SQL for array filtering with proper PostgreSQL syntax
-            const outdoorConditions = [];
-            
-            // Create individual conditions for each feature using direct SQL
+            // Apply each feature as a separate filter condition (AND logic)
             for (const feature of outdoorFeaturesArray) {
-                // Use direct SQL with proper array syntax
-                outdoorConditions.push(`outdoorFeatures::text ILIKE '%${feature}%'`);
-            }
-            
-            if (outdoorConditions.length > 0) {
-                query = query.or(outdoorConditions.join(','));
-                console.log('🔍 Added outdoor conditions:', outdoorConditions);
-                console.log('🔍 Combined search conditions (OR logic):', outdoorConditions.join(','));
+                query = query.ilike('outdoorFeatures', `%${feature}%`);
+                console.log('🔍 Added outdoor feature filter:', feature);
             }
         }
     }
 
-    // Indoor Features - use direct SQL for array filtering
+    // Indoor Features - use AND logic for filtering
     if (filters.indoorFeatures) {
         const indoorFeaturesArray = filters.indoorFeatures.split(',').map(f => f.trim());
         
         if (indoorFeaturesArray.length > 0) {
-            console.log('🔍 Processing indoor features:', filters.indoorFeatures);
+            console.log('🔍 Processing indoor features (AND logic):', filters.indoorFeatures);
             
-            // Use direct SQL for array filtering with proper PostgreSQL syntax
-            const indoorConditions = [];
-            
-            // Create individual conditions for each feature using direct SQL
+            // Apply each feature as a separate filter condition (AND logic)
             for (const feature of indoorFeaturesArray) {
-                // Use direct SQL with proper array syntax
-                indoorConditions.push(`indoorFeatures::text ILIKE '%${feature}%'`);
-            }
-            
-            if (indoorConditions.length > 0) {
-                query = query.or(indoorConditions.join(','));
-                console.log('🔍 Added indoor conditions:', indoorConditions);
-                console.log('🔍 Combined search conditions (OR logic):', indoorConditions.join(','));
+                query = query.ilike('indoorFeatures', `%${feature}%`);
+                console.log('🔍 Added indoor feature filter:', feature);
             }
         }
     }
