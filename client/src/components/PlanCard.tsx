@@ -175,7 +175,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Plan Type:</strong> {plan.planType || "N/A"}</div>
                     <div><strong>Storeys:</strong> {plan.storeys}</div>
                     <div><strong>Bedrooms:</strong> {plan.bedrooms || "N/A"}</div>
-                    <div><strong>Toilets:</strong> {plan.toilets || "N/A"}</div>
+                    <div><strong>Toilets/Bathrooms:</strong> {plan.toilets || "N/A"}</div>
                     <div><strong>Living Areas:</strong> {plan.livingAreas || "N/A"}</div>
                     <div><strong>Number of Units:</strong> {plan.numberOfUnits || "N/A"}</div>
                     <div><strong>House Type:</strong> {plan.houseType || "N/A"}</div>
@@ -198,7 +198,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>File Size:</strong> {plan.fileSize ? `${(plan.fileSize / 1024 / 1024).toFixed(2)} MB` : "N/A"}</div>
                     <div><strong>Downloads:</strong> {plan.downloadCount || 0}</div>
                     <div><strong>Status:</strong> {plan.status || "N/A"}</div>
-                    <div><strong>Uploaded By:</strong> {plan.uploadedBy ? "admin" : "N/A"}</div>
+                    <div><strong>Uploaded By:</strong> {plan.uploadedBy ? "Admin" : "N/A"}</div>
                   </div>
                   
                   {/* Outdoor Features */}

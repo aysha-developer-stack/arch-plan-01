@@ -1140,11 +1140,19 @@ export default function SearchInterface() {
           <div className="border-b border-slate-200 pb-4">
             <h4 className="text-lg font-semibold text-slate-900 mb-2">Features</h4>
             <p className="text-sm text-slate-600">Indoor and outdoor amenities</p>
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-xs text-blue-700 font-medium">
+                ✓ AND Search: Plans must have ALL selected features to appear in results
+              </p>
+            </div>
           </div>
           
           {/* Outdoor Features */}
           <div>
-            <Label className="text-sm font-medium text-slate-700 mb-3 block">Outdoor Features</Label>
+            <Label className="text-sm font-medium text-slate-700 mb-3 block">
+              Outdoor Features 
+              <span className="text-xs text-blue-600 font-normal ml-2">(Must have ALL selected)</span>
+            </Label>
             <div className="grid grid-cols-2 gap-3">
               {[
                 'Swimming pool',
@@ -1207,7 +1215,10 @@ export default function SearchInterface() {
 
           {/* Indoor Features */}
           <div>
-            <Label className="text-sm font-medium text-slate-700 mb-3 block">Indoor Features</Label>
+            <Label className="text-sm font-medium text-slate-700 mb-3 block">
+              Indoor Features
+              <span className="text-xs text-blue-600 font-normal ml-2">(Must have ALL selected)</span>
+            </Label>
             <div className="grid grid-cols-2 gap-3">
               {[
                 'Ensuite',
