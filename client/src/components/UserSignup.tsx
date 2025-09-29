@@ -171,7 +171,7 @@ export default function UserSignup() {
 
           {/* Go to Login Button */}
           <button
-            onClick={() => window.location.replace('/login')}
+            onClick={() => window.location.href = '/login'}
             className="w-full border-0 text-white font-semibold py-4 px-5 rounded-md cursor-pointer transition-transform active:translate-y-px"
             style={{
               background: 'linear-gradient(90deg, #1E4ED8, #2563EB)',
@@ -415,7 +415,7 @@ export default function UserSignup() {
             Already have an account?{' '}
             <button 
               type="button"
-              onClick={() => window.location.replace('/login')}
+              onClick={() => window.location.href = '/login'}
               className="text-white/70 underline hover:text-white bg-transparent border-0 cursor-pointer"
             >
               Sign in
@@ -426,7 +426,7 @@ export default function UserSignup() {
           <div className="text-sm" style={{ color: 'rgba(255,255,255,.7)' }}>
             <button 
               type="button"
-              onClick={() => window.location.replace('/')}
+              onClick={() => window.location.href = '/'}
               className="text-white/70 underline hover:text-white bg-transparent border-0 cursor-pointer"
             >
               ← Back to Home

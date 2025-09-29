@@ -63,7 +63,7 @@ class EmailService {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${config.CLIENT_URL.replace(/\/$/, '')}/login" 
+            <a href="${config.CLIENT_URL}/login" 
                style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
               Login to Your Account
             </a>
