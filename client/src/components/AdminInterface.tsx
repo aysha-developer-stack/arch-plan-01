@@ -2000,7 +2000,7 @@ return (
                                         <strong>Bedrooms:</strong> {plan.bedrooms || 'N/A'}
                                       </div>
                                       <div>
-                                        <strong>Toilets:</strong> {plan.toilets || 'N/A'}
+                                        <strong>Toilets/Bathrooms:</strong> {plan.toilets || 'N/A'}
                                       </div>
                                       <div>
                                         <strong>Living Areas:</strong> {plan.livingAreas || 'N/A'}
@@ -2069,7 +2069,7 @@ return (
                                         </Badge>
                                       </div>
                                       <div>
-                                        <strong>Uploaded By:</strong> {plan.uploadedBy ? "admin" : "N/A"}
+                                        <strong>Uploaded By:</strong> {plan.uploadedBy ? "Admin" : "N/A"}
                                       </div>
                                     </div>
 
