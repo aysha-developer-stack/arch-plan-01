@@ -218,7 +218,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSuccess, onSwitchToLog
       <div style={{ marginTop: '16px', textAlign: 'center' }}>
         <button
           type="button"
-          onClick={() => window.location.href = '/'}
+          onClick={() => window.location.replace('/')}
           className="glass-link"
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: 'var(--glass-white-70)' }}
         >
