@@ -847,6 +847,51 @@ export class SupabaseStorage implements IStorage {
       query = query.eq('roadPosition', filters.roadPosition);
     }
 
+    // Builder/Designer Name filtering
+    if (filters.builderName) {
+      query = query.ilike('builderName', `%${filters.builderName}%`);
+    }
+
+    // Job Address filtering
+    if (filters.jobAddress) {
+      query = query.ilike('jobAddress', `%${filters.jobAddress}%`);
+    }
+
+    // Number of Units filtering
+    if (filters.numberOfUnits) {
+      query = query.eq('numberOfUnits', parseInt(filters.numberOfUnits));
+    }
+
+    // Total Building Height filtering
+    if (filters.totalBuildingHeight) {
+      query = query.eq('totalBuildingHeight', parseFloat(filters.totalBuildingHeight));
+    }
+
+    // Roof Pitch filtering
+    if (filters.roofPitch) {
+      query = query.eq('roofPitch', parseFloat(filters.roofPitch));
+    }
+
+    // Construction Type filtering
+    if (filters.constructionType) {
+      query = query.eq('constructionType', filters.constructionType);
+    }
+
+    // Plot Length filtering
+    if (filters.plotLength) {
+      query = query.eq('plotLength', parseFloat(filters.plotLength));
+    }
+
+    // Plot Width filtering
+    if (filters.plotWidth) {
+      query = query.eq('plotWidth', parseFloat(filters.plotWidth));
+    }
+
+    // Covered Area filtering
+    if (filters.coveredArea) {
+      query = query.eq('coveredArea', parseFloat(filters.coveredArea));
+    }
+
     // Lot size range filtering
     if (filters.lotSizeMin && filters.lotSizeMax) {
       const minSize = parseFloat(filters.lotSizeMin);
