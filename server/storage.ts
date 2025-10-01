@@ -872,9 +872,9 @@ export class SupabaseStorage implements IStorage {
       query = query.eq('roofPitch', parseFloat(filters.roofPitch));
     }
 
-    // Construction Type filtering
+    // Construction Type filtering (array field)
     if (filters.constructionType) {
-      query = query.eq('constructionType', filters.constructionType);
+      query = query.overlaps('constructionType', [filters.constructionType]);
     }
 
     // Plot Length filtering
