@@ -170,6 +170,10 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     retry: false,
   });
 
+  // Manage Plans pagination state
+  const [managePage, setManagePage] = useState(1);
+  const [manageLimit, setManageLimit] = useState(10);
+
   // Fetch admin plans
   const { data: plansResponse, isLoading: plansLoading } = useQuery<{
     success: boolean;
@@ -181,11 +185,14 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
       pages: number;
     };
   }>({
-    queryKey: ["/api/admin/plans"],
+    // Pass pagination via queryKey; default queryFn will join into URL
+    queryKey: ["/api/admin/plans?page=" + managePage + "&limit=" + manageLimit],
     retry: false,
   });
 
   const plans = plansResponse?.data || [];
+  const totalPlans = plansResponse?.pagination?.total || 0;
+  const totalPages = plansResponse?.pagination?.pages || 1;
 
   // Upload plan mutation
   const uploadMutation = useMutation({
@@ -197,7 +204,7 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
         title: "Success",
         description: "Plan uploaded successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setUploadForm({
         ...initialFormData,
@@ -237,7 +244,7 @@ const deleteMutation = useMutation({
       title: "Success",
       description: "Plan deleted successfully",
     });
-    queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"], exact: false });
     queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
   },
   onError: (error) => {
@@ -2172,6 +2179,35 @@ return (
                         ))}
                       </TableBody>
                     </Table>
+                    
+                    {/* Pagination Controls */}
+                    {plansResponse?.pagination && plansResponse.pagination.pages > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="text-sm text-slate-500">
+                          Showing page {plansResponse.pagination.page} of {plansResponse.pagination.pages}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setManagePage(prev => Math.max(prev - 1, 1))}
+                            disabled={managePage <= 1}
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setManagePage(prev => Math.min(prev + 1, plansResponse.pagination.pages))}
+                            disabled={managePage >= plansResponse.pagination.pages}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
