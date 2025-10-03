@@ -784,6 +784,7 @@ return (
                         <SelectItem value="Bellingen Shire Council">Bellingen Shire Council</SelectItem>
                         <SelectItem value="Berrigan Shire Council">Berrigan Shire Council</SelectItem>
                         <SelectItem value="Bland Shire Council">Bland Shire Council</SelectItem>
+                        <SelectItem value="Blacktown City Council">Blacktown City Council</SelectItem>
                         <SelectItem value="Blayney Shire Council">Blayney Shire Council</SelectItem>
                         <SelectItem value="Blue Mountains City Council">Blue Mountains City Council</SelectItem>
                         <SelectItem value="Bogan Shire Council">Bogan Shire Council</SelectItem>
