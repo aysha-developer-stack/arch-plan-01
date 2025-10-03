@@ -172,7 +172,7 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
 
   // Manage Plans pagination state
   const [managePage, setManagePage] = useState(1);
-  // const [manageLimit, setManageLimit] = useState(10);
+  const [manageLimit, setManageLimit] = useState(10);
 
   // Fetch admin plans
   const { data: plansResponse, isLoading: plansLoading } = useQuery<{
