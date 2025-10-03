@@ -2181,10 +2181,10 @@ return (
                     </Table>
                     
                     {/* Pagination Controls */}
-                    {plansResponse?.pagination && plansResponse.pagination.pages > 1 && (
+                    {plansResponse?.pagination && (
                       <div className="flex items-center justify-between mt-4">
                         <div className="text-sm text-slate-500">
-                          Showing page {plansResponse.pagination.page} of {plansResponse.pagination.pages}
+                          Showing page {plansResponse.pagination.page} of {Math.max(plansResponse.pagination.pages, 1)}
                         </div>
                         <div className="flex items-center space-x-2">
                           <Button 
@@ -2199,8 +2199,8 @@ return (
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => setManagePage(prev => Math.min(prev + 1, plansResponse.pagination.pages))}
-                            disabled={managePage >= plansResponse.pagination.pages}
+                            onClick={() => setManagePage(prev => Math.min(prev + 1, plansResponse.pagination.pages || 1))}
+                            disabled={!plansResponse.pagination.pages || managePage >= plansResponse.pagination.pages}
                           >
                             Next
                             <ChevronRight className="h-4 w-4 ml-1" />
