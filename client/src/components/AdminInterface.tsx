@@ -1516,6 +1516,7 @@ return (
                       <Input
                         id="plotLength"
                         type="number"
+                        min="0"
                         step="0.01"
                         value={uploadForm.plotLength}
                         onChange={(e) => setUploadForm(prev => ({ ...prev, plotLength: e.target.value }))}
