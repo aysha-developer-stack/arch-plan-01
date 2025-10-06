@@ -35,7 +35,8 @@ interface SearchFilters {
   livingAreas: string;
   minUnits: string;
   maxUnits: string;
-  totalBuildingHeight: string;
+  minTotalBuildingHeight: string;
+  maxTotalBuildingHeight: string;
   roofPitch: string;
   outdoorFeatures: string[];
   indoorFeatures: string[];
@@ -65,7 +66,8 @@ export default function SearchInterface() {
     livingAreas: "",
     minUnits: "",
     maxUnits: "",
-    totalBuildingHeight: "",
+    minTotalBuildingHeight: "",
+    maxTotalBuildingHeight: "",
     roofPitch: "",
     outdoorFeatures: [],
     indoorFeatures: [],
@@ -155,7 +157,8 @@ export default function SearchInterface() {
       livingAreas: "",
       minUnits: "",
       maxUnits: "",
-      totalBuildingHeight: "",
+      minTotalBuildingHeight: "",
+      maxTotalBuildingHeight: "",
       roofPitch: "",
       outdoorFeatures: [],
       indoorFeatures: [],
@@ -895,17 +898,35 @@ export default function SearchInterface() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="totalBuildingHeight">Total Building Height (m)</Label>
-                  <Input
-                    id="totalBuildingHeight"
-                    type="number"
-                    min="0"
-                    max="1000"
-                    step="0.01"
-                    placeholder="e.g., 8.5"
-                    value={filters.totalBuildingHeight}
-                    onChange={(e) => updateFilter("totalBuildingHeight", e.target.value)}
-                  />
+                  <Label>Total Building Height Range (m)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="minTotalBuildingHeight" className="text-sm text-gray-600">Min Height</Label>
+                      <Input
+                        id="minTotalBuildingHeight"
+                        type="number"
+                        min="0"
+                        max="1000"
+                        step="0.01"
+                        placeholder="e.g., 5.0"
+                        value={filters.minTotalBuildingHeight}
+                        onChange={(e) => updateFilter("minTotalBuildingHeight", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="maxTotalBuildingHeight" className="text-sm text-gray-600">Max Height</Label>
+                      <Input
+                        id="maxTotalBuildingHeight"
+                        type="number"
+                        min="0"
+                        max="1000"
+                        step="0.01"
+                        placeholder="e.g., 15.0"
+                        value={filters.maxTotalBuildingHeight}
+                        onChange={(e) => updateFilter("maxTotalBuildingHeight", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
                 
                 <div>

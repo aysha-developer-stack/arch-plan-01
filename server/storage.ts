@@ -640,7 +640,8 @@ export interface PlanFilters {
   jobAddress?: string;
   toilets?: string;
   livingAreas?: string;
-  totalBuildingHeight?: string;
+  minTotalBuildingHeight?: string;
+  maxTotalBuildingHeight?: string;
   roofPitch?: string;
   outdoorFeatures?: string;
   indoorFeatures?: string;
@@ -864,9 +865,12 @@ export class SupabaseStorage implements IStorage {
       query = query.lte('numberOfUnits', parseInt(filters.maxUnits));
     }
 
-    // Total Building Height filtering
-    if (filters.totalBuildingHeight) {
-      query = query.eq('totalBuildingHeight', parseFloat(filters.totalBuildingHeight));
+    // Total Building Height range filtering
+    if (filters.minTotalBuildingHeight) {
+      query = query.gte('totalBuildingHeight', parseFloat(filters.minTotalBuildingHeight));
+    }
+    if (filters.maxTotalBuildingHeight) {
+      query = query.lte('totalBuildingHeight', parseFloat(filters.maxTotalBuildingHeight));
     }
 
     // Roof Pitch filtering
