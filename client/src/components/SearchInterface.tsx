@@ -30,7 +30,11 @@ interface SearchFilters {
   plotLengthMin: string;
   plotLengthMax: string;
   plotWidth: string;
+  plotWidthMin: string;
+  plotWidthMax: string;
   coveredArea: string;
+  coveredAreaMin: string;
+  coveredAreaMax: string;
   roadPosition: string;
   builderName: string;
   jobAddress: string;
@@ -60,9 +64,13 @@ export default function SearchInterface() {
     constructionType: "",
     planType: "",
     plotLengthMin: "",
-  plotLengthMax: "",
+    plotLengthMax: "",
     plotWidth: "",
+    plotWidthMin: "",
+    plotWidthMax: "",
     coveredArea: "",
+    coveredAreaMin: "",
+    coveredAreaMax: "",
     roadPosition: "",
     builderName: "",
     jobAddress: "",
@@ -154,7 +162,11 @@ export default function SearchInterface() {
       plotLengthMin: "",
       plotLengthMax: "",
       plotWidth: "",
+      plotWidthMin: "",
+      plotWidthMax: "",
       coveredArea: "",
+      coveredAreaMin: "",
+      coveredAreaMax: "",
       roadPosition: "",
       builderName: "",
       jobAddress: "",
@@ -1023,28 +1035,54 @@ export default function SearchInterface() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="plotWidth">Plot Width (m)</Label>
+                  <Label htmlFor="plotWidthMin">Min Plot Width (m)</Label>
                   <Input
-                    id="plotWidth"
+                    id="plotWidthMin"
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="e.g., 15.5"
-                    value={filters.plotWidth}
-                    onChange={(e) => updateFilter("plotWidth", e.target.value)}
+                    placeholder="e.g., 10.0"
+                    value={filters.plotWidthMin}
+                    onChange={(e) => updateFilter("plotWidthMin", e.target.value)}
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="coveredArea">Covered Area (m²)</Label>
+                  <Label htmlFor="plotWidthMax">Max Plot Width (m)</Label>
                   <Input
-                    id="coveredArea"
+                    id="plotWidthMax"
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="e.g., 150.5"
-                    value={filters.coveredArea}
-                    onChange={(e) => updateFilter("coveredArea", e.target.value)}
+                    placeholder="e.g., 20.0"
+                    value={filters.plotWidthMax}
+                    onChange={(e) => updateFilter("plotWidthMax", e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="coveredAreaMin">Min Covered Area (m²)</Label>
+                  <Input
+                    id="coveredAreaMin"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g., 100.0"
+                    value={filters.coveredAreaMin}
+                    onChange={(e) => updateFilter("coveredAreaMin", e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="coveredAreaMax">Max Covered Area (m²)</Label>
+                  <Input
+                    id="coveredAreaMax"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g., 200.0"
+                    value={filters.coveredAreaMax}
+                    onChange={(e) => updateFilter("coveredAreaMax", e.target.value)}
                   />
                 </div>
                 

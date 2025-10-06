@@ -190,8 +190,8 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
                     <div><strong>Plot Length Min (m):</strong> {plan.plotLengthMin || "N/A"}</div>
                     <div><strong>Plot Length Max (m):</strong> {plan.plotLengthMax || "N/A"}</div>
-                    <div><strong>Plot Width (m):</strong> {plan.plotWidth || "N/A"}</div>
-                    <div><strong>Covered Area (sq.m):</strong> {plan.coveredArea || "N/A"}</div>
+                    <div><strong>Plot Width Range (m):</strong> {plan.plotWidthMin && plan.plotWidthMax ? `${plan.plotWidthMin} - ${plan.plotWidthMax}` : plan.plotWidth || "N/A"}</div>
+                    <div><strong>Covered Area Range (m²):</strong> {plan.coveredAreaMin && plan.coveredAreaMax ? `${plan.coveredAreaMin} - ${plan.coveredAreaMax}` : plan.coveredArea || "N/A"}</div>
                     <div><strong>Total Building Height (m):</strong> {plan.totalBuildingHeight || "N/A"}</div>
                     <div><strong>Roof Pitch (°):</strong> {plan.roofPitch || "N/A"}</div>
                     <div><strong>Road Position:</strong> {plan.roadPosition || "N/A"}</div>

@@ -874,7 +874,11 @@ router.post(
       if (planData.plotLengthMin) planData.plotLengthMin = parseFloat(planData.plotLengthMin);
       if (planData.plotLengthMax) planData.plotLengthMax = parseFloat(planData.plotLengthMax);
       if (planData.plotWidth) planData.plotWidth = parseFloat(planData.plotWidth);
+      if (planData.plotWidthMin) planData.plotWidthMin = parseFloat(planData.plotWidthMin);
+      if (planData.plotWidthMax) planData.plotWidthMax = parseFloat(planData.plotWidthMax);
       if (planData.coveredArea) planData.coveredArea = parseFloat(planData.coveredArea);
+      if (planData.coveredAreaMin) planData.coveredAreaMin = parseFloat(planData.coveredAreaMin);
+      if (planData.coveredAreaMax) planData.coveredAreaMax = parseFloat(planData.coveredAreaMax);
       if (planData.lotSizeMin) planData.lotSizeMin = parseFloat(planData.lotSizeMin);
       if (planData.lotSizeMax) planData.lotSizeMax = parseFloat(planData.lotSizeMax);
       

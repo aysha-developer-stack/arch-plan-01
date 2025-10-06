@@ -74,7 +74,11 @@ interface UploadFormData {
   plotLengthMin: string;
   plotLengthMax: string;
   plotWidth: string;
+  plotWidthMin: string;
+  plotWidthMax: string;
   coveredArea: string;
+  coveredAreaMin: string;
+  coveredAreaMax: string;
   roadPosition: string;
   builderName: string;
   jobAddress: string;
@@ -145,7 +149,11 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     plotLengthMin: "",
     plotLengthMax: "",
     plotWidth: "",
+    plotWidthMin: "",
+    plotWidthMax: "",
     coveredArea: "",
+    coveredAreaMin: "",
+    coveredAreaMax: "",
     roadPosition: "",
     builderName: "",
     jobAddress: "",
@@ -309,7 +317,11 @@ const handleUpload = (e: React.MouseEvent) => {
   if (uploadForm.plotLengthMin.trim()) formData.append("plotLengthMin", uploadForm.plotLengthMin.trim());
   if (uploadForm.plotLengthMax.trim()) formData.append("plotLengthMax", uploadForm.plotLengthMax.trim());
   if (uploadForm.plotWidth.trim()) formData.append("plotWidth", uploadForm.plotWidth.trim());
+  if (uploadForm.plotWidthMin.trim()) formData.append("plotWidthMin", uploadForm.plotWidthMin.trim());
+  if (uploadForm.plotWidthMax.trim()) formData.append("plotWidthMax", uploadForm.plotWidthMax.trim());
   if (uploadForm.coveredArea.trim()) formData.append("coveredArea", uploadForm.coveredArea.trim());
+  if (uploadForm.coveredAreaMin.trim()) formData.append("coveredAreaMin", uploadForm.coveredAreaMin.trim());
+  if (uploadForm.coveredAreaMax.trim()) formData.append("coveredAreaMax", uploadForm.coveredAreaMax.trim());
   if (uploadForm.roadPosition.trim()) formData.append("roadPosition", uploadForm.roadPosition.trim());
   formData.append("builderName", uploadForm.builderName.trim());
 
@@ -1521,15 +1533,34 @@ return (
                     </div>
 
                     <div>
-                      <Label htmlFor="coveredArea">Covered Area (sq.m)</Label>
-                      <Input
-                        id="coveredArea"
-                        type="number"
-                        step="0.01"
-                        value={uploadForm.coveredArea}
-                        onChange={(e) => setUploadForm(prev => ({ ...prev, coveredArea: e.target.value }))}
-                        placeholder="e.g., 150.75"
-                      />
+                      <Label htmlFor="coveredAreaRange">Covered Area Range (m²)</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label htmlFor="coveredAreaMin" className="text-xs text-slate-600">Min</Label>
+                          <Input
+                            id="coveredAreaMin"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={uploadForm.coveredAreaMin}
+                            onChange={(e) => setUploadForm(prev => ({ ...prev, coveredAreaMin: e.target.value }))}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="coveredAreaMax" className="text-xs text-slate-600">Max</Label>
+                          <Input
+                            id="coveredAreaMax"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={uploadForm.coveredAreaMax}
+                            onChange={(e) => setUploadForm(prev => ({ ...prev, coveredAreaMax: e.target.value }))}
+                            placeholder="1000"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Covered area range in square meters</p>
                     </div>
                     
                     <div>
@@ -1557,15 +1588,34 @@ return (
                     </div>
 
                     <div>
-                      <Label htmlFor="plotWidth">Plot Width (m)</Label>
-                      <Input
-                        id="plotWidth"
-                        type="number"
-                        step="0.01"
-                        value={uploadForm.plotWidth}
-                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotWidth: e.target.value }))}
-                        placeholder="e.g., 15.2"
-                      />
+                      <Label htmlFor="plotWidthRange">Plot Width Range (m)</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label htmlFor="plotWidthMin" className="text-xs text-slate-600">Min</Label>
+                          <Input
+                            id="plotWidthMin"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={uploadForm.plotWidthMin}
+                            onChange={(e) => setUploadForm(prev => ({ ...prev, plotWidthMin: e.target.value }))}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="plotWidthMax" className="text-xs text-slate-600">Max</Label>
+                          <Input
+                            id="plotWidthMax"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={uploadForm.plotWidthMax}
+                            onChange={(e) => setUploadForm(prev => ({ ...prev, plotWidthMax: e.target.value }))}
+                            placeholder="100"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Plot width range in meters</p>
                     </div>
 
                     <div>

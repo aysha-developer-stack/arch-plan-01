@@ -637,7 +637,11 @@ export interface PlanFilters {
   plotLengthMin?: string;
   plotLengthMax?: string;
   plotWidth?: string;
+  plotWidthMin?: string;
+  plotWidthMax?: string;
   coveredArea?: string;
+  coveredAreaMin?: string;
+  coveredAreaMax?: string;
   roadPosition?: string;
   builderName?: string;
   jobAddress?: string;
@@ -886,14 +890,20 @@ export class SupabaseStorage implements IStorage {
       query = query.lte('plotLengthMax', parseFloat(filters.plotLengthMax));
     }
 
-    // Plot Width filtering
-    if (filters.plotWidth) {
-      query = query.eq('plotWidth', parseFloat(filters.plotWidth));
+    // Plot Width range filtering
+    if (filters.plotWidthMin) {
+      query = query.gte('plotWidthMin', parseFloat(filters.plotWidthMin));
+    }
+    if (filters.plotWidthMax) {
+      query = query.lte('plotWidthMax', parseFloat(filters.plotWidthMax));
     }
 
-    // Covered Area filtering
-    if (filters.coveredArea) {
-      query = query.eq('coveredArea', parseFloat(filters.coveredArea));
+    // Covered Area range filtering
+    if (filters.coveredAreaMin) {
+      query = query.gte('coveredAreaMin', parseFloat(filters.coveredAreaMin));
+    }
+    if (filters.coveredAreaMax) {
+      query = query.lte('coveredAreaMax', parseFloat(filters.coveredAreaMax));
     }
 
     // Lot size range filtering

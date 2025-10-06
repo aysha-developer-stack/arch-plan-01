@@ -60,7 +60,11 @@ export interface IPlan {
   plotLengthMin?: number; // Minimum plot length in meters
   plotLengthMax?: number; // Maximum plot length in meters
   plotWidth?: number; // Plot width in meters
+  plotWidthMin?: number; // Minimum plot width in meters
+  plotWidthMax?: number; // Maximum plot width in meters
   coveredArea?: number; // Covered area in square meters
+  coveredAreaMin?: number; // Minimum covered area in square meters
+  coveredAreaMax?: number; // Maximum covered area in square meters
   roadPosition?: string; // Length Side, Width Side, Corner Plot
   builderName?: string; // Builder or designer name
   jobAddress?: string; // Job address or location
@@ -127,7 +131,11 @@ export const insertPlanSchema = z.object({
   plotLengthMin: z.number().optional(), // Minimum plot length in meters
   plotLengthMax: z.number().optional(), // Maximum plot length in meters
   plotWidth: z.number().optional(), // Plot width in meters
+  plotWidthMin: z.number().optional(), // Minimum plot width in meters
+  plotWidthMax: z.number().optional(), // Maximum plot width in meters
   coveredArea: z.number().optional(), // Covered area in square meters
+  coveredAreaMin: z.number().optional(), // Minimum covered area in square meters
+  coveredAreaMax: z.number().optional(), // Maximum covered area in square meters
   roadPosition: z.string().max(50).optional(), // Length Side, Width Side, Corner Plot
   builderName: z.string().max(255).optional(), // Builder or designer name
   jobAddress: z.string().max(500).optional(), // Job address or location
@@ -168,7 +176,11 @@ export const searchPlanSchema = z.object({
   plotLengthMin: z.string().optional(),
   plotLengthMax: z.string().optional(),
   plotWidth: z.string().optional(),
+  plotWidthMin: z.string().optional(),
+  plotWidthMax: z.string().optional(),
   coveredArea: z.string().optional(),
+  coveredAreaMin: z.string().optional(),
+  coveredAreaMax: z.string().optional(),
   roadPosition: z.string().optional(),
   builderName: z.string().optional(),
   toilets: z.string().optional(),
