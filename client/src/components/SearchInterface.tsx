@@ -1030,6 +1030,7 @@ export default function SearchInterface() {
                   </Select>
                 </div>
             </div>
+            </div>
             
             {/* Site & Plot Details Section */}
             <div className="space-y-6">
@@ -1141,10 +1142,8 @@ export default function SearchInterface() {
                     </SelectContent>
               </Select>
             </div>
-
-
-
-
+          </div>
+          
           {/* Room Configuration Section */}
           <div className="space-y-6">
             <div className="border-b border-slate-200 pb-4">
@@ -1374,9 +1373,7 @@ export default function SearchInterface() {
               </Button>
             </div>
           )}
-          </div>
-          </div>
-          </div>
+        </div>
         </CardContent>
       </Card>
 
