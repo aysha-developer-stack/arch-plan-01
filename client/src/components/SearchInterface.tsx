@@ -27,7 +27,6 @@ interface SearchFilters {
   houseType: string;
   constructionType: string;
   planType: string;
-  plotLength: string;
   plotLengthMin: string;
   plotLengthMax: string;
   plotWidth: string;
@@ -60,8 +59,7 @@ export default function SearchInterface() {
     houseType: "",
     constructionType: "",
     planType: "",
-    plotLength: "",
-  plotLengthMin: "",
+    plotLengthMin: "",
   plotLengthMax: "",
     plotWidth: "",
     coveredArea: "",
@@ -153,7 +151,6 @@ export default function SearchInterface() {
       houseType: "",
       constructionType: "",
       planType: "",
-      plotLength: "",
       plotLengthMin: "",
       plotLengthMax: "",
       plotWidth: "",
@@ -997,18 +994,7 @@ export default function SearchInterface() {
                   />
                 </div>
                 
-                <div>
-                  <Label htmlFor="plotLength">Plot Length (m)</Label>
-                  <Input
-                    id="plotLength"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g., 20.5"
-                    value={filters.plotLength}
-                    onChange={(e) => updateFilter("plotLength", e.target.value)}
-                  />
-                </div>
+
                 
                 <div>
                   <Label htmlFor="plotLengthMin">Min Plot Length (m)</Label>

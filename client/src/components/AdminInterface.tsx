@@ -72,7 +72,6 @@ interface UploadFormData {
   foundationType: string;
   totalBuildingHeight: number;
   councilArea: string;
-  plotLength: string;
   plotLengthMin: string;
   plotLengthMax: string;
   plotWidth: string;
@@ -145,7 +144,6 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     foundationType: "",
     totalBuildingHeight: 0,
     councilArea: "Any",
-    plotLength: "",
     plotLengthMin: "",
     plotLengthMax: "",
     plotWidth: "",
@@ -310,7 +308,6 @@ const handleUpload = (e: React.MouseEvent) => {
   if (uploadForm.councilArea.trim()) formData.append("councilArea", uploadForm.councilArea.trim());
 
   // New fields
-  if (uploadForm.plotLength.trim()) formData.append("plotLength", uploadForm.plotLength.trim());
   if (uploadForm.plotLengthMin.trim()) formData.append("plotLengthMin", uploadForm.plotLengthMin.trim());
   if (uploadForm.plotLengthMax.trim()) formData.append("plotLengthMax", uploadForm.plotLengthMax.trim());
   if (uploadForm.plotWidth.trim()) formData.append("plotWidth", uploadForm.plotWidth.trim());
@@ -1537,17 +1534,7 @@ return (
                       />
                     </div>
 
-                    <div>
-                      <Label htmlFor="plotLength">Plot Length (m)</Label>
-                      <Input
-                        id="plotLength"
-                        type="number"
-                        step="0.01"
-                        value={uploadForm.plotLength}
-                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotLength: e.target.value }))}
-                        placeholder="e.g., 20.5"
-                      />
-                    </div>
+
                     
                     <div>
                       <Label htmlFor="plotLengthMin">Min Plot Length (m)</Label>

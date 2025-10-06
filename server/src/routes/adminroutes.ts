@@ -871,7 +871,8 @@ router.post(
       if (planData.totalBuildingHeight) planData.totalBuildingHeight = parseFloat(planData.totalBuildingHeight);
       if (planData.roofPitch) planData.roofPitch = parseFloat(planData.roofPitch);
       
-      if (planData.plotLength) planData.plotLength = parseFloat(planData.plotLength);
+      if (planData.plotLengthMin) planData.plotLengthMin = parseFloat(planData.plotLengthMin);
+      if (planData.plotLengthMax) planData.plotLengthMax = parseFloat(planData.plotLengthMax);
       if (planData.plotWidth) planData.plotWidth = parseFloat(planData.plotWidth);
       if (planData.coveredArea) planData.coveredArea = parseFloat(planData.coveredArea);
       if (planData.lotSizeMin) planData.lotSizeMin = parseFloat(planData.lotSizeMin);

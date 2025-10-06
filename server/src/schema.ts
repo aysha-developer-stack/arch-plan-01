@@ -57,7 +57,8 @@ export interface IPlan {
   councilArea?: string;
 
   // Additional plan details
-  plotLength?: number; // Plot length in meters
+  plotLengthMin?: number; // Minimum plot length in meters
+  plotLengthMax?: number; // Maximum plot length in meters
   plotWidth?: number; // Plot width in meters
   coveredArea?: number; // Covered area in square meters
   roadPosition?: string; // Length Side, Width Side, Corner Plot
@@ -123,7 +124,8 @@ export const insertPlanSchema = z.object({
   councilArea: z.string().max(100).optional(),
 
   // Additional plan details
-  plotLength: z.number().optional(), // Plot length in meters
+  plotLengthMin: z.number().optional(), // Minimum plot length in meters
+  plotLengthMax: z.number().optional(), // Maximum plot length in meters
   plotWidth: z.number().optional(), // Plot width in meters
   coveredArea: z.number().optional(), // Covered area in square meters
   roadPosition: z.string().max(50).optional(), // Length Side, Width Side, Corner Plot
@@ -163,7 +165,8 @@ export const searchPlanSchema = z.object({
   houseType: z.string().optional(),
   constructionType: z.string().optional(),
   planType: z.string().optional(),
-  plotLength: z.string().optional(),
+  plotLengthMin: z.string().optional(),
+  plotLengthMax: z.string().optional(),
   plotWidth: z.string().optional(),
   coveredArea: z.string().optional(),
   roadPosition: z.string().optional(),

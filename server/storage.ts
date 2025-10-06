@@ -634,7 +634,8 @@ export interface PlanFilters {
   houseType?: string;
   constructionType?: string;
   planType?: string;
-  plotLength?: string;
+  plotLengthMin?: string;
+  plotLengthMax?: string;
   plotWidth?: string;
   coveredArea?: string;
   roadPosition?: string;
@@ -877,9 +878,12 @@ export class SupabaseStorage implements IStorage {
       query = query.overlaps('constructionType', [filters.constructionType]);
     }
 
-    // Plot Length filtering
-    if (filters.plotLength) {
-      query = query.eq('plotLength', parseFloat(filters.plotLength));
+    // Plot Length Min/Max filtering
+    if (filters.plotLengthMin) {
+      query = query.gte('plotLengthMin', parseFloat(filters.plotLengthMin));
+    }
+    if (filters.plotLengthMax) {
+      query = query.lte('plotLengthMax', parseFloat(filters.plotLengthMax));
     }
 
     // Plot Width filtering
