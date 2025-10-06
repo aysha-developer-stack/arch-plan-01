@@ -1532,7 +1532,18 @@ return (
                       />
                     </div>
 
-
+                    {/* Hidden div to override any Plot Length field that might be injected by browser cache */}
+                    <div style={{ display: 'none' }}>
+                      <Label htmlFor="plotLength">Plot Length (m)</Label>
+                      <Input
+                        id="plotLength"
+                        type="number"
+                        step="0.01"
+                        value=""
+                        onChange={() => {}}
+                        placeholder="e.g., 20.5"
+                      />
+                    </div>
                     
                     <div>
                       <Label htmlFor="plotLengthMin">Min Plot Length (m)</Label>
