@@ -37,7 +37,8 @@ interface SearchFilters {
   maxUnits: string;
   minTotalBuildingHeight: string;
   maxTotalBuildingHeight: string;
-  roofPitch: string;
+  minRoofPitch: string;
+  maxRoofPitch: string;
   outdoorFeatures: string[];
   indoorFeatures: string[];
 }
@@ -68,7 +69,8 @@ export default function SearchInterface() {
     maxUnits: "",
     minTotalBuildingHeight: "",
     maxTotalBuildingHeight: "",
-    roofPitch: "",
+    minRoofPitch: "",
+    maxRoofPitch: "",
     outdoorFeatures: [],
     indoorFeatures: [],
   });
@@ -159,7 +161,8 @@ export default function SearchInterface() {
       maxUnits: "",
       minTotalBuildingHeight: "",
       maxTotalBuildingHeight: "",
-      roofPitch: "",
+      minRoofPitch: "",
+      maxRoofPitch: "",
       outdoorFeatures: [],
       indoorFeatures: [],
     });
@@ -928,32 +931,62 @@ export default function SearchInterface() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="roofPitch">Roof Pitch (degrees)</Label>
-                  <div className="relative">
-                    <Input
-                      id="roofPitch"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      placeholder="e.g., 22.5"
-                      value={filters.roofPitch}
-                      onChange={(e) => {
-                         const value = e.target.value;
-                         const numValue = parseFloat(value);
-                         
-                         // Only allow values >= 0, or empty string
-                         // Also limit to 1 decimal place to match step="0.1"
-                         if (value === '' || (numValue >= 0 && /^\d*\.?\d{0,1}$/.test(value))) {
-                           updateFilter("roofPitch", value);
-                         }
-                       }}
-                      className="pr-12"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <span className="text-muted-foreground">°</span>
+                  <Label>Roof Pitch Range (degrees)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="relative">
+                        <Input
+                          id="minRoofPitch"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder="Min Pitch"
+                          value={filters.minRoofPitch}
+                          onChange={(e) => {
+                             const value = e.target.value;
+                             const numValue = parseFloat(value);
+                             
+                             // Only allow values >= 0, or empty string
+                             // Also limit to 1 decimal place to match step="0.1"
+                             if (value === '' || (numValue >= 0 && /^\d*\.?\d{0,1}$/.test(value))) {
+                               updateFilter("minRoofPitch", value);
+                             }
+                           }}
+                          className="pr-8"
+                        />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <span className="text-muted-foreground text-sm">°</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="relative">
+                        <Input
+                          id="maxRoofPitch"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder="Max Pitch"
+                          value={filters.maxRoofPitch}
+                          onChange={(e) => {
+                             const value = e.target.value;
+                             const numValue = parseFloat(value);
+                             
+                             // Only allow values >= 0, or empty string
+                             // Also limit to 1 decimal place to match step="0.1"
+                             if (value === '' || (numValue >= 0 && /^\d*\.?\d{0,1}$/.test(value))) {
+                               updateFilter("maxRoofPitch", value);
+                             }
+                           }}
+                          className="pr-8"
+                        />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <span className="text-muted-foreground text-sm">°</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Enter roof pitch in degrees (minimum 0°)</p>
+                  <p className="text-xs text-muted-foreground mt-1">Enter roof pitch range in degrees (minimum 0°)</p>
                 </div>
                 
                 <div>
