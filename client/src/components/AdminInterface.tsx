@@ -66,7 +66,6 @@ interface UploadFormData {
   storeys: string;
   lotSizeMin: string;
   lotSizeMax: string;
-  lotSize: string; // Legacy lot size field
   orientation: string;
   siteType: string;
   foundationType: string;
@@ -138,7 +137,6 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     storeys: "",
     lotSizeMin: "",
     lotSizeMax: "",
-    lotSize: "",
     orientation: "",
     siteType: "",
     foundationType: "",
