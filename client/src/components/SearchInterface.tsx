@@ -901,27 +901,25 @@ export default function SearchInterface() {
                   <Label>Total Building Height Range (m)</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label htmlFor="minTotalBuildingHeight" className="text-sm text-gray-600">Min Height</Label>
                       <Input
                         id="minTotalBuildingHeight"
                         type="number"
                         min="0"
                         max="1000"
                         step="0.01"
-                        placeholder="e.g., 5.0"
+                        placeholder="Min Height"
                         value={filters.minTotalBuildingHeight}
                         onChange={(e) => updateFilter("minTotalBuildingHeight", e.target.value)}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="maxTotalBuildingHeight" className="text-sm text-gray-600">Max Height</Label>
                       <Input
                         id="maxTotalBuildingHeight"
                         type="number"
                         min="0"
                         max="1000"
                         step="0.01"
-                        placeholder="e.g., 15.0"
+                        placeholder="Max Height"
                         value={filters.maxTotalBuildingHeight}
                         onChange={(e) => updateFilter("maxTotalBuildingHeight", e.target.value)}
                       />
