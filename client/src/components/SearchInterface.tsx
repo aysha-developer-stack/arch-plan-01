@@ -1238,7 +1238,7 @@ export default function SearchInterface() {
                       min="0"
                       value={filters.minBedrooms}
                       onChange={(e) => updateFilter("minBedrooms", e.target.value)}
-                      placeholder="Min Bedrooms"
+                      placeholder="Min"
                     />
                   </div>
                   <div>
@@ -1247,7 +1247,7 @@ export default function SearchInterface() {
                       min="0"
                       value={filters.maxBedrooms}
                       onChange={(e) => updateFilter("maxBedrooms", e.target.value)}
-                      placeholder="Max Bedrooms"
+                      placeholder="Max"
                     />
                   </div>
                 </div>
@@ -1264,7 +1264,7 @@ export default function SearchInterface() {
                       min="0"
                       value={filters.minToilets}
                       onChange={(e) => updateFilter("minToilets", e.target.value)}
-                      placeholder="Min Toilets"
+                      placeholder="Min"
                     />
                   </div>
                   <div>
@@ -1273,7 +1273,7 @@ export default function SearchInterface() {
                       min="0"
                       value={filters.maxToilets}
                       onChange={(e) => updateFilter("maxToilets", e.target.value)}
-                      placeholder="Max Toilets"
+                      placeholder="Max"
                     />
                   </div>
                 </div>
@@ -1290,7 +1290,7 @@ export default function SearchInterface() {
                       min="0"
                       value={filters.minLivingAreas}
                       onChange={(e) => updateFilter("minLivingAreas", e.target.value)}
-                      placeholder="Min Living Areas"
+                      placeholder="Min"
                     />
                   </div>
                   <div>
@@ -1299,7 +1299,7 @@ export default function SearchInterface() {
                       min="0"
                       value={filters.maxLivingAreas}
                       onChange={(e) => updateFilter("maxLivingAreas", e.target.value)}
-                      placeholder="Max Living Areas"
+                      placeholder="Max"
                     />
                   </div>
                 </div>
