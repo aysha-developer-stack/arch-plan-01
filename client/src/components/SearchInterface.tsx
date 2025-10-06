@@ -15,6 +15,8 @@ import type { IPlan } from "@shared/schema";
 interface SearchFilters {
   keyword: string;
   lotSize: string;
+  minLotSize: string;
+  maxLotSize: string;
   orientation: string;
   siteType: string;
   foundationType: string;
@@ -56,6 +58,8 @@ export default function SearchInterface() {
   const [filters, setFilters] = useState<SearchFilters>({
     keyword: "",
     lotSize: "",
+    minLotSize: "",
+    maxLotSize: "",
     orientation: "",
     siteType: "",
     foundationType: "",
@@ -157,6 +161,8 @@ export default function SearchInterface() {
     setFilters({
       keyword: "",
       lotSize: "",
+      minLotSize: "",
+      maxLotSize: "",
       orientation: "",
       siteType: "",
       foundationType: "",
@@ -1059,15 +1065,27 @@ export default function SearchInterface() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="lotSize">Lot Size (m²)</Label>
-                  <Input
-                    id="lotSize"
-                    type="number"
-                    min="0"
-                    placeholder="e.g., 500"
-                    value={filters.lotSize}
-                    onChange={(e) => updateFilter("lotSize", e.target.value)}
-                  />
+                  <Label>Lot Size (m²)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Min"
+                        value={filters.minLotSize}
+                        onChange={(e) => updateFilter("minLotSize", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Max"
+                        value={filters.maxLotSize}
+                        onChange={(e) => updateFilter("maxLotSize", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
                 
 
