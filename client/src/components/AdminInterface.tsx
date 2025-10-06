@@ -2046,9 +2046,6 @@ return (
                                         <strong>Orientation:</strong> {plan.orientation || 'N/A'}
                                       </div>
                                       <div>
-                                        <strong>Plot Length (m):</strong> {plan.plotLength || 'N/A'}
-                                      </div>
-                                      <div>
                                         <strong>Plot Width (m):</strong> {plan.plotWidth || 'N/A'}
                                       </div>
                                       <div>
