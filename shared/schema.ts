@@ -50,6 +50,8 @@ export interface IPlan {
   foundationType?: string;
   councilArea?: string;
   plotLength?: number;
+  plotLengthMin?: number;
+  plotLengthMax?: number;
   plotWidth?: number;
   coveredArea?: number;
   roadPosition?: string;
@@ -107,6 +109,8 @@ export const insertPlanSchema = z.object({
   foundationType: z.string().max(100).optional(),
   councilArea: z.string().max(100).optional(),
   plotLength: z.number().optional(),
+  plotLengthMin: z.number().optional(),
+  plotLengthMax: z.number().optional(),
   plotWidth: z.number().optional(),
   coveredArea: z.number().optional(),
   roadPosition: z.string().max(50).optional(),

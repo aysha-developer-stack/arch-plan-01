@@ -11,8 +11,14 @@ import apiClient from "@/setupAxios";
 import type { IPlan } from "@shared/schema";
 import { AxiosError } from "axios";
 
+// Extend IPlan with the new properties until TypeScript server picks up the schema changes
+interface ExtendedPlan extends IPlan {
+  plotLengthMin?: number;
+  plotLengthMax?: number;
+}
+
 interface PlanCardProps {
-  plan: IPlan;
+  plan: ExtendedPlan;
 }
 
 export default function PlanCard({ plan }: PlanCardProps) {
@@ -182,7 +188,8 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Lot Size Min (m²):</strong> {plan.lotSizeMin || "N/A"}</div>
                     <div><strong>Lot Size Max (m²):</strong> {plan.lotSizeMax || "N/A"}</div>
                     <div><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
-
+                    <div><strong>Plot Length Min (m):</strong> {plan.plotLengthMin || "N/A"}</div>
+                    <div><strong>Plot Length Max (m):</strong> {plan.plotLengthMax || "N/A"}</div>
                     <div><strong>Plot Width (m):</strong> {plan.plotWidth || "N/A"}</div>
                     <div><strong>Covered Area (sq.m):</strong> {plan.coveredArea || "N/A"}</div>
                     <div><strong>Total Building Height (m):</strong> {plan.totalBuildingHeight || "N/A"}</div>
