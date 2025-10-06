@@ -4,6 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide the Plot Length field */
+label[for="plotLength"],
+input#plotLength,
+div:has(> label[for="plotLength"]) {
+  display: none !important;
+}
+
 /* ✅ Root variables */
 :root {
   --primary-color: #4f46e5;
