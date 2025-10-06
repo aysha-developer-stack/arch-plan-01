@@ -29,6 +29,12 @@ interface SearchFilters {
   plotLength: string;
   plotWidth: string;
   coveredArea: string;
+  minPlotLength: string;
+  maxPlotLength: string;
+  minPlotWidth: string;
+  maxPlotWidth: string;
+  minCoveredArea: string;
+  maxCoveredArea: string;
   roadPosition: string;
   builderName: string;
   jobAddress: string;
@@ -64,6 +70,12 @@ export default function SearchInterface() {
     plotLength: "",
     plotWidth: "",
     coveredArea: "",
+    minPlotLength: "",
+    maxPlotLength: "",
+    minPlotWidth: "",
+    maxPlotWidth: "",
+    minCoveredArea: "",
+    maxCoveredArea: "",
     roadPosition: "",
     builderName: "",
     jobAddress: "",
@@ -159,6 +171,12 @@ export default function SearchInterface() {
       plotLength: "",
       plotWidth: "",
       coveredArea: "",
+      minPlotLength: "",
+      maxPlotLength: "",
+      minPlotWidth: "",
+      maxPlotWidth: "",
+      minCoveredArea: "",
+      maxCoveredArea: "",
       roadPosition: "",
       builderName: "",
       jobAddress: "",
@@ -1055,42 +1073,81 @@ export default function SearchInterface() {
 
                 
                 <div>
-                  <Label htmlFor="plotLength">Plot Length (m)</Label>
-                  <Input
-                    id="plotLength"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g., 20.0"
-                    value={filters.plotLength}
-                    onChange={(e) => updateFilter("plotLength", e.target.value)}
-                  />
+                  <Label>Plot Length (m)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Min"
+                        value={filters.minPlotLength}
+                        onChange={(e) => updateFilter("minPlotLength", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Max"
+                        value={filters.maxPlotLength}
+                        onChange={(e) => updateFilter("maxPlotLength", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
                 
                 <div>
-                  <Label htmlFor="plotWidth">Plot Width (m)</Label>
-                  <Input
-                    id="plotWidth"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g., 15.0"
-                    value={filters.plotWidth}
-                    onChange={(e) => updateFilter("plotWidth", e.target.value)}
-                  />
+                  <Label>Plot Width (m)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Min"
+                        value={filters.minPlotWidth}
+                        onChange={(e) => updateFilter("minPlotWidth", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Max"
+                        value={filters.maxPlotWidth}
+                        onChange={(e) => updateFilter("maxPlotWidth", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
                 
                 <div>
-                  <Label htmlFor="coveredArea">Covered Area (m²)</Label>
-                  <Input
-                    id="coveredArea"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g., 150.0"
-                    value={filters.coveredArea}
-                    onChange={(e) => updateFilter("coveredArea", e.target.value)}
-                  />
+                  <Label>Covered Area (m²)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Min"
+                        value={filters.minCoveredArea}
+                        onChange={(e) => updateFilter("minCoveredArea", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Max"
+                        value={filters.maxCoveredArea}
+                        onChange={(e) => updateFilter("maxCoveredArea", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
                 
                 <div>
