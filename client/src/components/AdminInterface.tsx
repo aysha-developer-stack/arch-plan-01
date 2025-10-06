@@ -73,6 +73,8 @@ interface UploadFormData {
   totalBuildingHeight: number;
   councilArea: string;
   plotLength: string;
+  plotLengthMin: string;
+  plotLengthMax: string;
   plotWidth: string;
   coveredArea: string;
   roadPosition: string;
@@ -144,6 +146,8 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     totalBuildingHeight: 0,
     councilArea: "Any",
     plotLength: "",
+    plotLengthMin: "",
+    plotLengthMax: "",
     plotWidth: "",
     coveredArea: "",
     roadPosition: "",
@@ -307,6 +311,8 @@ const handleUpload = (e: React.MouseEvent) => {
 
   // New fields
   if (uploadForm.plotLength.trim()) formData.append("plotLength", uploadForm.plotLength.trim());
+  if (uploadForm.plotLengthMin.trim()) formData.append("plotLengthMin", uploadForm.plotLengthMin.trim());
+  if (uploadForm.plotLengthMax.trim()) formData.append("plotLengthMax", uploadForm.plotLengthMax.trim());
   if (uploadForm.plotWidth.trim()) formData.append("plotWidth", uploadForm.plotWidth.trim());
   if (uploadForm.coveredArea.trim()) formData.append("coveredArea", uploadForm.coveredArea.trim());
   if (uploadForm.roadPosition.trim()) formData.append("roadPosition", uploadForm.roadPosition.trim());
@@ -1540,6 +1546,30 @@ return (
                         value={uploadForm.plotLength}
                         onChange={(e) => setUploadForm(prev => ({ ...prev, plotLength: e.target.value }))}
                         placeholder="e.g., 20.5"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="plotLengthMin">Min Plot Length (m)</Label>
+                      <Input
+                        id="plotLengthMin"
+                        type="number"
+                        step="0.01"
+                        value={uploadForm.plotLengthMin}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotLengthMin: e.target.value }))}
+                        placeholder="e.g., 15.0"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="plotLengthMax">Max Plot Length (m)</Label>
+                      <Input
+                        id="plotLengthMax"
+                        type="number"
+                        step="0.01"
+                        value={uploadForm.plotLengthMax}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotLengthMax: e.target.value }))}
+                        placeholder="e.g., 25.0"
                       />
                     </div>
 

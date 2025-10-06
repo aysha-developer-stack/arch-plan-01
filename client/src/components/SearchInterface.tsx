@@ -28,6 +28,8 @@ interface SearchFilters {
   constructionType: string;
   planType: string;
   plotLength: string;
+  plotLengthMin: string;
+  plotLengthMax: string;
   plotWidth: string;
   coveredArea: string;
   roadPosition: string;
@@ -59,6 +61,8 @@ export default function SearchInterface() {
     constructionType: "",
     planType: "",
     plotLength: "",
+  plotLengthMin: "",
+  plotLengthMax: "",
     plotWidth: "",
     coveredArea: "",
     roadPosition: "",
@@ -150,6 +154,8 @@ export default function SearchInterface() {
       constructionType: "",
       planType: "",
       plotLength: "",
+      plotLengthMin: "",
+      plotLengthMax: "",
       plotWidth: "",
       coveredArea: "",
       roadPosition: "",
@@ -1001,6 +1007,32 @@ export default function SearchInterface() {
                     placeholder="e.g., 20.5"
                     value={filters.plotLength}
                     onChange={(e) => updateFilter("plotLength", e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="plotLengthMin">Min Plot Length (m)</Label>
+                  <Input
+                    id="plotLengthMin"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g., 15.0"
+                    value={filters.plotLengthMin}
+                    onChange={(e) => updateFilter("plotLengthMin", e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="plotLengthMax">Max Plot Length (m)</Label>
+                  <Input
+                    id="plotLengthMax"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g., 25.0"
+                    value={filters.plotLengthMax}
+                    onChange={(e) => updateFilter("plotLengthMax", e.target.value)}
                   />
                 </div>
                 
