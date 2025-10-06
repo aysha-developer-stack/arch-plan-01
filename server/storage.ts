@@ -628,7 +628,8 @@ export interface PlanFilters {
   storeys?: string;
   councilArea?: string;
   search?: string;
-  bedrooms?: string;
+  minBedrooms?: string;
+  maxBedrooms?: string;
   houseType?: string;
   constructionType?: string;
   planType?: string;
@@ -638,8 +639,10 @@ export interface PlanFilters {
   roadPosition?: string;
   builderName?: string;
   jobAddress?: string;
-  toilets?: string;
-  livingAreas?: string;
+  minToilets?: string;
+  maxToilets?: string;
+  minLivingAreas?: string;
+  maxLivingAreas?: string;
   minTotalBuildingHeight?: string;
   maxTotalBuildingHeight?: string;
   minRoofPitch?: string;
@@ -812,16 +815,28 @@ export class SupabaseStorage implements IStorage {
       query = query.eq('storeys', parseInt(filters.storeys));
     }
 
-    if (filters.bedrooms) {
-      query = query.eq('bedrooms', parseInt(filters.bedrooms));
+    // Bedrooms range filtering
+    if (filters.minBedrooms) {
+      query = query.gte('bedrooms', parseInt(filters.minBedrooms));
+    }
+    if (filters.maxBedrooms) {
+      query = query.lte('bedrooms', parseInt(filters.maxBedrooms));
     }
 
-    if (filters.toilets) {
-      query = query.eq('toilets', parseInt(filters.toilets));
+    // Toilets range filtering
+    if (filters.minToilets) {
+      query = query.gte('toilets', parseInt(filters.minToilets));
+    }
+    if (filters.maxToilets) {
+      query = query.lte('toilets', parseInt(filters.maxToilets));
     }
 
-    if (filters.livingAreas) {
-      query = query.eq('livingAreas', parseInt(filters.livingAreas));
+    // Living Areas range filtering
+    if (filters.minLivingAreas) {
+      query = query.gte('livingAreas', parseInt(filters.minLivingAreas));
+    }
+    if (filters.maxLivingAreas) {
+      query = query.lte('livingAreas', parseInt(filters.maxLivingAreas));
     }
 
     if (filters.orientation) {

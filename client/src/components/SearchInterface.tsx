@@ -21,7 +21,8 @@ interface SearchFilters {
   storeys: string;
   councilArea: string;
   search: string;
-  bedrooms: string;
+  minBedrooms: string;
+  maxBedrooms: string;
   houseType: string;
   constructionType: string;
   planType: string;
@@ -31,8 +32,10 @@ interface SearchFilters {
   roadPosition: string;
   builderName: string;
   jobAddress: string;
-  toilets: string;
-  livingAreas: string;
+  minToilets: string;
+  maxToilets: string;
+  minLivingAreas: string;
+  maxLivingAreas: string;
   minUnits: string;
   maxUnits: string;
   minTotalBuildingHeight: string;
@@ -53,7 +56,8 @@ export default function SearchInterface() {
     storeys: "",
     councilArea: "",
     search: "",
-    bedrooms: "",
+    minBedrooms: "",
+    maxBedrooms: "",
     houseType: "",
     constructionType: "",
     planType: "",
@@ -63,8 +67,10 @@ export default function SearchInterface() {
     roadPosition: "",
     builderName: "",
     jobAddress: "",
-    toilets: "",
-    livingAreas: "",
+    minToilets: "",
+    maxToilets: "",
+    minLivingAreas: "",
+    maxLivingAreas: "",
     minUnits: "",
     maxUnits: "",
     minTotalBuildingHeight: "",
@@ -145,7 +151,8 @@ export default function SearchInterface() {
       storeys: "",
       councilArea: "",
       search: "",
-      bedrooms: "",
+      minBedrooms: "",
+      maxBedrooms: "",
       houseType: "",
       constructionType: "",
       planType: "",
@@ -155,8 +162,10 @@ export default function SearchInterface() {
       roadPosition: "",
       builderName: "",
       jobAddress: "",
-      toilets: "",
-      livingAreas: "",
+      minToilets: "",
+      maxToilets: "",
+      minLivingAreas: "",
+      maxLivingAreas: "",
       minUnits: "",
       maxUnits: "",
       minTotalBuildingHeight: "",
@@ -1143,47 +1152,83 @@ export default function SearchInterface() {
               <p className="text-sm text-slate-600">Interior layout and room specifications</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
-                <Label htmlFor="bedrooms" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Bedrooms
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Bedrooms Range
                 </Label>
-                <Input
-                  id="bedrooms"
-                  type="number"
-                  min="0"
-                  value={filters.bedrooms}
-                  onChange={(e) => updateFilter("bedrooms", e.target.value)}
-                  placeholder="3"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={filters.minBedrooms}
+                      onChange={(e) => updateFilter("minBedrooms", e.target.value)}
+                      placeholder="Min Bedrooms"
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={filters.maxBedrooms}
+                      onChange={(e) => updateFilter("maxBedrooms", e.target.value)}
+                      placeholder="Max Bedrooms"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="toilets" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Toilets/Bathrooms
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Toilets/Bathrooms Range
                 </Label>
-                <Input
-                  id="toilets"
-                  type="number"
-                  min="0"
-                  value={filters.toilets}
-                  onChange={(e) => updateFilter("toilets", e.target.value)}
-                  placeholder="2"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={filters.minToilets}
+                      onChange={(e) => updateFilter("minToilets", e.target.value)}
+                      placeholder="Min Toilets"
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={filters.maxToilets}
+                      onChange={(e) => updateFilter("maxToilets", e.target.value)}
+                      placeholder="Max Toilets"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="livingAreas" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Living Areas
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Living Areas Range
                 </Label>
-                <Input
-                  id="livingAreas"
-                  type="number"
-                  min="0"
-                  value={filters.livingAreas}
-                  onChange={(e) => updateFilter("livingAreas", e.target.value)}
-                  placeholder="1"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={filters.minLivingAreas}
+                      onChange={(e) => updateFilter("minLivingAreas", e.target.value)}
+                      placeholder="Min Living Areas"
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={filters.maxLivingAreas}
+                      onChange={(e) => updateFilter("maxLivingAreas", e.target.value)}
+                      placeholder="Max Living Areas"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
