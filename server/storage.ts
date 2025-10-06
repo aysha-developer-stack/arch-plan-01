@@ -622,6 +622,8 @@ export interface IStorage {
 export interface PlanFilters {
   keyword?: string;
   lotSize?: string;
+  minLotSize?: string;
+  maxLotSize?: string;
   orientation?: string;
   siteType?: string;
   foundationType?: string;
@@ -636,6 +638,12 @@ export interface PlanFilters {
   plotLength?: string;
   plotWidth?: string;
   coveredArea?: string;
+  minPlotLength?: string;
+  maxPlotLength?: string;
+  minPlotWidth?: string;
+  maxPlotWidth?: string;
+  minCoveredArea?: string;
+  maxCoveredArea?: string;
   roadPosition?: string;
   builderName?: string;
   jobAddress?: string;
@@ -902,22 +910,50 @@ export class SupabaseStorage implements IStorage {
       query = query.overlaps('constructionType', [filters.constructionType]);
     }
 
-    // Plot Length filtering
+    // Plot Length range filtering
+    if (filters.minPlotLength) {
+      query = query.gte('plotLength', parseFloat(filters.minPlotLength));
+    }
+    if (filters.maxPlotLength) {
+      query = query.lte('plotLength', parseFloat(filters.maxPlotLength));
+    }
+    // Keep backward compatibility for single plotLength filter
     if (filters.plotLength) {
       query = query.eq('plotLength', parseFloat(filters.plotLength));
     }
 
-    // Plot Width filtering
+    // Plot Width range filtering
+    if (filters.minPlotWidth) {
+      query = query.gte('plotWidth', parseFloat(filters.minPlotWidth));
+    }
+    if (filters.maxPlotWidth) {
+      query = query.lte('plotWidth', parseFloat(filters.maxPlotWidth));
+    }
+    // Keep backward compatibility for single plotWidth filter
     if (filters.plotWidth) {
       query = query.eq('plotWidth', parseFloat(filters.plotWidth));
     }
 
-    // Covered Area filtering
+    // Covered Area range filtering
+    if (filters.minCoveredArea) {
+      query = query.gte('coveredArea', parseFloat(filters.minCoveredArea));
+    }
+    if (filters.maxCoveredArea) {
+      query = query.lte('coveredArea', parseFloat(filters.maxCoveredArea));
+    }
+    // Keep backward compatibility for single coveredArea filter
     if (filters.coveredArea) {
       query = query.eq('coveredArea', parseFloat(filters.coveredArea));
     }
 
-    // Lot size filtering
+    // Lot size range filtering
+    if (filters.minLotSize) {
+      query = query.gte('lotSize', parseFloat(filters.minLotSize));
+    }
+    if (filters.maxLotSize) {
+      query = query.lte('lotSize', parseFloat(filters.maxLotSize));
+    }
+    // Keep backward compatibility for single lotSize filter
     if (filters.lotSize) {
       query = query.eq('lotSize', filters.lotSize);
     }
