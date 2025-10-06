@@ -915,7 +915,7 @@ export default function SearchInterface() {
                         id="minUnits"
                         type="number"
                         min="0"
-                        placeholder="Min units"
+                        placeholder="Min"
                         value={filters.minUnits}
                         onChange={(e) => updateFilter("minUnits", e.target.value)}
                       />
@@ -925,7 +925,7 @@ export default function SearchInterface() {
                         id="maxUnits"
                         type="number"
                         min="0"
-                        placeholder="Max units"
+                        placeholder="Max"
                         value={filters.maxUnits}
                         onChange={(e) => updateFilter("maxUnits", e.target.value)}
                       />
@@ -943,7 +943,7 @@ export default function SearchInterface() {
                         min="0"
                         max="1000"
                         step="0.01"
-                        placeholder="Min Height"
+                        placeholder="Min"
                         value={filters.minTotalBuildingHeight}
                         onChange={(e) => updateFilter("minTotalBuildingHeight", e.target.value)}
                       />
@@ -955,7 +955,7 @@ export default function SearchInterface() {
                         min="0"
                         max="1000"
                         step="0.01"
-                        placeholder="Max Height"
+                        placeholder="Max"
                         value={filters.maxTotalBuildingHeight}
                         onChange={(e) => updateFilter("maxTotalBuildingHeight", e.target.value)}
                       />
@@ -973,7 +973,7 @@ export default function SearchInterface() {
                           type="number"
                           min="0"
                           step="0.1"
-                          placeholder="Min Pitch"
+                          placeholder="Min"
                           value={filters.minRoofPitch}
                           onChange={(e) => {
                              const value = e.target.value;
@@ -999,7 +999,7 @@ export default function SearchInterface() {
                           type="number"
                           min="0"
                           step="0.1"
-                          placeholder="Max Pitch"
+                          placeholder="Max"
                           value={filters.maxRoofPitch}
                           onChange={(e) => {
                              const value = e.target.value;
