@@ -49,14 +49,9 @@ export interface IPlan {
   siteType?: string;
   foundationType?: string;
   councilArea?: string;
-  plotLengthMin?: number;
-  plotLengthMax?: number;
+  plotLength?: number;
   plotWidth?: number;
-  plotWidthMin?: number;
-  plotWidthMax?: number;
   coveredArea?: number;
-  coveredAreaMin?: number;
-  coveredAreaMax?: number;
   roadPosition?: string;
   builderName?: string;
   jobAddress?: string;
@@ -66,8 +61,6 @@ export interface IPlan {
   livingAreas?: number;
   numberOfUnits?: number;
   constructionType?: string[];
-  lotSizeMin?: number;
-  lotSizeMax?: number;
   totalBuildingHeight?: number;
   roofPitch?: number;
   outdoorFeatures?: string[];
@@ -111,14 +104,9 @@ export const insertPlanSchema = z.object({
   siteType: z.string().max(100).optional(),
   foundationType: z.string().max(100).optional(),
   councilArea: z.string().max(100).optional(),
-  plotLengthMin: z.number().optional(),
-  plotLengthMax: z.number().optional(),
+  plotLength: z.number().optional(),
   plotWidth: z.number().optional(),
-  plotWidthMin: z.number().optional(),
-  plotWidthMax: z.number().optional(),
   coveredArea: z.number().optional(),
-  coveredAreaMin: z.number().optional(),
-  coveredAreaMax: z.number().optional(),
   roadPosition: z.string().max(50).optional(),
   builderName: z.string().max(255).optional(),
   jobAddress: z.string().max(500).optional(),
@@ -128,8 +116,6 @@ export const insertPlanSchema = z.object({
   livingAreas: z.number().min(0).optional().default(1),
   numberOfUnits: z.number().min(0).optional(),
   constructionType: z.array(z.string()).optional(),
-  lotSizeMin: z.number().optional(),
-  lotSizeMax: z.number().optional(),
   totalBuildingHeight: z.number().optional(),
   roofPitch: z.number().optional(),
   outdoorFeatures: z.array(z.string()).optional(),

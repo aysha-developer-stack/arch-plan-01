@@ -11,14 +11,8 @@ import apiClient from "@/setupAxios";
 import type { IPlan } from "@shared/schema";
 import { AxiosError } from "axios";
 
-// Extend IPlan with the new properties until TypeScript server picks up the schema changes
-interface ExtendedPlan extends IPlan {
-  plotLengthMin?: number;
-  plotLengthMax?: number;
-}
-
 interface PlanCardProps {
-  plan: ExtendedPlan;
+  plan: IPlan;
 }
 
 export default function PlanCard({ plan }: PlanCardProps) {
@@ -185,13 +179,11 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Living Areas:</strong> {plan.livingAreas || "N/A"}</div>
                     <div><strong>Number of Units:</strong> {plan.numberOfUnits || "N/A"}</div>
                     <div><strong>House Type:</strong> {plan.houseType || "N/A"}</div>
-                    <div><strong>Lot Size Min (m²):</strong> {plan.lotSizeMin || "N/A"}</div>
-                    <div><strong>Lot Size Max (m²):</strong> {plan.lotSizeMax || "N/A"}</div>
+                    <div><strong>Lot Size (m²):</strong> {plan.lotSize || "N/A"}</div>
                     <div><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
-                    <div><strong>Plot Length Min (m):</strong> {plan.plotLengthMin || "N/A"}</div>
-                    <div><strong>Plot Length Max (m):</strong> {plan.plotLengthMax || "N/A"}</div>
-                    <div><strong>Plot Width Range (m):</strong> {plan.plotWidthMin && plan.plotWidthMax ? `${plan.plotWidthMin} - ${plan.plotWidthMax}` : plan.plotWidth || "N/A"}</div>
-                    <div><strong>Covered Area Range (m²):</strong> {plan.coveredAreaMin && plan.coveredAreaMax ? `${plan.coveredAreaMin} - ${plan.coveredAreaMax}` : plan.coveredArea || "N/A"}</div>
+                    <div><strong>Plot Length (m):</strong> {plan.plotLength || "N/A"}</div>
+                    <div><strong>Plot Width (m):</strong> {plan.plotWidth || "N/A"}</div>
+                    <div><strong>Covered Area (m²):</strong> {plan.coveredArea || "N/A"}</div>
                     <div><strong>Total Building Height (m):</strong> {plan.totalBuildingHeight || "N/A"}</div>
                     <div><strong>Roof Pitch (°):</strong> {plan.roofPitch || "N/A"}</div>
                     <div><strong>Road Position:</strong> {plan.roadPosition || "N/A"}</div>

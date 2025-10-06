@@ -57,14 +57,9 @@ export interface IPlan {
   councilArea?: string;
 
   // Additional plan details
-  plotLengthMin?: number; // Minimum plot length in meters
-  plotLengthMax?: number; // Maximum plot length in meters
+  plotLength?: number; // Plot length in meters
   plotWidth?: number; // Plot width in meters
-  plotWidthMin?: number; // Minimum plot width in meters
-  plotWidthMax?: number; // Maximum plot width in meters
   coveredArea?: number; // Covered area in square meters
-  coveredAreaMin?: number; // Minimum covered area in square meters
-  coveredAreaMax?: number; // Maximum covered area in square meters
   roadPosition?: string; // Length Side, Width Side, Corner Plot
   builderName?: string; // Builder or designer name
   jobAddress?: string; // Job address or location
@@ -76,8 +71,6 @@ export interface IPlan {
   constructionType?: string[]; // Array of construction types: Hebel, Cladding, Brick, NRG
 
   // Additional features and specifications
-  lotSizeMin?: number; // Minimum lot size in square meters
-  lotSizeMax?: number; // Maximum lot size in square meters
   totalBuildingHeight?: number; // Total building height in meters
   roofPitch?: number; // Roof pitch in degrees
   outdoorFeatures?: string[]; // Array of outdoor features
@@ -128,14 +121,9 @@ export const insertPlanSchema = z.object({
   councilArea: z.string().max(100).optional(),
 
   // Additional plan details
-  plotLengthMin: z.number().optional(), // Minimum plot length in meters
-  plotLengthMax: z.number().optional(), // Maximum plot length in meters
+  plotLength: z.number().optional(), // Plot length in meters
   plotWidth: z.number().optional(), // Plot width in meters
-  plotWidthMin: z.number().optional(), // Minimum plot width in meters
-  plotWidthMax: z.number().optional(), // Maximum plot width in meters
   coveredArea: z.number().optional(), // Covered area in square meters
-  coveredAreaMin: z.number().optional(), // Minimum covered area in square meters
-  coveredAreaMax: z.number().optional(), // Maximum covered area in square meters
   roadPosition: z.string().max(50).optional(), // Length Side, Width Side, Corner Plot
   builderName: z.string().max(255).optional(), // Builder or designer name
   jobAddress: z.string().max(500).optional(), // Job address or location
@@ -145,8 +133,6 @@ export const insertPlanSchema = z.object({
   livingAreas: z.number().min(0).optional().default(1), // Number of living spaces
   numberOfUnits: z.number().optional(), // Number of units
   constructionType: z.array(z.string()).optional(), // Array of construction types
-  lotSizeMin: z.number().optional(), // Minimum lot size in square meters
-  lotSizeMax: z.number().optional(), // Maximum lot size in square meters
   totalBuildingHeight: z.number().optional(), // Total building height in meters
   roofPitch: z.number().optional(), // Roof pitch in degrees
   outdoorFeatures: z.array(z.string()).optional(), // Array of outdoor features
@@ -161,8 +147,6 @@ export const insertPlanSchema = z.object({
 export const searchPlanSchema = z.object({
   keyword: z.string().optional(),
   lotSize: z.string().optional(),
-  lotSizeMin: z.string().optional(),
-  lotSizeMax: z.string().optional(),
   orientation: z.string().optional(),
   siteType: z.string().optional(),
   foundationType: z.string().optional(),
@@ -173,14 +157,9 @@ export const searchPlanSchema = z.object({
   houseType: z.string().optional(),
   constructionType: z.string().optional(),
   planType: z.string().optional(),
-  plotLengthMin: z.string().optional(),
-  plotLengthMax: z.string().optional(),
+  plotLength: z.string().optional(),
   plotWidth: z.string().optional(),
-  plotWidthMin: z.string().optional(),
-  plotWidthMax: z.string().optional(),
   coveredArea: z.string().optional(),
-  coveredAreaMin: z.string().optional(),
-  coveredAreaMax: z.string().optional(),
   roadPosition: z.string().optional(),
   builderName: z.string().optional(),
   toilets: z.string().optional(),

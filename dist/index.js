@@ -134,30 +134,20 @@ var SupabaseStorage = class {
     if (filters.outdoorFeatures) {
       const outdoorFeaturesArray = filters.outdoorFeatures.split(",").map((f) => f.trim());
       if (outdoorFeaturesArray.length > 0) {
-        console.log("\u{1F50D} Processing outdoor features:", filters.outdoorFeatures);
-        const outdoorConditions = [];
+        console.log("\u{1F50D} Processing outdoor features (AND logic):", filters.outdoorFeatures);
         for (const feature of outdoorFeaturesArray) {
-          outdoorConditions.push(`outdoorFeatures::text ILIKE '%${feature}%'`);
-        }
-        if (outdoorConditions.length > 0) {
-          query = query.or(outdoorConditions.join(","));
-          console.log("\u{1F50D} Added outdoor conditions:", outdoorConditions);
-          console.log("\u{1F50D} Combined search conditions (OR logic):", outdoorConditions.join(","));
+          query = query.overlaps("outdoorFeatures", [feature]);
+          console.log("\u{1F50D} Added outdoor feature filter:", feature);
         }
       }
     }
     if (filters.indoorFeatures) {
       const indoorFeaturesArray = filters.indoorFeatures.split(",").map((f) => f.trim());
       if (indoorFeaturesArray.length > 0) {
-        console.log("\u{1F50D} Processing indoor features:", filters.indoorFeatures);
-        const indoorConditions = [];
+        console.log("\u{1F50D} Processing indoor features (AND logic):", filters.indoorFeatures);
         for (const feature of indoorFeaturesArray) {
-          indoorConditions.push(`indoorFeatures::text ILIKE '%${feature}%'`);
-        }
-        if (indoorConditions.length > 0) {
-          query = query.or(indoorConditions.join(","));
-          console.log("\u{1F50D} Added indoor conditions:", indoorConditions);
-          console.log("\u{1F50D} Combined search conditions (OR logic):", indoorConditions.join(","));
+          query = query.overlaps("indoorFeatures", [feature]);
+          console.log("\u{1F50D} Added indoor feature filter:", feature);
         }
       }
     }
@@ -194,10 +184,35 @@ var SupabaseStorage = class {
     if (filters.roadPosition) {
       query = query.eq("roadPosition", filters.roadPosition);
     }
-    if (filters.lotSizeMin && filters.lotSizeMax) {
-      const minSize = parseFloat(filters.lotSizeMin);
-      const maxSize = parseFloat(filters.lotSizeMax);
-      query = query.gte("lotSizeMin", minSize).lte("lotSizeMax", maxSize);
+    if (filters.builderName) {
+      query = query.ilike("builderName", `%${filters.builderName}%`);
+    }
+    if (filters.jobAddress) {
+      query = query.ilike("jobAddress", `%${filters.jobAddress}%`);
+    }
+    if (filters.numberOfUnits) {
+      query = query.eq("numberOfUnits", parseInt(filters.numberOfUnits));
+    }
+    if (filters.totalBuildingHeight) {
+      query = query.eq("totalBuildingHeight", parseFloat(filters.totalBuildingHeight));
+    }
+    if (filters.roofPitch) {
+      query = query.eq("roofPitch", parseFloat(filters.roofPitch));
+    }
+    if (filters.constructionType) {
+      query = query.overlaps("constructionType", [filters.constructionType]);
+    }
+    if (filters.plotLength) {
+      query = query.eq("plotLength", parseFloat(filters.plotLength));
+    }
+    if (filters.plotWidth) {
+      query = query.eq("plotWidth", parseFloat(filters.plotWidth));
+    }
+    if (filters.coveredArea) {
+      query = query.eq("coveredArea", parseFloat(filters.coveredArea));
+    }
+    if (filters.lotSize) {
+      query = query.eq("lotSize", filters.lotSize);
     }
     if (filters.sortBy) {
       query = query.order(filters.sortBy, {
@@ -499,10 +514,6 @@ var insertPlanSchema = z.object({
   // Number of units
   constructionType: z.array(z.string()).optional(),
   // Array of construction types
-  lotSizeMin: z.number().optional(),
-  // Minimum lot size in square meters
-  lotSizeMax: z.number().optional(),
-  // Maximum lot size in square meters
   totalBuildingHeight: z.number().optional(),
   // Total building height in meters
   roofPitch: z.number().optional(),
@@ -519,8 +530,6 @@ var insertPlanSchema = z.object({
 var searchPlanSchema = z.object({
   keyword: z.string().optional(),
   lotSize: z.string().optional(),
-  lotSizeMin: z.string().optional(),
-  lotSizeMax: z.string().optional(),
   orientation: z.string().optional(),
   siteType: z.string().optional(),
   foundationType: z.string().optional(),
@@ -1607,9 +1616,14 @@ router3.post(
       if (planData.numberOfUnits) planData.numberOfUnits = parseInt(planData.numberOfUnits);
       if (planData.totalBuildingHeight) planData.totalBuildingHeight = parseFloat(planData.totalBuildingHeight);
       if (planData.roofPitch) planData.roofPitch = parseFloat(planData.roofPitch);
-      if (planData.plotLength) planData.plotLength = parseFloat(planData.plotLength);
+      if (planData.plotLengthMin) planData.plotLengthMin = parseFloat(planData.plotLengthMin);
+      if (planData.plotLengthMax) planData.plotLengthMax = parseFloat(planData.plotLengthMax);
       if (planData.plotWidth) planData.plotWidth = parseFloat(planData.plotWidth);
+      if (planData.plotWidthMin) planData.plotWidthMin = parseFloat(planData.plotWidthMin);
+      if (planData.plotWidthMax) planData.plotWidthMax = parseFloat(planData.plotWidthMax);
       if (planData.coveredArea) planData.coveredArea = parseFloat(planData.coveredArea);
+      if (planData.coveredAreaMin) planData.coveredAreaMin = parseFloat(planData.coveredAreaMin);
+      if (planData.coveredAreaMax) planData.coveredAreaMax = parseFloat(planData.coveredAreaMax);
       if (planData.lotSizeMin) planData.lotSizeMin = parseFloat(planData.lotSizeMin);
       if (planData.lotSizeMax) planData.lotSizeMax = parseFloat(planData.lotSizeMax);
       planData.status = "active";

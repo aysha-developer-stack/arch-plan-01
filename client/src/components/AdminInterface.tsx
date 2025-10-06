@@ -64,21 +64,15 @@ interface UploadFormData {
   description: string;
   planType: string;
   storeys: string;
-  lotSizeMin: string;
-  lotSizeMax: string;
+  lotSize: string;
   orientation: string;
   siteType: string;
   foundationType: string;
   totalBuildingHeight: number;
   councilArea: string;
-  plotLengthMin: string;
-  plotLengthMax: string;
+  plotLength: string;
   plotWidth: string;
-  plotWidthMin: string;
-  plotWidthMax: string;
   coveredArea: string;
-  coveredAreaMin: string;
-  coveredAreaMax: string;
   roadPosition: string;
   builderName: string;
   jobAddress: string;
@@ -139,21 +133,15 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     description: "",
     planType: "",
     storeys: "",
-    lotSizeMin: "",
-    lotSizeMax: "",
+    lotSize: "",
     orientation: "",
     siteType: "",
     foundationType: "",
     totalBuildingHeight: 0,
     councilArea: "Any",
-    plotLengthMin: "",
-    plotLengthMax: "",
+    plotLength: "",
     plotWidth: "",
-    plotWidthMin: "",
-    plotWidthMax: "",
     coveredArea: "",
-    coveredAreaMin: "",
-    coveredAreaMax: "",
     roadPosition: "",
     builderName: "",
     jobAddress: "",
@@ -306,22 +294,16 @@ const handleUpload = (e: React.MouseEvent) => {
   if (uploadForm.storeys.trim()) formData.append("storeys", uploadForm.storeys.trim());
 
   // Optional fields - only append if they have values
-  formData.append("lotSizeMin", uploadForm.lotSizeMin.trim());
-  formData.append("lotSizeMax", uploadForm.lotSizeMax.trim());
+  if (uploadForm.lotSize.trim()) formData.append("lotSize", uploadForm.lotSize.trim());
   if (uploadForm.orientation.trim()) formData.append("orientation", uploadForm.orientation.trim());
   if (uploadForm.siteType.trim()) formData.append("siteType", uploadForm.siteType.trim());
   formData.append("foundationType", uploadForm.foundationType.trim());
   if (uploadForm.councilArea.trim()) formData.append("councilArea", uploadForm.councilArea.trim());
 
   // New fields
-  if (uploadForm.plotLengthMin.trim()) formData.append("plotLengthMin", uploadForm.plotLengthMin.trim());
-  if (uploadForm.plotLengthMax.trim()) formData.append("plotLengthMax", uploadForm.plotLengthMax.trim());
+  if (uploadForm.plotLength.trim()) formData.append("plotLength", uploadForm.plotLength.trim());
   if (uploadForm.plotWidth.trim()) formData.append("plotWidth", uploadForm.plotWidth.trim());
-  if (uploadForm.plotWidthMin.trim()) formData.append("plotWidthMin", uploadForm.plotWidthMin.trim());
-  if (uploadForm.plotWidthMax.trim()) formData.append("plotWidthMax", uploadForm.plotWidthMax.trim());
   if (uploadForm.coveredArea.trim()) formData.append("coveredArea", uploadForm.coveredArea.trim());
-  if (uploadForm.coveredAreaMin.trim()) formData.append("coveredAreaMin", uploadForm.coveredAreaMin.trim());
-  if (uploadForm.coveredAreaMax.trim()) formData.append("coveredAreaMax", uploadForm.coveredAreaMax.trim());
   if (uploadForm.roadPosition.trim()) formData.append("roadPosition", uploadForm.roadPosition.trim());
   formData.append("builderName", uploadForm.builderName.trim());
 
@@ -1502,120 +1484,58 @@ return (
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <Label htmlFor="lotSizeRange">Lot Size Range (m²)</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label htmlFor="lotSizeMin" className="text-xs text-slate-600">Min</Label>
-                          <Input
-                            id="lotSizeMin"
-                            type="number"
-                            min="0"
-                            max="10000"
-                            value={uploadForm.lotSizeMin}
-                            onChange={(e) => setUploadForm(prev => ({ ...prev, lotSizeMin: e.target.value }))}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="lotSizeMax" className="text-xs text-slate-600">Max</Label>
-                          <Input
-                            id="lotSizeMax"
-                            type="number"
-                            min="0"
-                            max="10000"
-                            value={uploadForm.lotSizeMax}
-                            onChange={(e) => setUploadForm(prev => ({ ...prev, lotSizeMax: e.target.value }))}
-                            placeholder="10000"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">Select range from 0 to 10,000 m²</p>
+                      <Label htmlFor="lotSize">Lot Size (m²)</Label>
+                      <Input
+                        id="lotSize"
+                        type="number"
+                        min="0"
+                        max="10000"
+                        value={uploadForm.lotSize}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, lotSize: e.target.value }))}
+                        placeholder="e.g., 500"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Lot size in square meters</p>
                     </div>
 
                     <div>
-                      <Label htmlFor="coveredAreaRange">Covered Area Range (m²)</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label htmlFor="coveredAreaMin" className="text-xs text-slate-600">Min</Label>
-                          <Input
-                            id="coveredAreaMin"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={uploadForm.coveredAreaMin}
-                            onChange={(e) => setUploadForm(prev => ({ ...prev, coveredAreaMin: e.target.value }))}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="coveredAreaMax" className="text-xs text-slate-600">Max</Label>
-                          <Input
-                            id="coveredAreaMax"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={uploadForm.coveredAreaMax}
-                            onChange={(e) => setUploadForm(prev => ({ ...prev, coveredAreaMax: e.target.value }))}
-                            placeholder="1000"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">Covered area range in square meters</p>
+                      <Label htmlFor="coveredArea">Covered Area (m²)</Label>
+                      <Input
+                        id="coveredArea"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={uploadForm.coveredArea}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, coveredArea: e.target.value }))}
+                        placeholder="e.g., 150.5"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Covered area in square meters</p>
                     </div>
                     
                     <div>
-                      <Label htmlFor="plotLengthMin">Min Plot Length (m)</Label>
+                      <Label htmlFor="plotLength">Plot Length (m)</Label>
                       <Input
-                        id="plotLengthMin"
+                        id="plotLength"
                         type="number"
                         step="0.01"
-                        value={uploadForm.plotLengthMin}
-                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotLengthMin: e.target.value }))}
-                        placeholder="e.g., 15.0"
+                        value={uploadForm.plotLength}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotLength: e.target.value }))}
+                        placeholder="e.g., 20.0"
                       />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="plotLengthMax">Max Plot Length (m)</Label>
-                      <Input
-                        id="plotLengthMax"
-                        type="number"
-                        step="0.01"
-                        value={uploadForm.plotLengthMax}
-                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotLengthMax: e.target.value }))}
-                        placeholder="e.g., 25.0"
-                      />
+                      <p className="text-xs text-slate-500 mt-1">Plot length in meters</p>
                     </div>
 
                     <div>
-                      <Label htmlFor="plotWidthRange">Plot Width Range (m)</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label htmlFor="plotWidthMin" className="text-xs text-slate-600">Min</Label>
-                          <Input
-                            id="plotWidthMin"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={uploadForm.plotWidthMin}
-                            onChange={(e) => setUploadForm(prev => ({ ...prev, plotWidthMin: e.target.value }))}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="plotWidthMax" className="text-xs text-slate-600">Max</Label>
-                          <Input
-                            id="plotWidthMax"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={uploadForm.plotWidthMax}
-                            onChange={(e) => setUploadForm(prev => ({ ...prev, plotWidthMax: e.target.value }))}
-                            placeholder="100"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">Plot width range in meters</p>
+                      <Label htmlFor="plotWidth">Plot Width (m)</Label>
+                      <Input
+                        id="plotWidth"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={uploadForm.plotWidth}
+                        onChange={(e) => setUploadForm(prev => ({ ...prev, plotWidth: e.target.value }))}
+                        placeholder="e.g., 12.5"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Plot width in meters</p>
                     </div>
 
                     <div>
@@ -2083,10 +2003,7 @@ return (
                                         <strong>House Type:</strong> {plan.houseType || 'N/A'}
                                       </div>
                                       <div>
-                                        <strong>Lot Size Min (m²):</strong> {plan.lotSizeMin || 'N/A'}
-                                      </div>
-                                      <div>
-                                        <strong>Lot Size Max (m²):</strong> {plan.lotSizeMax || 'N/A'}
+                                        <strong>Lot Size (m²):</strong> {plan.lotSize || 'N/A'}
                                       </div>
                                       <div>
                                         <strong>Orientation:</strong> {plan.orientation || 'N/A'}

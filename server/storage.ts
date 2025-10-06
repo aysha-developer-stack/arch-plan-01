@@ -622,8 +622,6 @@ export interface IStorage {
 export interface PlanFilters {
   keyword?: string;
   lotSize?: string;
-  lotSizeMin?: string;
-  lotSizeMax?: string;
   orientation?: string;
   siteType?: string;
   foundationType?: string;
@@ -634,14 +632,9 @@ export interface PlanFilters {
   houseType?: string;
   constructionType?: string;
   planType?: string;
-  plotLengthMin?: string;
-  plotLengthMax?: string;
+  plotLength?: string;
   plotWidth?: string;
-  plotWidthMin?: string;
-  plotWidthMax?: string;
   coveredArea?: string;
-  coveredAreaMin?: string;
-  coveredAreaMax?: string;
   roadPosition?: string;
   builderName?: string;
   jobAddress?: string;
@@ -882,36 +875,24 @@ export class SupabaseStorage implements IStorage {
       query = query.overlaps('constructionType', [filters.constructionType]);
     }
 
-    // Plot Length Min/Max filtering
-    if (filters.plotLengthMin) {
-      query = query.gte('plotLengthMin', parseFloat(filters.plotLengthMin));
-    }
-    if (filters.plotLengthMax) {
-      query = query.lte('plotLengthMax', parseFloat(filters.plotLengthMax));
+    // Plot Length filtering
+    if (filters.plotLength) {
+      query = query.eq('plotLength', parseFloat(filters.plotLength));
     }
 
-    // Plot Width range filtering
-    if (filters.plotWidthMin) {
-      query = query.gte('plotWidthMin', parseFloat(filters.plotWidthMin));
-    }
-    if (filters.plotWidthMax) {
-      query = query.lte('plotWidthMax', parseFloat(filters.plotWidthMax));
+    // Plot Width filtering
+    if (filters.plotWidth) {
+      query = query.eq('plotWidth', parseFloat(filters.plotWidth));
     }
 
-    // Covered Area range filtering
-    if (filters.coveredAreaMin) {
-      query = query.gte('coveredAreaMin', parseFloat(filters.coveredAreaMin));
-    }
-    if (filters.coveredAreaMax) {
-      query = query.lte('coveredAreaMax', parseFloat(filters.coveredAreaMax));
+    // Covered Area filtering
+    if (filters.coveredArea) {
+      query = query.eq('coveredArea', parseFloat(filters.coveredArea));
     }
 
-    // Lot size range filtering
-    if (filters.lotSizeMin && filters.lotSizeMax) {
-      const minSize = parseFloat(filters.lotSizeMin);
-      const maxSize = parseFloat(filters.lotSizeMax);
-      // Use lotSizeMin and lotSizeMax fields for range filtering
-      query = query.gte('lotSizeMin', minSize).lte('lotSizeMax', maxSize);
+    // Lot size filtering
+    if (filters.lotSize) {
+      query = query.eq('lotSize', filters.lotSize);
     }
 
     if (filters.sortBy) {
