@@ -33,7 +33,8 @@ interface SearchFilters {
   jobAddress: string;
   toilets: string;
   livingAreas: string;
-  numberOfUnits: string;
+  minUnits: string;
+  maxUnits: string;
   totalBuildingHeight: string;
   roofPitch: string;
   outdoorFeatures: string[];
@@ -62,7 +63,8 @@ export default function SearchInterface() {
     jobAddress: "",
     toilets: "",
     livingAreas: "",
-    numberOfUnits: "",
+    minUnits: "",
+    maxUnits: "",
     totalBuildingHeight: "",
     roofPitch: "",
     outdoorFeatures: [],
@@ -151,7 +153,8 @@ export default function SearchInterface() {
       jobAddress: "",
       toilets: "",
       livingAreas: "",
-      numberOfUnits: "",
+      minUnits: "",
+      maxUnits: "",
       totalBuildingHeight: "",
       roofPitch: "",
       outdoorFeatures: [],
@@ -866,15 +869,29 @@ export default function SearchInterface() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="numberOfUnits">Number of Units</Label>
-                  <Input
-                    id="numberOfUnits"
-                    type="number"
-                    min="0"
-                    placeholder="e.g., 1"
-                    value={filters.numberOfUnits}
-                    onChange={(e) => updateFilter("numberOfUnits", e.target.value)}
-                  />
+                  <Label>Number of Units Range</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        id="minUnits"
+                        type="number"
+                        min="0"
+                        placeholder="Min units"
+                        value={filters.minUnits}
+                        onChange={(e) => updateFilter("minUnits", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        id="maxUnits"
+                        type="number"
+                        min="0"
+                        placeholder="Max units"
+                        value={filters.maxUnits}
+                        onChange={(e) => updateFilter("maxUnits", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
                 
                 <div>
