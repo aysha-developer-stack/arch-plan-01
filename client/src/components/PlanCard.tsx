@@ -182,7 +182,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Lot Size Min (m²):</strong> {plan.lotSizeMin || "N/A"}</div>
                     <div><strong>Lot Size Max (m²):</strong> {plan.lotSizeMax || "N/A"}</div>
                     <div><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
-                    <div><strong>Plot Length (m):</strong> {plan.plotLength || "N/A"}</div>
+
                     <div><strong>Plot Width (m):</strong> {plan.plotWidth || "N/A"}</div>
                     <div><strong>Covered Area (sq.m):</strong> {plan.coveredArea || "N/A"}</div>
                     <div><strong>Total Building Height (m):</strong> {plan.totalBuildingHeight || "N/A"}</div>
