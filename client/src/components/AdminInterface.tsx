@@ -82,7 +82,7 @@ interface UploadFormData {
   livingAreas: string;
   numberOfUnits: string;
   constructionType: string[];
-  roofPitch: number;
+  roofPitch: number | undefined;
   outdoorFeatures: string[];
   indoorFeatures: string[];
   file: File | null;
@@ -151,7 +151,7 @@ export default function AdminInterface({ defaultTab = "dashboard" }: AdminInterf
     livingAreas: "",
     numberOfUnits: "",
     constructionType: [],
-    roofPitch: 0,   // Roof pitch in degrees
+    roofPitch: undefined,   // Roof pitch in degrees
     outdoorFeatures: [],
     indoorFeatures: [],
     file: null,
@@ -331,7 +331,7 @@ const handleUpload = (e: React.MouseEvent) => {
   }
 
   // Handle roofPitch - include 0 values as they are valid for flat roofs
-  if (uploadForm.roofPitch >= 0) {
+  if (uploadForm.roofPitch !== undefined && uploadForm.roofPitch >= 0) {
     formData.append("roofPitch", uploadForm.roofPitch.toString());
   }
 
@@ -1412,7 +1412,7 @@ return (
                           type="number"
                           min="0"
                           step="0.1"
-                          value={uploadForm.roofPitch}
+                          value={uploadForm.roofPitch === undefined ? '' : uploadForm.roofPitch}
                           onChange={(e) => {
                             const value = e.target.value;
                             const numValue = parseFloat(value);
@@ -1422,7 +1422,7 @@ return (
                             if (value === '' || (numValue >= 0 && /^\d*\.?\d{0,1}$/.test(value))) {
                               setUploadForm(prev => ({
                                 ...prev,
-                                roofPitch: value === '' ? 0 : numValue
+                                roofPitch: value === '' ? undefined : numValue
                               }));
                             }
                           }}
