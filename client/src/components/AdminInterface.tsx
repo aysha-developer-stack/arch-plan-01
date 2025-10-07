@@ -330,8 +330,8 @@ const handleUpload = (e: React.MouseEvent) => {
     formData.append("totalBuildingHeight", uploadForm.totalBuildingHeight.toString());
   }
 
-  // Handle roofPitch
-  if (uploadForm.roofPitch > 0) {
+  // Handle roofPitch - include 0 values as they are valid for flat roofs
+  if (uploadForm.roofPitch >= 0) {
     formData.append("roofPitch", uploadForm.roofPitch.toString());
   }
 
@@ -1412,7 +1412,7 @@ return (
                           type="number"
                           min="0"
                           step="0.1"
-                          value={uploadForm.roofPitch === 0 ? '' : uploadForm.roofPitch}
+                          value={uploadForm.roofPitch}
                           onChange={(e) => {
                             const value = e.target.value;
                             const numValue = parseFloat(value);
@@ -1426,14 +1426,14 @@ return (
                               }));
                             }
                           }}
-                          placeholder="e.g., 22.5"
+                          placeholder="e.g., 22.5 or 0"
                           className="pr-12"
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                           <span className="text-muted-foreground">°</span>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Enter roof pitch in degrees (minimum 0°)</p>
+                      <p className="text-xs text-muted-foreground mt-1">Enter roof pitch in degrees (0° for flat roofs)</p>
                     </div>
 
                     <div>
@@ -2019,7 +2019,7 @@ return (
                                         <strong>Total Building Height (m):</strong> {plan.totalBuildingHeight || 'N/A'}
                                       </div>
                                       <div>
-                                        <strong>Roof Pitch (°):</strong> {plan.roofPitch || 'N/A'}
+                                        <strong>Roof Pitch (°):</strong> {plan.roofPitch !== null && plan.roofPitch !== undefined ? plan.roofPitch : 'N/A'}
                                       </div>
                                       <div>
                                         <strong>Road Position:</strong> {plan.roadPosition || 'N/A'}

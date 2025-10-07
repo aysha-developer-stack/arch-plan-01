@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Eye, Download, Home, Compass, MapPin, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Eye, Download, Home, Compass, MapPin, ChevronLeft, ChevronRight, X, Ruler } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import apiClient from "@/setupAxios";
@@ -119,6 +119,13 @@ export default function PlanCard({ plan }: PlanCardProps) {
               <span>{plan.councilArea}</span>
             </div>
           )}
+
+          {plan.plotLength && (
+            <div className="flex items-center text-sm text-slate-600">
+              <Ruler className="w-4 h-4 mr-2" />
+              <span>{plan.plotLength}m length</span>
+            </div>
+          )}
         </div>
 
         <div className="flex space-x-2">
@@ -185,7 +192,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Plot Width (m):</strong> {plan.plotWidth || "N/A"}</div>
                     <div><strong>Covered Area (m²):</strong> {plan.coveredArea || "N/A"}</div>
                     <div><strong>Total Building Height (m):</strong> {plan.totalBuildingHeight || "N/A"}</div>
-                    <div><strong>Roof Pitch (°):</strong> {plan.roofPitch || "N/A"}</div>
+                    <div><strong>Roof Pitch (°):</strong> {plan.roofPitch !== null && plan.roofPitch !== undefined ? plan.roofPitch : "N/A"}</div>
                     <div><strong>Road Position:</strong> {plan.roadPosition || "N/A"}</div>
                     <div><strong>Site Type:</strong> {plan.siteType || "N/A"}</div>
                     <div><strong>Foundation:</strong> {plan.foundationType || "N/A"}</div>
