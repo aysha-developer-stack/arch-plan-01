@@ -1417,7 +1417,7 @@ return (
                             const value = e.target.value;
                             const numValue = parseFloat(value);
                             
-                            // Only allow values >= 0, or empty string
+                            // Allow values >= 0, or empty string
                             // Also limit to 1 decimal place to match step="0.1"
                             if (value === '' || (numValue >= 0 && /^\d*\.?\d{0,1}$/.test(value))) {
                               setUploadForm(prev => ({
@@ -1426,14 +1426,14 @@ return (
                               }));
                             }
                           }}
-                          placeholder="e.g., 22.5 or 0"
+                          placeholder="0"
                           className="pr-12"
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                           <span className="text-muted-foreground">°</span>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Enter roof pitch in degrees (0° for flat roofs)</p>
+                      <p className="text-xs text-muted-foreground mt-1">Enter roof pitch in degrees (minimum 0°)</p>
                     </div>
 
                     <div>
@@ -2008,6 +2008,9 @@ return (
                                       </div>
                                       <div>
                                         <strong>Orientation:</strong> {plan.orientation || 'N/A'}
+                                      </div>
+                                      <div>
+                                        <strong>Plot Length (m):</strong> {plan.plotLength || 'N/A'}
                                       </div>
                                       <div>
                                         <strong>Plot Width (m):</strong> {plan.plotWidth || 'N/A'}
