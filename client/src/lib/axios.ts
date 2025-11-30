@@ -1,11 +1,16 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
+const isLocalHost = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
+);
+
+const resolvedBaseURL = isLocalHost
+  ? ''
+  : (import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '' : 'http://localhost:5000'));
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || (
-    import.meta.env.PROD 
-      ? '' // Use same domain for production (no CORS issues)
-      : 'http://localhost:5000'
-  ),
+  baseURL: resolvedBaseURL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
