@@ -574,7 +574,7 @@ return (
                         {stats?.recentUploads || 0}
                       </p>
                       <p className="text-xs text-purple-600/70 mt-1">
-                        This month's activity
+                        Recent Activity
                       </p>
                     </div>
                     <div className="bg-purple-500 p-3 rounded-lg">
