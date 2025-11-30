@@ -13,7 +13,7 @@ import { supabase } from "./db.js";
 // Import route modules
 import userRoutes from "./src/routes/userRoutes.js";
 import adminUserRoutes from "./src/routes/adminUserRoutes.js";
-import adminRoutes from "./src/routes/adminroutes.js";
+import adminRoutes from "./src/routes/adminRoutes.js";
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);

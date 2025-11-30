@@ -157,14 +157,23 @@ var SupabaseStorage = class {
     if (filters.storeys) {
       query = query.eq("storeys", parseInt(filters.storeys));
     }
-    if (filters.bedrooms) {
-      query = query.eq("bedrooms", parseInt(filters.bedrooms));
+    if (filters.minBedrooms) {
+      query = query.gte("bedrooms", parseInt(filters.minBedrooms));
     }
-    if (filters.toilets) {
-      query = query.eq("toilets", parseInt(filters.toilets));
+    if (filters.maxBedrooms) {
+      query = query.lte("bedrooms", parseInt(filters.maxBedrooms));
     }
-    if (filters.livingAreas) {
-      query = query.eq("livingAreas", parseInt(filters.livingAreas));
+    if (filters.minToilets) {
+      query = query.gte("toilets", parseInt(filters.minToilets));
+    }
+    if (filters.maxToilets) {
+      query = query.lte("toilets", parseInt(filters.maxToilets));
+    }
+    if (filters.minLivingAreas) {
+      query = query.gte("livingAreas", parseInt(filters.minLivingAreas));
+    }
+    if (filters.maxLivingAreas) {
+      query = query.lte("livingAreas", parseInt(filters.maxLivingAreas));
     }
     if (filters.orientation) {
       query = query.eq("orientation", filters.orientation);
@@ -190,26 +199,59 @@ var SupabaseStorage = class {
     if (filters.jobAddress) {
       query = query.ilike("jobAddress", `%${filters.jobAddress}%`);
     }
-    if (filters.numberOfUnits) {
-      query = query.eq("numberOfUnits", parseInt(filters.numberOfUnits));
+    if (filters.minUnits) {
+      query = query.gte("numberOfUnits", parseInt(filters.minUnits));
     }
-    if (filters.totalBuildingHeight) {
-      query = query.eq("totalBuildingHeight", parseFloat(filters.totalBuildingHeight));
+    if (filters.maxUnits) {
+      query = query.lte("numberOfUnits", parseInt(filters.maxUnits));
     }
-    if (filters.roofPitch) {
-      query = query.eq("roofPitch", parseFloat(filters.roofPitch));
+    if (filters.minTotalBuildingHeight) {
+      query = query.gte("totalBuildingHeight", parseFloat(filters.minTotalBuildingHeight));
+    }
+    if (filters.maxTotalBuildingHeight) {
+      query = query.lte("totalBuildingHeight", parseFloat(filters.maxTotalBuildingHeight));
+    }
+    if (filters.minRoofPitch) {
+      query = query.gte("roofPitch", parseFloat(filters.minRoofPitch));
+    }
+    if (filters.maxRoofPitch) {
+      query = query.lte("roofPitch", parseFloat(filters.maxRoofPitch));
     }
     if (filters.constructionType) {
       query = query.overlaps("constructionType", [filters.constructionType]);
     }
+    if (filters.minPlotLength) {
+      query = query.gte("plotLength", parseFloat(filters.minPlotLength));
+    }
+    if (filters.maxPlotLength) {
+      query = query.lte("plotLength", parseFloat(filters.maxPlotLength));
+    }
     if (filters.plotLength) {
       query = query.eq("plotLength", parseFloat(filters.plotLength));
+    }
+    if (filters.minPlotWidth) {
+      query = query.gte("plotWidth", parseFloat(filters.minPlotWidth));
+    }
+    if (filters.maxPlotWidth) {
+      query = query.lte("plotWidth", parseFloat(filters.maxPlotWidth));
     }
     if (filters.plotWidth) {
       query = query.eq("plotWidth", parseFloat(filters.plotWidth));
     }
+    if (filters.minCoveredArea) {
+      query = query.gte("coveredArea", parseFloat(filters.minCoveredArea));
+    }
+    if (filters.maxCoveredArea) {
+      query = query.lte("coveredArea", parseFloat(filters.maxCoveredArea));
+    }
     if (filters.coveredArea) {
       query = query.eq("coveredArea", parseFloat(filters.coveredArea));
+    }
+    if (filters.minLotSize) {
+      query = query.gte("lotSize", parseFloat(filters.minLotSize));
+    }
+    if (filters.maxLotSize) {
+      query = query.lte("lotSize", parseFloat(filters.maxLotSize));
     }
     if (filters.lotSize) {
       query = query.eq("lotSize", filters.lotSize);
@@ -530,27 +572,41 @@ var insertPlanSchema = z.object({
 var searchPlanSchema = z.object({
   keyword: z.string().optional(),
   lotSize: z.string().optional(),
+  minLotSize: z.string().optional(),
+  maxLotSize: z.string().optional(),
   orientation: z.string().optional(),
   siteType: z.string().optional(),
   foundationType: z.string().optional(),
   storeys: z.string().optional(),
   councilArea: z.string().optional(),
   search: z.string().optional(),
-  bedrooms: z.string().optional(),
+  minBedrooms: z.string().optional(),
+  maxBedrooms: z.string().optional(),
   houseType: z.string().optional(),
   constructionType: z.string().optional(),
   planType: z.string().optional(),
   plotLength: z.string().optional(),
   plotWidth: z.string().optional(),
+  minPlotLength: z.string().optional(),
+  maxPlotLength: z.string().optional(),
+  minPlotWidth: z.string().optional(),
+  maxPlotWidth: z.string().optional(),
   coveredArea: z.string().optional(),
+  minCoveredArea: z.string().optional(),
+  maxCoveredArea: z.string().optional(),
   roadPosition: z.string().optional(),
   builderName: z.string().optional(),
-  toilets: z.string().optional(),
-  livingAreas: z.string().optional(),
-  numberOfUnits: z.string().optional(),
+  minToilets: z.string().optional(),
+  maxToilets: z.string().optional(),
+  minLivingAreas: z.string().optional(),
+  maxLivingAreas: z.string().optional(),
+  minUnits: z.string().optional(),
+  maxUnits: z.string().optional(),
   jobAddress: z.string().optional(),
-  totalBuildingHeight: z.string().optional(),
-  roofPitch: z.string().optional(),
+  minTotalBuildingHeight: z.string().optional(),
+  maxTotalBuildingHeight: z.string().optional(),
+  minRoofPitch: z.string().optional(),
+  maxRoofPitch: z.string().optional(),
   outdoorFeatures: z.string().optional(),
   indoorFeatures: z.string().optional(),
   limit: z.number().optional().default(20),
@@ -1204,7 +1260,7 @@ router2.delete("/:userId", authenticateAdmin, async (req, res) => {
 });
 var adminUserRoutes_default = router2;
 
-// server/src/routes/adminroutes.ts
+// server/src/routes/adminRoutes.ts
 import { Router as Router3 } from "express";
 
 // server/src/services/adminService.ts
@@ -1318,7 +1374,7 @@ async function deleteAdmin(id) {
   }
 }
 
-// server/src/routes/adminroutes.ts
+// server/src/routes/adminRoutes.ts
 import { z as z4 } from "zod";
 import multer from "multer";
 import path2 from "path";
@@ -1616,6 +1672,7 @@ router3.post(
       if (planData.numberOfUnits) planData.numberOfUnits = parseInt(planData.numberOfUnits);
       if (planData.totalBuildingHeight) planData.totalBuildingHeight = parseFloat(planData.totalBuildingHeight);
       if (planData.roofPitch) planData.roofPitch = parseFloat(planData.roofPitch);
+      if (planData.plotLength) planData.plotLength = parseFloat(planData.plotLength);
       if (planData.plotLengthMin) planData.plotLengthMin = parseFloat(planData.plotLengthMin);
       if (planData.plotLengthMax) planData.plotLengthMax = parseFloat(planData.plotLengthMax);
       if (planData.plotWidth) planData.plotWidth = parseFloat(planData.plotWidth);
@@ -1736,7 +1793,7 @@ router3.get("/stats", authenticateAdmin, async (req, res) => {
     res.status(500).json({ message: "Error getting admin statistics" });
   }
 });
-var adminroutes_default = router3;
+var adminRoutes_default = router3;
 
 // server/routes.ts
 var __filename2 = fileURLToPath2(import.meta.url);
@@ -1771,7 +1828,7 @@ async function registerRoutes(app2) {
   app2.use("/uploads", express.static(path3.join(process.cwd(), "uploads")));
   app2.use("/api/users", userRoutes_default);
   app2.use("/api/admin/users", adminUserRoutes_default);
-  app2.use("/api/admin", adminroutes_default);
+  app2.use("/api/admin", adminRoutes_default);
   app2.get("/api/plans", async (req, res) => {
     const storage2 = getStorage();
     try {
