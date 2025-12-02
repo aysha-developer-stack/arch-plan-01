@@ -185,7 +185,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
                     <div><strong>Toilets/Bathrooms:</strong> {plan.toilets || "N/A"}</div>
                     <div><strong>Living Areas:</strong> {plan.livingAreas || "N/A"}</div>
                     <div><strong>Number of Units:</strong> {plan.numberOfUnits || "N/A"}</div>
-                    <div><strong>House Type:</strong> {plan.houseType || "N/A"}</div>
+                    <div><strong>Building Type:</strong> {plan.houseType || "N/A"}</div>
                     <div><strong>Lot Size (m²):</strong> {plan.lotSize || "N/A"}</div>
                     <div><strong>Orientation:</strong> {plan.orientation || "N/A"}</div>
                     <div><strong>Plot Length (m):</strong> {plan.plotLength || "N/A"}</div>

@@ -892,7 +892,7 @@ export default function SearchInterface() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="houseType">House Type</Label>
+                  <Label htmlFor="houseType">Building Type</Label>
                   <Select value={filters.houseType} onValueChange={(value) => updateFilter("houseType", value === "All Types" ? "" : value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="All Types" />

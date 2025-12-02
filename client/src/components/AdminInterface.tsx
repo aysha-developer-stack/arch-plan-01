@@ -1350,13 +1350,13 @@ return (
                     </div>
 
                     <div>
-                      <Label htmlFor="houseType">House Type</Label>
+                      <Label htmlFor="houseType">Building Type</Label>
                       <Select
                         value={uploadForm.houseType}
                         onValueChange={(value) => setUploadForm(prev => ({ ...prev, houseType: value }))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select House Type" />
+                          <SelectValue placeholder="Select Building Type" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="All Types">All Types</SelectItem>
@@ -2002,7 +2002,7 @@ return (
                                         <strong>Number of Units:</strong> {(plan as any).numberOfUnits || 'N/A'}
                                       </div>
                                       <div>
-                                        <strong>House Type:</strong> {plan.houseType || 'N/A'}
+                                        <strong>Building Type:</strong> {plan.houseType || 'N/A'}
                                       </div>
                                       <div>
                                         <strong>Lot Size (m²):</strong> {plan.lotSize || 'N/A'}
