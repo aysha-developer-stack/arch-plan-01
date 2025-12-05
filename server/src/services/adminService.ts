@@ -1,4 +1,4 @@
-import { supabase } from '../../db';
+import { supabasePublic, supabaseAdmin } from '../../db';
 
 /**
  * Creates a new admin user in Supabase
@@ -10,7 +10,7 @@ import { supabase } from '../../db';
 export async function createAdmin(email: string, password: string, name: string) {
   try {
     // Create the user in Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm the email
@@ -26,7 +26,7 @@ export async function createAdmin(email: string, password: string, name: string)
 
     // The trigger function should automatically create the admin record
     // But we'll check to make sure it exists
-    const { data: adminData, error: adminError } = await supabase
+    const { data: adminData, error: adminError } = await supabaseAdmin
       .from('admins')
       .select('*')
       .eq('id', authData.user.id)
@@ -34,7 +34,7 @@ export async function createAdmin(email: string, password: string, name: string)
 
     if (adminError) {
       // If the trigger didn't work, create the admin record manually
-      const { data: newAdmin, error: createError } = await supabase
+      const { data: newAdmin, error: createError } = await supabaseAdmin
         .from('admins')
         .insert({
           id: authData.user.id,
@@ -74,7 +74,7 @@ export async function authenticateAdmin(email: string, password: string) {
       
       // Sign in the user with timeout handling
       const { data: authData, error: authError } = await Promise.race([
-        supabase.auth.signInWithPassword({
+        supabasePublic.auth.signInWithPassword({
           email,
           password
         }),
@@ -137,7 +137,7 @@ export async function authenticateAdmin(email: string, password: string) {
 export async function getAllAdmins() {
   try {
     // Use service role client to bypass RLS
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('admins')
       .select('*')
       .order('created_at', { ascending: false });
@@ -162,7 +162,7 @@ export async function getAllAdmins() {
 export async function getAdminById(id: string) {
   try {
     // Use service role client to bypass RLS
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('admins')
       .select('*')
       .eq('id', id)
@@ -191,7 +191,7 @@ export async function getAdminById(id: string) {
 export async function deleteAdmin(id: string) {
   try {
     // Use service role client to bypass RLS
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('admins')
       .delete()
       .eq('id', id);
@@ -201,7 +201,7 @@ export async function deleteAdmin(id: string) {
     }
 
     // Also delete the user from Supabase Auth
-    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
 
     if (authError) {
       throw authError;

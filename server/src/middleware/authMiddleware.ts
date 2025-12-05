@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase } from '../../db';
+import { supabasePublic } from '../../db';
 
 declare global {
   namespace Express {
@@ -20,7 +20,7 @@ export const authenticateAdmin = async (req: Request, res: Response, next: NextF
   }
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabasePublic.auth.getUser(token);
 
     if (error || !user) {
       return res.status(401).json({ 
