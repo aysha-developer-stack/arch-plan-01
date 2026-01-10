@@ -304,8 +304,8 @@ export default function SearchInterface() {
                 <div>
                   <Label htmlFor="councilArea">Council Area</Label>
                   <SearchableSelect
-                    value={filters.councilArea}
-                    onValueChange={(value) => updateFilter("councilArea", value === "Any Council Area" ? "" : value)}
+                    value={filters.councilArea || "Any"}
+                    onValueChange={(value) => updateFilter("councilArea", value === "Any" ? "" : value)}
                     placeholder="Any Council Area"
                     searchPlaceholder="Search councils..."
                   >
@@ -367,7 +367,7 @@ export default function SearchInterface() {
                     <SelectItem value="Hay Shire Council">Hay Shire Council</SelectItem>
                     <SelectItem value="Hilltops Council">Hilltops Council</SelectItem>
                     <SelectItem value="Hornsby Shire Council">Hornsby Shire Council</SelectItem>
-                    <SelectItem value="Hunter's Hill Council">Hunter's Hill Council</SelectItem>
+                    <SelectItem value="Hunters Hill Council">Hunters Hill Council</SelectItem>
                     <SelectItem value="Inner West Council">Inner West Council</SelectItem>
                     <SelectItem value="Inverell Shire Council">Inverell Shire Council</SelectItem>
                     <SelectItem value="Junee Shire Council">Junee Shire Council</SelectItem>
@@ -385,7 +385,7 @@ export default function SearchInterface() {
                     <SelectItem value="Liverpool Plains Shire Council">Liverpool Plains Shire Council</SelectItem>
                     <SelectItem value="Lockhart Shire Council">Lockhart Shire Council</SelectItem>
                     <SelectItem value="Maitland City Council">Maitland City Council</SelectItem>
-                    <SelectItem value="Mid-Coast Council">Mid-Coast Council</SelectItem>
+                    <SelectItem value="MidCoast Council">MidCoast Council</SelectItem>
                     <SelectItem value="Mid-Western Regional Council">Mid-Western Regional Council</SelectItem>
                     <SelectItem value="Moree Plains Shire Council">Moree Plains Shire Council</SelectItem>
                     <SelectItem value="Mosman Council">Mosman Council</SelectItem>
@@ -863,6 +863,10 @@ export default function SearchInterface() {
                     <SelectItem value="Unincorporated NT" data-council-item>
                       Unincorporated NT (includes unincorporated areas managed by the NT Government)
                     </SelectItem>
+
+                    {/* Australian Capital Territory (ACT) Councils */}
+                    <SelectItem value="ACT_HEADER" disabled className="font-extrabold text-slate-900 pointer-events-none bg-slate-50">Australian Capital Territory (ACT)</SelectItem>
+                    <SelectItem value="Australian Capital Territory (ACT)">Australian Capital Territory (ACT)</SelectItem>
                   </SearchableSelect>
                 </div>
               </div>
@@ -1343,7 +1347,8 @@ export default function SearchInterface() {
                 'Play area / Playground',
                 'Rumpus area (outdoor)',
                 'Greenhouse / Veggie patch',
-                'Clothesline (Hills Hoist)'
+                'Clothesline (Hills Hoist)',
+                'Retaining Wall'
               ].slice(0, showAllOutdoorFeatures ? undefined : 6).map((feature) => (
                 <div key={feature} className="flex items-center space-x-2">
                   <Checkbox

@@ -1319,6 +1319,10 @@ return (
                         <SelectItem value="Unincorporated NT" data-council-item>
                           Unincorporated NT (includes unincorporated areas managed by the NT Government)
                         </SelectItem>
+
+                        {/* Australian Capital Territory (ACT) Councils */}
+                        <SelectItem value="ACT_HEADER" disabled className="font-extrabold text-slate-900 pointer-events-none bg-slate-50">Australian Capital Territory (ACT)</SelectItem>
+                        <SelectItem value="Australian Capital Territory (ACT)">Australian Capital Territory (ACT)</SelectItem>
                       </SearchableSelect>
                     </div>
                   </div>
@@ -1678,7 +1682,8 @@ return (
                       'Play area / Playground',
                       'Rumpus area (outdoor)',
                       'Greenhouse / Veggie patch',
-                      'Clothesline (Hills Hoist)'
+                      'Clothesline (Hills Hoist)',
+                      'Retaining Wall'
                     ].slice(0, showAllOutdoorFeatures ? undefined : 6).map((feature) => (
                       <div key={feature} className="flex items-center space-x-2">
                         <Checkbox

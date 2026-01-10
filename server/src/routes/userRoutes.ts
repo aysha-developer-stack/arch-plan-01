@@ -38,6 +38,21 @@ router.post('/signup', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: error.message });
     }
 
+    if (data.user) {
+      const { error: insertError } = await supabase
+        .from('app_users')
+        .insert({
+          id: data.user.id,
+          email: data.user.email,
+          name: name,
+          status: 'pending'
+        });
+
+      if (insertError) {
+        console.error('Error creating app_user profile:', insertError);
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Account created successfully. You can now log in.',
@@ -74,17 +89,36 @@ router.post('/login', async (req: Request, res: Response) => {
     const { session, user } = data;
 
     // Get the user profile from the app_users table
-    const { data: appUser, error: profileError } = await supabase
+    let { data: appUser, error: profileError } = await supabase
       .from('app_users')
       .select('*')
       .eq('id', user.id)
       .single();
 
     if (profileError || !appUser) {
-      return res.status(401).json({
-        success: false,
-        message: 'User profile not found. Please contact support.'
-      });
+      // Try to create the profile if it doesn't exist
+      console.log('User profile not found, attempting to create one for:', user.id);
+      
+      const { data: newProfile, error: createError } = await supabase
+        .from('app_users')
+        .insert({
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+          status: 'pending'
+        })
+        .select()
+        .single();
+        
+      if (createError || !newProfile) {
+        console.error('Failed to create user profile:', createError);
+        return res.status(401).json({
+          success: false,
+          message: 'User profile not found and could not be created. Please contact support.'
+        });
+      }
+      
+      appUser = newProfile;
     }
 
     // Check if user is approved
