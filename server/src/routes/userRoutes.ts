@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { Request, Response } from 'express';
 import { authenticateUser } from '../middleware/userAuthMiddleware';
-import { supabase } from '../../db';
+import { supabase, supabaseAdmin } from '../../db';
+import emailService from '../services/emailService';
+import config from '../config';
 import { z } from 'zod';
 
 // Define schemas locally
@@ -17,6 +19,70 @@ const appUserLoginSchema = z.object({
 });
 
 const router = Router();
+
+// Forgot password route
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    // Check if user exists in app_users table
+    const { data: user, error: userError } = await supabase
+      .from('app_users')
+      .select('name')
+      .eq('email', email)
+      .single();
+
+    if (userError || !user) {
+      // Don't reveal if user exists or not for security
+      return res.status(200).json({
+        success: true,
+        message: 'If an account exists with this email, a password reset link has been sent.'
+      });
+    }
+
+    // Generate recovery link using Supabase Admin
+    // Note: This requires the service role key which supabaseAdmin has
+    if (!supabaseAdmin) {
+      console.error('Supabase Admin client is not available');
+      return res.status(500).json({ success: false, message: 'Server configuration error' });
+    }
+
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: email,
+      options: {
+        redirectTo: `${config.CLIENT_URL}/reset-password`
+      }
+    });
+
+    if (linkError) {
+      console.error('Error generating recovery link:', linkError);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+
+    // Send email using our custom email service
+    if (linkData && linkData.properties && linkData.properties.action_link) {
+      await emailService.sendPasswordResetEmail(
+        email,
+        linkData.properties.action_link,
+        user.name || 'User'
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'If an account exists with this email, a password reset link has been sent.'
+    });
+
+  } catch (error: any) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 // User signup route
 router.post('/signup', async (req: Request, res: Response) => {

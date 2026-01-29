@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { apiClient } from '../lib/axios';
 import type { AppUserType } from '@shared/schema';
 
 interface UserAuthContextType {
@@ -10,6 +11,7 @@ interface UserAuthContextType {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const UserAuthContext = createContext<UserAuthContextType | undefined>(undefined);
@@ -181,6 +183,24 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      // Use our backend endpoint instead of Supabase SDK directly to avoid rate limits
+      // and send custom branded emails
+      const response = await apiClient.post('/api/users/forgot-password', { email });
+
+      if (response.data.success) {
+        return { success: true, message: response.data.message };
+      } else {
+        return { success: false, message: response.data.message || 'Failed to send reset link' };
+      }
+    } catch (error: any) {
+      console.error('Forgot password error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'An unexpected error occurred.';
+      return { success: false, message: errorMessage };
+    }
+  };
+
   const refreshUser = async () => {
     if (isAuthenticated) {
       await checkAuth();
@@ -214,6 +234,7 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
     logout,
     checkAuth,
     refreshUser,
+    forgotPassword,
   };
 
   return (

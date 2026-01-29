@@ -304,6 +304,15 @@ export default function UserLogin() {
           {/* Links */}
           <div className="mt-6 space-y-2">
             <div className="text-sm" style={{ color: 'rgba(255,255,255,.7)' }}>
+              <button 
+                type="button"
+                onClick={() => window.location.href = '/forgot-password'}
+                className="text-white/70 underline hover:text-white bg-transparent border-0 cursor-pointer"
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div className="text-sm" style={{ color: 'rgba(255,255,255,.7)' }}>
               Don't have an account?{' '}
               <button 
                 type="button"

@@ -138,6 +138,51 @@ class EmailService {
 
     await this.sendEmail({ to: userEmail, subject, html });
   }
-}
 
+  async sendPasswordResetEmail(userEmail: string, resetLink: string, userName: string): Promise<void> {
+    const subject = 'Reset Your Password - ArchPlan';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h1 style="color: #007bff; margin: 0; text-align: center;">🔒 Reset Password</h1>
+        </div>
+        
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h2 style="color: #333; margin-top: 0;">Hello ${userName},</h2>
+          
+          <p style="color: #666; line-height: 1.6; font-size: 16px;">
+            We received a request to reset the password for your ArchPlan account. If you didn't make this request, you can safely ignore this email.
+          </p>
+          
+          <div style="background-color: #e7f3ff; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0; color: #004085; font-weight: 500;">
+              ℹ️ This link will expire in 24 hours.
+            </p>
+          </div>
+          
+          <p style="color: #666; line-height: 1.6; font-size: 16px;">
+            Click the button below to reset your password:
+          </p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" 
+               style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
+              Reset Password
+            </a>
+          </div>
+          
+
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          
+          <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
+            This email was sent from ArchPlan. Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `;
+
+    await this.sendEmail({ to: userEmail, subject, html });
+  }
+}
 export default new EmailService();

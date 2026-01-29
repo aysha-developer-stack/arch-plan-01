@@ -18,6 +18,8 @@ import NotFound from '@/pages/not-found';
 import { AuthPage } from '@/pages/AuthPage';
 import UserSignup from '@/components/UserSignup';
 import UserLogin from '@/components/UserLogin';
+import ForgotPassword from '@/components/ForgotPassword';
+import ResetPassword from '@/components/ResetPassword';
 import UserDashboard from '@/pages/UserDashboard';
 
 // Admin Routes Component with Authentication
@@ -102,6 +104,8 @@ const PublicRoutes = () => {
       <Route path="/auth" component={AuthPage} />
       <Route path="/signup" component={UserSignup} />
       <Route path="/login" component={UserLogin} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard" component={UserDashboard} />
       <Route path="/app" component={Home} />
       <Route path="/search" component={SearchInterface} />
