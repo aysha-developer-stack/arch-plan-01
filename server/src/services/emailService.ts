@@ -32,7 +32,7 @@ class EmailService {
       const result = await this.transporter.sendMail(mailOptions);
       console.log('Email sent successfully:', result.messageId);
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('Error sending email:', JSON.stringify(error, null, 2));
       throw new Error('Failed to send email');
     }
   }
