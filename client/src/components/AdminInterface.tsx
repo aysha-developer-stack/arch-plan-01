@@ -1366,7 +1366,7 @@ return (
                           <SelectItem value="All Types">All Types</SelectItem>
                           <SelectItem value="House">House</SelectItem>
                           <SelectItem value="Townhouse">Townhouse</SelectItem>
-                           <SelectItem value="Complex">Complex</SelectItem>
+                           <SelectItem value="Complex">Complex / Facility</SelectItem>
                            <SelectItem value="Apartment & Unit">Apartment & Unit</SelectItem>
                            <SelectItem value="Duplex">Duplex</SelectItem>
                           <SelectItem value="Villa">Villa</SelectItem>
